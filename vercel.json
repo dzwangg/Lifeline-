@@ -1,0 +1,5 @@
+{
+  "redirects": [
+    { "source": "/", "destination": "/meridian-city/", "permanent": false }
+  ]
+}

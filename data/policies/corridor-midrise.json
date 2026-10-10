@@ -1,0 +1,34 @@
+{
+  "id": "corridor-midrise",
+  "title": "Apartments along 15-501",
+  "summary": "Rezones wooded parcels near the 15-501 corridor for mid-rise apartment buildings.",
+  "category": "housing",
+  "icon": "house",
+  "decider": {
+    "body": "Chapel Hill Town Council",
+    "how": [
+      "Planning staff review the rezoning application.",
+      "The Planning Commission reviews the proposal and makes a recommendation.",
+      "Residents comment at a Town Council public hearing.",
+      "Town Council votes on the rezoning."
+    ]
+  },
+  "params": [
+    { "key": "acres_released", "label": "Acres opened to apartments", "min": 0, "max": 60, "default": 20, "unit": "acres" }
+  ],
+  "zoneRules": [
+    { "where": "tag:corridor", "from": "forest", "to": "mid_res", "ratePerYear": 0.15, "capParam": "acres_released" }
+  ],
+  "tradeoffs": {
+    "pros": [
+      "At 20 acres, adds about 400 apartments.",
+      "Places homes along an existing major road.",
+      "Adds property tax base."
+    ],
+    "cons": [
+      "At 20 acres, removes about 14 acres of tree canopy.",
+      "Adds car trips on 15-501 and the roads that feed it.",
+      "Mid-rise buildings change the look of the corridor."
+    ]
+  }
+}

@@ -3,6 +3,7 @@ import { runScenario } from '../../shared/sim.js';
 import { validateCard } from '../../shared/schema.js';
 import { toLocal } from '../../shared/geo.js';
 import { POLICIES } from '../policy/policies.js';
+import { createClock } from './clock.js';
 
 const json = path => fetch(new URL(path, import.meta.url)).then(r => (r.ok ? r.json() : Promise.reject(new Error(`${path}: HTTP ${r.status}`))));
 const query = new URLSearchParams(location.search);
@@ -38,26 +39,74 @@ export const panelPolicies = cards => [
   ...cards.map(c => ({ id: c.id, title: c.title, category: c.category ?? 'housing', icon: c.icon ?? 'house', summary: c.summary })),
 ];
 
-// cards: the applied cards. params: card id -> param key -> value. before: show year 0 whatever the year slider says.
-let state = { cards: [], params: {}, year: 10, before: false, result: null };
+// The scenario's inputs. cards: the applied cards. params: card id -> param key -> value.
+// Each change bumps the version; the clock (clock.js) drops predictions made for older versions.
+let state = { cards: [], params: {}, version: 0 };
 const listeners = new Set();
 export const scenario = {
   get: () => state,
   subscribe(fn) { listeners.add(fn); fn(state); return () => listeners.delete(fn); },
   set(patch) {
-    state = { ...state, ...patch };
+    state = { ...state, ...patch, version: state.version + 1 };
     listeners.forEach(fn => fn(state));
-    if ('cards' in patch || 'params' in patch) rerun();
+    rerun();
   },
 };
-export const shownStates = s => s.result?.timeline[s.before ? 0 : s.year].zoneStates;
 
+// A view setting, not a sim input: whether zones a policy changed are coloured on the map. Remembered across visits.
+const HIGHLIGHT_KEY = 'meridian.highlightChanges';
+let highlightOn = true;
+try { highlightOn = localStorage.getItem(HIGHLIGHT_KEY) !== 'off'; } catch {} // storage blocked: default on
+const highlightListeners = new Set();
+export const highlight = {
+  get: () => highlightOn,
+  subscribe(fn) { highlightListeners.add(fn); fn(highlightOn); return () => highlightListeners.delete(fn); },
+  set(on) {
+    highlightOn = !!on;
+    try { localStorage.setItem(HIGHLIGHT_KEY, highlightOn ? 'on' : 'off'); } catch {} // private mode: just not remembered
+    highlightListeners.forEach(fn => fn(highlightOn));
+  },
+};
+
+// Predictions: one step's { zoneStates, metrics } for a scenario version. The whole timeline is computed in the
+// browser here (debounced, as a dragged slider fires many inputs); a forecast backend would answer the same call.
+// ?latency=ms delays each answer, to see the clock hold and the loading indicator.
+export const YEARS = 10;
+const latency = +query.get('latency') || 0;
+const runs = new Map(); // version -> { promise, resolve, reject }
+const runFor = version => {
+  if (!runs.has(version)) { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); promise.catch(() => {}); runs.set(version, { promise, resolve, reject }); }
+  return runs.get(version);
+};
 let timer;
-function rerun() { // debounced: a dragged slider fires many inputs
+function rerun() {
   clearTimeout(timer);
+  const version = state.version;
   timer = setTimeout(async () => {
     const [zones, assumptions, baselines] = await dataReady;
-    scenario.set({ result: runScenario(state.cards, state.params, zones, assumptions, baselines) });
+    if (version !== state.version) return;
+    for (const [v, run] of runs) if (v < version) { run.reject(new Error('stale scenario')); runs.delete(v); }
+    try { runFor(version).resolve(runScenario(state.cards, state.params, zones, assumptions, baselines, YEARS)); } catch (e) { runFor(version).reject(e); }
   }, 120);
 }
+export const predict = async (version, step) => {
+  const result = await runFor(version).promise;
+  if (latency) await new Promise(r => setTimeout(r, latency * (.5 + Math.random())));
+  return result.timeline[step];
+};
 rerun(); // the baseline, before any card is applied
+
+// The shared clock, and the one animation loop that drives it. onFrame callbacks get the real seconds since the
+// last frame (for the camera and other inspection) and the simulated seconds (for everything the clock freezes).
+export const START_YEAR = 2026, YEAR_MS = 12000; // 1x: one simulated month per second (2x and 4x: two and four)
+export const simClock = createClock({ steps: YEARS, predict, yearMs: YEAR_MS });
+scenario.subscribe(s => { if (s.version) simClock.invalidate(s.version); });
+const frames = new Set();
+export const onFrame = fn => { frames.add(fn); return () => frames.delete(fn); };
+let last = performance.now();
+requestAnimationFrame(function loop(now) {
+  const dt = Math.min(Math.max((now - last) / 1000, 0), .25); last = now;
+  const simDt = simClock.tick(dt);
+  for (const fn of frames) fn(dt, simDt);
+  requestAnimationFrame(loop);
+});

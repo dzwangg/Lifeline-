@@ -1,10 +1,8 @@
 // The sim plate: for each card applied in the policy panel, its sliders, decider and tradeoffs; then the year
 // slider, a before/after toggle and the metrics. Built only from card data, and it never recommends anything.
+// Years and metrics follow the shared clock (clock.js); the playback toolbar (clock-bar.js) runs it.
 import { h } from '../policy/components.js';
-import { scenario, dataReady, devMode, stubOn, stubAuto } from './scenario.js';
-
-const YEAR_MS = 1000; // play speed: one simulated year per second, so 0 to 10 takes 10 s
-const PLAY_ICON = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3.5 2v8l6.5-4z"/></svg>', PAUSE_ICON = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 2h2.2v8H3zM6.8 2H9v8H6.8z"/></svg>';
+import { scenario, simClock, highlight, dataReady, devMode, stubOn, stubAuto } from './scenario.js';
 
 const sign = d => (d > 0 ? '+' : '−');
 const fixed = (n, digits) => n.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
@@ -26,30 +24,16 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
 
   const cardsEl = h('div', { class: 'sim__cards' });
   const yearOut = h('output', { class: 'sim__val' });
-  const yearIn = h('input', { type: 'range', min: 0, max: 10, step: 1, value: scenario.get().year, oninput: () => { pause(); scenario.set({ year: +yearIn.value }); } });
-  const beforeIn = h('input', { type: 'checkbox', onchange: () => { pause(); scenario.set({ before: beforeIn.checked }); } });
-  const playBtn = h('button', { class: 'sim__play', type: 'button', 'aria-label': 'Play years', html: PLAY_ICON, onclick: () => (timer ? pause() : play()) });
-  let timer = null;
-  function play() { // from the current year, or from 0 if already at the end
-    const max = +yearIn.max, from = scenario.get().year >= max ? 0 : scenario.get().year;
-    beforeIn.checked = false;
-    scenario.set({ before: false, year: from });
-    timer = setInterval(() => { const year = scenario.get().year + 1; scenario.set({ year }); if (year >= max) pause(); }, YEAR_MS);
-    playBtn.innerHTML = PAUSE_ICON;
-    playBtn.setAttribute('aria-label', 'Pause');
-  }
-  function pause() {
-    clearInterval(timer);
-    timer = null;
-    playBtn.innerHTML = PLAY_ICON;
-    playBtn.setAttribute('aria-label', 'Play years');
-  }
+  const yearIn = h('input', { type: 'range', min: 0, max: simClock.get().steps, step: 1, value: 0, oninput: () => simClock.seek(+yearIn.value) });
+  const beforeIn = h('input', { type: 'checkbox', onchange: () => simClock.setBefore(beforeIn.checked) });
+  const highlightIn = h('input', { type: 'checkbox', checked: highlight.get(), onchange: () => highlight.set(highlightIn.checked) });
   const rows = METRICS.map(Metric);
   const body = h('div', { class: 'sim__body', id: 'sim-body' },
     cardsEl,
     h('div', { class: 'sim__time' },
-      h('div', { class: 'sim__year' }, playBtn, h('label', { class: 'sim__slider' }, h('span', {}, 'Year ', yearOut), yearIn)),
-      h('label', { class: 'sim__check' }, beforeIn, 'Show before (year 0)')),
+      h('div', { class: 'sim__year' }, h('label', { class: 'sim__slider' }, h('span', {}, 'Year ', yearOut), yearIn)),
+      h('label', { class: 'sim__check' }, beforeIn, 'Show before (year 0)'),
+      h('label', { class: 'sim__check' }, highlightIn, 'Color changed areas')),
     h('div', { class: 'sim__metrics', role: 'group', 'aria-label': 'Metrics compared with year 0' }, rows.map(r => r.el)),
     devMode && !stubAuto && h('label', { class: 'sim__check sim__dev' }, h('input', { type: 'checkbox', checked: stubOn, onchange: e => toggleStub(e.target.checked) }), 'Load stub card (dev)'));
   const toggle = h('button', { class: 'sim__toggle', type: 'button', 'aria-expanded': 'true', 'aria-controls': 'sim-body', onclick: () => {
@@ -78,11 +62,15 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
   policyStore.subscribe(sync);
   sync(policyStore.getState());
 
-  scenario.subscribe(s => {
-    yearOut.textContent = s.before ? '0 (before)' : s.year;
-    yearIn.value = s.year;
-    if (!s.result) return;
-    const t = s.result.timeline, base = t[0].metrics, now = t[s.before ? 0 : s.year].metrics;
+  // Metrics change only when the clock commits a year, so every speed shows the same numbers on the same date.
+  let drawn = null, drawnBefore = null;
+  simClock.subscribe(({ shown, before }) => {
+    beforeIn.checked = before;
+    if (!shown?.data || (shown === drawn && before === drawnBefore)) return;
+    drawn = shown; drawnBefore = before;
+    yearOut.textContent = before ? '0 (before)' : shown.step;
+    yearIn.value = shown.step;
+    const base = shown.base.metrics, now = (before ? shown.base : shown.data).metrics;
     for (const { m, value, delta } of rows) {
       const d = now[m.key] - base[m.key];
       value.textContent = m.fmt(now[m.key]);

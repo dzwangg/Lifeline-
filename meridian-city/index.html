@@ -63,10 +63,10 @@
   }
   #loading { position: fixed; inset: 0; display: grid; place-items: center; font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--load-ink); text-shadow: 0 1px white; }
   /* The panels wait for the city: hidden while it builds, then they fade in together. */
-  body.city-loading #hud, body.city-loading #alt, body.city-loading #policy-launch, body.city-loading .plate.sim { visibility: hidden; }
-  body.city-ready #hud, body.city-ready #alt, body.city-ready #policy-launch, body.city-ready .plate.sim { animation: ui-in .35s ease-out; }
-  @keyframes ui-in { from { opacity: 0; } }
-  @media (prefers-reduced-motion: reduce) { body.city-ready #hud, body.city-ready #alt, body.city-ready #policy-launch, body.city-ready .plate.sim { animation: none; } }
+  body.city-loading #hud, body.city-loading #alt, body.city-loading #policy-launch, body.city-loading #clock, body.city-loading .plate.sim { visibility: hidden; }
+  body.city-ready #hud, body.city-ready #alt, body.city-ready #policy-launch, body.city-ready #clock, body.city-ready .plate.sim { animation: ui-in .35s ease-out; }
+  @keyframes ui-in { from { opacity: 0; } } /* opacity only: the clock bar is centred with a transform */
+  @media (prefers-reduced-motion: reduce) { body.city-ready #hud, body.city-ready #alt, body.city-ready #policy-launch, body.city-ready #clock, body.city-ready .plate.sim { animation: none; } }
 </style>
 </head>
 <body class="city-loading">
@@ -76,7 +76,7 @@
 <div id="hud" class="plate">
   <h1>University of North Carolina</h1>
   <div id="stats">Surveying…</div>
-  <div id="hint"><span class="hint-mouse"><b>Drag</b> pan · <b>Scroll</b> zoom · <b>Q / E</b> rotate · <b>Click</b> a building</span><span class="hint-touch"><b>Drag</b> pan · <b>Pinch</b> zoom · <b>Tap</b> a building</span></div>
+  <div id="hint"><span class="hint-mouse"><b>Drag</b> pan · <b>Scroll</b> zoom · <b>Q / E</b> rotate · <b>Click</b> a building · <b>Space</b> play / pause · <b>1 2 4</b> speed</span><span class="hint-touch"><b>Drag</b> pan · <b>Pinch</b> zoom · <b>Tap</b> a building</span></div>
   <div id="credit">Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors</div>
 </div>
 <div id="alt" class="plate" role="toolbar" aria-label="Map view">
@@ -94,6 +94,7 @@ import { createPolicyStore } from './policy/store.js';
 import { mountPolicyPanel } from './policy/policy-panel.js';
 import { cardsReady, panelPolicies } from './sim/scenario.js';
 import { mountSimPlate } from './sim/sim-plate.js';
+import { mountClockBar } from './sim/clock-bar.js';
 
 const cards = await cardsReady; // policy cards from data/policies/ join the hardcoded policies in the panel
 const store = createPolicyStore({ policies: panelPolicies(cards) });
@@ -110,6 +111,7 @@ store.subscribe(({ applied }) => {
   count.classList.toggle('is-none', !n);
 });
 window.policyStore = store; // the simulation reads store.getState().applied once it models effects
+mountClockBar(); // starts paused, so policies can be set up before Play
 mountSimPlate({ policyStore: store, cards });
 </script>
 
@@ -122,6 +124,7 @@ import { inside, bounds } from './world/geometry.js';
 import { ZOOMS, DEFAULT_ZOOM } from './world/palette.js';
 import { zonesReady, mountZoneLayer } from './sim/zone-layer.js';
 import { mountBubbles } from './world/aero.js';
+import { onFrame } from './sim/scenario.js';
 
 const $ = id => document.getElementById(id);
 await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0))); // let the loading line paint
@@ -141,7 +144,7 @@ mountZoneLayer({ scene: world.view.scene, zones: ZONES, at: world.gridAt, inside
 $('stats').textContent = `Chapel Hill, NC · ${world.stats.buildings.toLocaleString()} buildings · tallest ${Math.round(world.stats.tallest)} m`;
 $('loading').remove();
 document.body.classList.replace('city-loading', 'city-ready'); // reveal the panels with the city
-mountBubbles(document.body); // drifting Aero bubbles over the city, under the panels
+mountBubbles(document.body, { onFrame }); // drifting Aero bubbles over the city, under the panels
 
 // Map toolbar: rotate and zoom, mirroring Q/E and +/-.
 const readout = $('zoomv');
@@ -155,10 +158,9 @@ world.view.onChange(({ level }) => {
   $('zoom-in').disabled = level === ZOOMS.length - 1; $('zoom-out').disabled = level === 0;
 });
 
-// One loop for everything, on real time.
-let last = performance.now();
-const loop = now => { world.update((now - last) / 1000); last = now; requestAnimationFrame(loop); };
-requestAnimationFrame(loop);
+// One loop for everything: the camera runs on real time, so the map stays usable while paused; traffic and the
+// rest of the city's motion run on the sim clock's time (see sim/clock.js).
+onFrame((dt, simDt) => world.update(dt, simDt));
 window.city = world; // for debugging and for the simulation to reach the world
 </script>
 </body>

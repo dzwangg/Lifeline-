@@ -3,34 +3,37 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Meridian City</title>
+<title>SquidLand</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;800&family=Overpass+Mono:wght@400;600&display=swap">
 <style>
-  /* Layout: full-bleed WebGL city; small smoked-glass plates pinned to corners like signage */
+  /* Frutiger Aero: sunlit sky, clear water, and luminous glass overlays. */
   :root {
-    color-scheme: dark;
-    --sky: #a9bccb;
-    --plate: rgba(14, 18, 24, .66);
-    --plate-edge: rgba(255, 255, 255, .12);
-    --ink: #eef1f3;
-    --muted: #aab4bc;
-    --sodium: #f0b450;
-    --load-ink: #1d2833;
+    color-scheme: light;
+    --sky: #83d8ef;
+    --plate: rgba(237, 252, 255, .72);
+    --plate-edge: rgba(255, 255, 255, .88);
+    --ink: #123e58;
+    --muted: #42758a;
+    --sodium: #078c9b;
+    --load-ink: #15536c;
     --display: 'Overpass', 'Helvetica Neue', Arial, sans-serif;
     --mono: 'Overpass Mono', ui-monospace, Menlo, monospace;
   }
   html, body { height: 100%; }
-  body { margin: 0; overflow: hidden; background: var(--sky); color: var(--ink); font-family: var(--display); }
+  body { margin: 0; overflow: hidden; background: linear-gradient(145deg, #a7effb, var(--sky) 48%, #b5efdc); color: var(--ink); font-family: var(--display); }
   #view { position: fixed; inset: 0; touch-action: none; }
   #view canvas { display: block; }
   .plate {
-    position: fixed; background: var(--plate); border: 1px solid var(--plate-edge); border-radius: 6px;
-    padding: 12px 14px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    position: fixed; background: linear-gradient(145deg, rgba(255,255,255,.84), var(--plate) 62%, rgba(191,244,249,.66));
+    border: 1px solid var(--plate-edge); border-radius: 18px; padding: 14px 17px;
+    box-shadow: 0 12px 36px rgba(14,95,123,.2), inset 0 1px 0 rgba(255,255,255,.95), inset 0 -1px 0 rgba(67,179,198,.18);
+    backdrop-filter: blur(18px) saturate(1.35); -webkit-backdrop-filter: blur(18px) saturate(1.35);
   }
   #hud { left: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); max-width: calc(100% - 64px); }
-  #hud h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: .02em; text-wrap: balance; }
+  #hud h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: .02em; text-wrap: balance; text-shadow: 0 1px 0 white; }
+  #hud::before { content: 'Squidland  /  LIVE MODEL'; display: block; margin-bottom: 5px; color: #138da0; font: 600 9px var(--mono); letter-spacing: .16em; }
   #stats { margin-top: 4px; font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
   #hint { margin-top: 8px; font-size: 12px; line-height: 1.5; color: var(--muted); }
   #hint b { color: var(--sodium); font-weight: 600; }
@@ -38,7 +41,8 @@
   #credit a { color: inherit; }
   #alt { right: 16px; top: calc(16px + env(safe-area-inset-top, 0px)); padding: 8px 12px; font-family: var(--mono); font-size: 12px; letter-spacing: .08em; font-variant-numeric: tabular-nums; }
   #alt span { color: var(--sodium); }
-  #loading { position: fixed; inset: 0; display: grid; place-items: center; font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--load-ink); }
+  #alt { border-radius: 999px; padding: 10px 16px; }
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--load-ink); text-shadow: 0 1px white; }
 </style>
 </head>
 <body>
@@ -46,7 +50,7 @@
 <div id="view"></div>
 <div id="loading">Laying out Chapel Hill…</div>
 <div id="hud" class="plate">
-  <h1>Meridian City</h1>
+  <h1>University of North Carolina</h1>
   <div id="stats">Surveying…</div>
   <div id="hint"><b>Drag</b> orbit · <b>Scroll / pinch</b> zoom to cursor · <b>Right-drag / two fingers</b> pan</div>
   <div id="credit">Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors</div>
@@ -111,7 +115,7 @@ envScene.add(envSky);
 const env = new THREE.PMREMGenerator(renderer).fromScene(envScene).texture;
 scene.environment = env;
 scene.environmentIntensity = .35; // diffuse sky fill; glass and water opt back in to full reflections below
-scene.fog = new THREE.FogExp2(col('#c4d0da'), .00045); // thick enough to hide where the map data ends
+scene.fog = new THREE.FogExp2(col('#b9e9ee'), .00045); // thick enough to hide where the map data ends
 
 const sun = new THREE.DirectionalLight(0xfff0dc, 6);
 sun.castShadow = true;
@@ -412,7 +416,7 @@ const waterNormals = (() => { // tileable sum of sines, differentiated analytica
   g.putImageData(img, 0, 0);
   return toTex(c, 160, 160, false);
 })();
-const waterMat = new THREE.MeshStandardMaterial({ color: 0x14303c, roughness: .08, normalMap: waterNormals, normalScale: new THREE.Vector2(.14, .14), envMap: env, ...off(2) });
+const waterMat = new THREE.MeshStandardMaterial({ color: 0x4eb9c6, roughness: .08, normalMap: waterNormals, normalScale: new THREE.Vector2(.14, .14), envMap: env, ...off(2) });
 const WILD = new Set(['wood', 'forest', 'scrub', 'meadow']), LAWN = new Set(['grass', 'garden', 'pitch']);
 const TINT = { wood: '#a3ab8e', forest: '#a3ab8e', scrub: '#b9b79c', meadow: '#c9c6a2', pitch: '#e2f2c4' };
 function scatter(r, step, s0, s1) {

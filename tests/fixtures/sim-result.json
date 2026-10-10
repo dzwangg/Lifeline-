@@ -1,0 +1,634 @@
+{
+  "scenarioId": "stub-card:acres_released=60",
+  "policies": [
+    {
+      "id": "stub-card",
+      "title": "STUB: Release edge forest for homes",
+      "params": {
+        "acres_released": 60
+      }
+    }
+  ],
+  "years": 10,
+  "timeline": [
+    {
+      "year": 0,
+      "zoneStates": {
+        "zone-01": "forest",
+        "zone-02": "forest",
+        "zone-03": "forest",
+        "zone-04": "forest",
+        "zone-05": "forest",
+        "zone-06": "forest",
+        "zone-07": "forest",
+        "zone-08": "forest",
+        "zone-09": "forest",
+        "zone-10": "forest",
+        "zone-11": "forest",
+        "zone-12": "forest",
+        "zone-13": "forest",
+        "zone-14": "forest",
+        "zone-15": "forest",
+        "zone-16": "forest",
+        "zone-17": "forest",
+        "zone-18": "forest",
+        "zone-19": "forest",
+        "zone-20": "forest",
+        "zone-21": "forest",
+        "zone-22": "forest",
+        "zone-23": "forest",
+        "zone-24": "forest",
+        "zone-25": "forest",
+        "zone-26": "forest",
+        "zone-27": "forest",
+        "zone-28": "forest",
+        "zone-29": "forest",
+        "zone-30": "forest"
+      },
+      "metrics": {
+        "housingUnits": 23713,
+        "medianRent": 1483,
+        "treeCoverPct": 13.7,
+        "avgCommuteMin": 19.6,
+        "taxRevenue": 68352723
+      }
+    },
+    {
+      "year": 1,
+      "zoneStates": {
+        "zone-01": "forest",
+        "zone-02": "low_res",
+        "zone-03": "low_res",
+        "zone-04": "forest",
+        "zone-05": "forest",
+        "zone-06": "forest",
+        "zone-07": "forest",
+        "zone-08": "forest",
+        "zone-09": "forest",
+        "zone-10": "forest",
+        "zone-11": "forest",
+        "zone-12": "forest",
+        "zone-13": "forest",
+        "zone-14": "forest",
+        "zone-15": "forest",
+        "zone-16": "forest",
+        "zone-17": "forest",
+        "zone-18": "forest",
+        "zone-19": "forest",
+        "zone-20": "forest",
+        "zone-21": "forest",
+        "zone-22": "forest",
+        "zone-23": "forest",
+        "zone-24": "forest",
+        "zone-25": "forest",
+        "zone-26": "forest",
+        "zone-27": "forest",
+        "zone-28": "forest",
+        "zone-29": "forest",
+        "zone-30": "forest"
+      },
+      "metrics": {
+        "housingUnits": 23882,
+        "medianRent": 1481.95,
+        "treeCoverPct": 12.39,
+        "avgCommuteMin": 22.6,
+        "taxRevenue": 68838827
+      }
+    },
+    {
+      "year": 2,
+      "zoneStates": {
+        "zone-01": "forest",
+        "zone-02": "low_res",
+        "zone-03": "low_res",
+        "zone-04": "forest",
+        "zone-05": "low_res",
+        "zone-06": "forest",
+        "zone-07": "forest",
+        "zone-08": "forest",
+        "zone-09": "forest",
+        "zone-10": "forest",
+        "zone-11": "forest",
+        "zone-12": "forest",
+        "zone-13": "forest",
+        "zone-14": "forest",
+        "zone-15": "forest",
+        "zone-16": "forest",
+        "zone-17": "forest",
+        "zone-18": "forest",
+        "zone-19": "forest",
+        "zone-20": "forest",
+        "zone-21": "forest",
+        "zone-22": "forest",
+        "zone-23": "forest",
+        "zone-24": "forest",
+        "zone-25": "forest",
+        "zone-26": "forest",
+        "zone-27": "forest",
+        "zone-28": "forest",
+        "zone-29": "forest",
+        "zone-30": "forest"
+      },
+      "metrics": {
+        "housingUnits": 23940,
+        "medianRent": 1481.58,
+        "treeCoverPct": 11.94,
+        "avgCommuteMin": 22.6,
+        "taxRevenue": 69006012
+      }
+    },
+    {
+      "year": 3,
+      "zoneStates": {
+        "zone-01": "forest",
+        "zone-02": "low_res",
+        "zone-03": "low_res",
+        "zone-04": "forest",
+        "zone-05": "low_res",
+        "zone-06": "forest",
+        "zone-07": "forest",
+        "zone-08": "forest",
+        "zone-09": "forest",
+        "zone-10": "forest",
+        "zone-11": "forest",
+        "zone-12": "forest",
+        "zone-13": "forest",
+        "zone-14": "forest",
+        "zone-15": "forest",
+        "zone-16": "forest",
+        "zone-17": "forest",
+        "zone-18": "forest",
+        "zone-19": "forest",
+        "zone-20": "low_res",
+        "zone-21": "forest",
+        "zone-22": "forest",
+        "zone-23": "forest",
+        "zone-24": "forest",
+        "zone-25": "forest",
+        "zone-26": "forest",
+        "zone-27": "forest",
+        "zone-28": "forest",
+        "zone-29": "forest",
+        "zone-30": "forest"
+      },
+      "metrics": {
+        "housingUnits": 23953,
+        "medianRent": 1481.5,
+        "treeCoverPct": 11.84,
+        "avgCommuteMin": 22.6,
+        "taxRevenue": 69043370
+      }
+    },
+    {
+      "year": 4,
+      "zoneStates": {
+        "zone-01": "forest",
+        "zone-02": "low_res",
+        "zone-03": "low_res",
+        "zone-04": "forest",
+        "zone-05": "low_res",
+        "zone-06": "forest",
+        "zone-07": "forest",
+        "zone-08": "forest",
+        "zone-09": "forest",
+        "zone-10": "forest",
+        "zone-11": "forest",
+        "zone-12": "forest",
+        "zone-13": "forest",
+        "zone-14": "forest",
+        "zone-15": "forest",
+        "zone-16": "forest",
+        "zone-17": "forest",
+        "zone-18": "forest",
+        "zone-19": "forest",
+        "zone-20": "low_res",
+        "zone-21": "forest",
+        "zone-22": "forest",
+        "zone-23": "forest",
+        "zone-24": "forest",
+        "zone-25": "forest",
+        "zone-26": "forest",
+        "zone-27": "forest",
+        "zone-28": "forest",
+        "zone-29": "forest",
+        "zone-30": "forest"
+      },
+      "metrics": {
+        "housingUnits": 23953,
+        "medianRent": 1481.5,
+        "treeCoverPct": 11.84,
+        "avgCommuteMin": 22.6,
+        "taxRevenue": 69043370
+      }
+    },
+    {
+      "year": 5,
+      "zoneStates": {
+        "zone-01": "forest",
+        "zone-02": "low_res",
+        "zone-03": "low_res",
+        "zone-04": "forest",
+        "zone-05": "low_res",
+        "zone-06": "forest",
+        "zone-07": "forest",
+        "zone-08": "forest",
+        "zone-09": "forest",
+        "zone-10": "forest",
+        "zone-11": "forest",
+        "zone-12": "forest",
+        "zone-13": "forest",
+        "zone-14": "forest",
+        "zone-15": "forest",
+        "zone-16": "forest",
+        "zone-17": "forest",
+        "zone-18": "forest",
+        "zone-19": "forest",
+        "zone-20": "low_res",
+        "zone-21": "forest",
+        "zone-22": "forest",
+        "zone-23": "forest",
+        "zone-24": "forest",
+        "zone-25": "forest",
+        "zone-26": "forest",
+        "zone-27": "forest",
+        "zone-28": "forest",
+        "zone-29": "forest",
+        "zone-30": "forest"
+      },
+      "metrics": {
+        "housingUnits": 23953,
+        "medianRent": 1481.5,
+        "treeCoverPct": 11.84,
+        "avgCommuteMin": 22.6,
+        "taxRevenue": 69043370
+      }
+    },
+    {
+      "year": 6,
+      "zoneStates": {
+        "zone-01": "forest",
+        "zone-02": "low_res",
+        "zone-03": "low_res",
+        "zone-04": "forest",
+        "zone-05": "low_res",
+        "zone-06": "forest",
+        "zone-07": "forest",
+        "zone-08": "forest",
+        "zone-09": "forest",
+        "zone-10": "forest",
+        "zone-11": "forest",
+        "zone-12": "forest",
+        "zone-13": "forest",
+        "zone-14": "forest",
+        "zone-15": "forest",
+        "zone-16": "forest",
+        "zone-17": "forest",
+        "zone-18": "forest",
+        "zone-19": "forest",
+        "zone-20": "low_res",
+        "zone-21": "forest",
+        "zone-22": "forest",
+        "zone-23": "forest",
+        "zone-24": "forest",
+        "zone-25": "forest",
+        "zone-26": "forest",
+        "zone-27": "forest",
+        "zone-28": "forest",
+        "zone-29": "forest",
+        "zone-30": "forest"
+      },
+      "metrics": {
+        "housingUnits": 23953,
+        "medianRent": 1481.5,
+        "treeCoverPct": 11.84,
+        "avgCommuteMin": 22.6,
+        "taxRevenue": 69043370
+      }
+    },
+    {
+      "year": 7,
+      "zoneStates": {
+        "zone-01": "forest",
+        "zone-02": "low_res",
+        "zone-03": "low_res",
+        "zone-04": "forest",
+        "zone-05": "low_res",
+        "zone-06": "forest",
+        "zone-07": "forest",
+        "zone-08": "forest",
+        "zone-09": "forest",
+        "zone-10": "forest",
+        "zone-11": "forest",
+        "zone-12": "forest",
+        "zone-13": "forest",
+        "zone-14": "forest",
+        "zone-15": "forest",
+        "zone-16": "forest",
+        "zone-17": "forest",
+        "zone-18": "forest",
+        "zone-19": "forest",
+        "zone-20": "low_res",
+        "zone-21": "forest",
+        "zone-22": "forest",
+        "zone-23": "forest",
+        "zone-24": "forest",
+        "zone-25": "forest",
+        "zone-26": "forest",
+        "zone-27": "forest",
+        "zone-28": "forest",
+        "zone-29": "forest",
+        "zone-30": "forest"
+      },
+      "metrics": {
+        "housingUnits": 23953,
+        "medianRent": 1481.5,
+        "treeCoverPct": 11.84,
+        "avgCommuteMin": 22.6,
+        "taxRevenue": 69043370
+      }
+    },
+    {
+      "year": 8,
+      "zoneStates": {
+        "zone-01": "forest",
+        "zone-02": "low_res",
+        "zone-03": "low_res",
+        "zone-04": "forest",
+        "zone-05": "low_res",
+        "zone-06": "forest",
+        "zone-07": "forest",
+        "zone-08": "forest",
+        "zone-09": "forest",
+        "zone-10": "forest",
+        "zone-11": "forest",
+        "zone-12": "forest",
+        "zone-13": "forest",
+        "zone-14": "forest",
+        "zone-15": "forest",
+        "zone-16": "forest",
+        "zone-17": "forest",
+        "zone-18": "forest",
+        "zone-19": "forest",
+        "zone-20": "low_res",
+        "zone-21": "forest",
+        "zone-22": "forest",
+        "zone-23": "forest",
+        "zone-24": "forest",
+        "zone-25": "forest",
+        "zone-26": "forest",
+        "zone-27": "forest",
+        "zone-28": "forest",
+        "zone-29": "forest",
+        "zone-30": "forest"
+      },
+      "metrics": {
+        "housingUnits": 23953,
+        "medianRent": 1481.5,
+        "treeCoverPct": 11.84,
+        "avgCommuteMin": 22.6,
+        "taxRevenue": 69043370
+      }
+    },
+    {
+      "year": 9,
+      "zoneStates": {
+        "zone-01": "forest",
+        "zone-02": "low_res",
+        "zone-03": "low_res",
+        "zone-04": "forest",
+        "zone-05": "low_res",
+        "zone-06": "forest",
+        "zone-07": "forest",
+        "zone-08": "forest",
+        "zone-09": "forest",
+        "zone-10": "forest",
+        "zone-11": "forest",
+        "zone-12": "forest",
+        "zone-13": "forest",
+        "zone-14": "forest",
+        "zone-15": "forest",
+        "zone-16": "forest",
+        "zone-17": "forest",
+        "zone-18": "forest",
+        "zone-19": "forest",
+        "zone-20": "low_res",
+        "zone-21": "forest",
+        "zone-22": "forest",
+        "zone-23": "forest",
+        "zone-24": "forest",
+        "zone-25": "forest",
+        "zone-26": "forest",
+        "zone-27": "forest",
+        "zone-28": "forest",
+        "zone-29": "forest",
+        "zone-30": "forest"
+      },
+      "metrics": {
+        "housingUnits": 23953,
+        "medianRent": 1481.5,
+        "treeCoverPct": 11.84,
+        "avgCommuteMin": 22.6,
+        "taxRevenue": 69043370
+      }
+    },
+    {
+      "year": 10,
+      "zoneStates": {
+        "zone-01": "forest",
+        "zone-02": "low_res",
+        "zone-03": "low_res",
+        "zone-04": "forest",
+        "zone-05": "low_res",
+        "zone-06": "forest",
+        "zone-07": "forest",
+        "zone-08": "forest",
+        "zone-09": "forest",
+        "zone-10": "forest",
+        "zone-11": "forest",
+        "zone-12": "forest",
+        "zone-13": "forest",
+        "zone-14": "forest",
+        "zone-15": "forest",
+        "zone-16": "forest",
+        "zone-17": "forest",
+        "zone-18": "forest",
+        "zone-19": "forest",
+        "zone-20": "low_res",
+        "zone-21": "forest",
+        "zone-22": "forest",
+        "zone-23": "forest",
+        "zone-24": "forest",
+        "zone-25": "forest",
+        "zone-26": "forest",
+        "zone-27": "forest",
+        "zone-28": "forest",
+        "zone-29": "forest",
+        "zone-30": "forest"
+      },
+      "metrics": {
+        "housingUnits": 23953,
+        "medianRent": 1481.5,
+        "treeCoverPct": 11.84,
+        "avgCommuteMin": 22.6,
+        "taxRevenue": 69043370
+      }
+    }
+  ],
+  "deltas": [
+    {
+      "metric": "housingUnits",
+      "baseline": 23713,
+      "final": 23953,
+      "changePct": 1.01
+    },
+    {
+      "metric": "medianRent",
+      "baseline": 1483,
+      "final": 1481.5,
+      "changePct": -0.1
+    },
+    {
+      "metric": "treeCoverPct",
+      "baseline": 13.7,
+      "final": 11.84,
+      "changePct": -13.58
+    },
+    {
+      "metric": "avgCommuteMin",
+      "baseline": 19.6,
+      "final": 22.6,
+      "changePct": 15.31
+    },
+    {
+      "metric": "taxRevenue",
+      "baseline": 68352723,
+      "final": 69043370,
+      "changePct": 1.01
+    }
+  ],
+  "tradeoffs": {
+    "pros": [
+      "STUB pro: more homes are built."
+    ],
+    "cons": [
+      "STUB con: forest is cleared."
+    ]
+  },
+  "assumptions": [
+    {
+      "key": "medianGrossRent",
+      "value": 1483,
+      "source": "Median gross rent, ACS 2019-2023 5-year estimates, U.S. Census Bureau QuickFacts: Chapel Hill town, North Carolina"
+    },
+    {
+      "key": "meanCommuteMin",
+      "value": 19.6,
+      "source": "Mean travel time to work (minutes), ACS 2019-2023 5-year estimates, U.S. Census Bureau QuickFacts: Chapel Hill town, North Carolina"
+    },
+    {
+      "key": "medianHomeValue",
+      "value": 576500,
+      "source": "Median value of owner-occupied housing units, ACS 2019-2023 5-year estimates, U.S. Census Bureau QuickFacts: Chapel Hill town, North Carolina"
+    },
+    {
+      "key": "population",
+      "value": 61960,
+      "source": "2020 Decennial Census, Chapel Hill town, North Carolina"
+    },
+    {
+      "key": "housingUnits",
+      "value": 23713,
+      "source": "VERIFY against data.census.gov: 2020 Census count via zip-codes.com aggregation"
+    },
+    {
+      "key": "treeCoverPct",
+      "value": 13.7,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "mapAreaAcres",
+      "value": 1932,
+      "source": "Derived: the 2.8 km square the map covers (bbox in meridian-city/fetch_osm.py)"
+    },
+    {
+      "key": "rentSupplyElasticity",
+      "value": -0.1,
+      "source": "Li (2022), \"Do New Housing Units in Your Backyard Raise Your Rents?\", Journal of Economic Geography: a 10% increase in housing stock within 500 ft lowers rents 1%."
+    },
+    {
+      "key": "rentSupplyElasticity.alternate",
+      "value": -0.19,
+      "source": "Mense (2025), Journal of Political Economy Macroeconomics: 1% new housing supply lowers average rent 0.19%."
+    },
+    {
+      "key": "propertyTaxRate",
+      "value": 0.005,
+      "source": "Town of Chapel Hill FY2025-26 property tax rate: 50.0 cents per $100 of assessed value."
+    },
+    {
+      "key": "canopyMinPct.low_res",
+      "value": 0.4,
+      "source": "Chapel Hill Land Use Management Ordinance (LUMO) Section 5.7: tree canopy minimums of 20-40%."
+    },
+    {
+      "key": "canopyMinPct.mid_res",
+      "value": 0.3,
+      "source": "Chapel Hill Land Use Management Ordinance (LUMO) Section 5.7: tree canopy minimums of 20-40%."
+    },
+    {
+      "key": "canopyMinPct.mixed_use",
+      "value": 0.2,
+      "source": "Chapel Hill Land Use Management Ordinance (LUMO) Section 5.7: tree canopy minimums of 20-40%."
+    },
+    {
+      "key": "canopyMinPct.parking",
+      "value": 0.2,
+      "source": "Chapel Hill Land Use Management Ordinance (LUMO) Section 5.7: tree canopy minimums of 20-40%."
+    },
+    {
+      "key": "canopyMinPct.transit_station",
+      "value": 0.2,
+      "source": "Chapel Hill Land Use Management Ordinance (LUMO) Section 5.7: tree canopy minimums of 20-40%."
+    },
+    {
+      "key": "unitsPerAcre.forest",
+      "value": 0,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "unitsPerAcre.low_res",
+      "value": 4,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "unitsPerAcre.mid_res",
+      "value": 20,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "unitsPerAcre.mixed_use",
+      "value": 30,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "unitsPerAcre.parking",
+      "value": 0,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "unitsPerAcre.transit_station",
+      "value": 0,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "treesPerAcre",
+      "value": 33,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "commuteDistancePenalty",
+      "value": 3,
+      "source": "PLACEHOLDER - needs citation"
+    }
+  ]
+}

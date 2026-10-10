@@ -12,7 +12,7 @@
     { "key": "acres_released", "label": "Acres released", "min": 0, "max": 250, "default": 60, "unit": "acres" }
   ],
   "zoneRules": [
-    { "where": "tag:map_edge", "from": "forest", "to": "low_res", "ratePerYear": 0.2, "capParam": "acres_released" }
+    { "where": "tag:map_edge", "from": "forest", "to": "low_res", "ratePerYear": 0.1, "capParam": "acres_released" }
   ],
   "tradeoffs": {
     "pros": ["STUB pro: more homes are built."],

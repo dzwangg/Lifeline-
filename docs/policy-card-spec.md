@@ -8,7 +8,7 @@ A policy card is one JSON file in `data/policies/`. Each card describes a local 
 2. Run `npm run validate:cards`. It checks every card and prints each problem with the field path, e.g. `tradeoffs.cons: needs at least one entry`.
 3. Commit the card **and** `data/cards.index.json`. The validate script rewrites that file, and the site loads cards from it because a static host can't list a folder.
 
-At startup the page loads every card in the index. If a card is invalid, the page logs a warning in the browser console and skips that card. With no cards, the sim panel shows "No policies yet".
+At startup the page loads every card in the index. If a card is invalid, the page logs a warning in the browser console and skips that card. While the index is empty, the stub test card (`tests/fixtures/stub-card.json`) appears instead, so the demo works before any real card exists. It disappears once your first card is in the index, and adding `?stub` to the URL brings it back.
 
 ## Fields
 

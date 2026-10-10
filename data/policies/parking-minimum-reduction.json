@@ -1,0 +1,36 @@
+{
+  "id": "parking-minimum-reduction",
+  "title": "Lower parking minimums",
+  "summary": "Lowers the parking required for each new home; builders choose how much to add above it.",
+  "category": "housing",
+  "icon": "parking",
+  "decider": {
+    "body": "Chapel Hill Town Council",
+    "how": [
+      "Planning staff draft the change to the Land Use Management Ordinance.",
+      "The Planning Commission reviews the proposal and makes a recommendation.",
+      "Residents comment at a Town Council public hearing.",
+      "Town Council votes on the change."
+    ]
+  },
+  "params": [
+    { "key": "spaces_per_home", "label": "Parking required per new home", "min": 0, "max": 1.5, "default": 0.5, "unit": "spaces" }
+  ],
+  "levers": [
+    { "lever": "housing.parkingMinimum", "param": "spaces_per_home" }
+  ],
+  "timing": { "delayQuarters": 2, "phaseInQuarters": 1 },
+  "evidence": [
+    { "claim": "After Buffalo dropped minimums, 47% of major projects built less parking than the old rules required", "source": "Hess & Rehler (2021), Journal of the American Planning Association", "url": "https://doi.org/10.1080/01944363.2020.1864225" },
+    { "claim": "A structured space costs ~$29,900 to build (2024 national median)", "source": "WGI Parking Structure Cost Outlook for 2024", "url": "https://publications.wginc.com/parking-structure-cost-outlook-for-2024" }
+  ],
+  "tradeoffs": {
+    "pros": [
+      "Builders can skip parking they would not otherwise build, saving up to about $30,000 a space in garages."
+    ],
+    "cons": [
+      "Some new buildings will have fewer parking spaces than today's rules require.",
+      "Changes little where builders would build that much parking anyway."
+    ]
+  }
+}

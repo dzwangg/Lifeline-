@@ -1,0 +1,37 @@
+{
+  "id": "property-tax-adjustment",
+  "title": "Property tax rate change",
+  "summary": "Changes the Town property tax rate, 50¢ per $100 of assessed value in FY2025-26, on homes and businesses.",
+  "category": "taxation",
+  "icon": "percent",
+  "decider": {
+    "body": "Chapel Hill Town Council",
+    "how": [
+      "The Town Manager proposes a budget and tax rate each spring.",
+      "Residents comment at a public hearing on the budget.",
+      "Town Council adopts the budget ordinance, which sets the rate."
+    ]
+  },
+  "params": [
+    { "key": "cents_per_100", "label": "Change to the rate", "min": -10, "max": 10, "default": -4, "unit": "¢ per $100" }
+  ],
+  "levers": [
+    { "lever": "tax.rateDelta", "param": "cents_per_100" }
+  ],
+  "timing": { "delayQuarters": 2, "phaseInQuarters": 1 },
+  "evidence": [
+    { "claim": "FY2025-26 rate is 50¢; 1.2¢ was priced at $1.49M", "source": "Town of Chapel Hill FY2025-26 budget (The Local Reporter)", "url": "https://thelocalreporter.press/chapel-hill-town-council-votes-on-2025-26-budget/" },
+    { "claim": "Business activity responds modestly to local taxes", "source": "Bartik (1991), Who Benefits from State and Local Economic Development Policies?", "url": "https://research.upjohn.org/up_press/77/" }
+  ],
+  "tradeoffs": {
+    "pros": [
+      "A lower rate cuts tax bills for homeowners and businesses.",
+      "A higher rate brings in about $1.29 million a year per cent."
+    ],
+    "cons": [
+      "A lower rate leaves the Town about $1.29 million a year less per cent.",
+      "Much of a cut's saving shows up in higher rents and home values.",
+      "A higher rate raises tax bills for homeowners and businesses."
+    ]
+  }
+}

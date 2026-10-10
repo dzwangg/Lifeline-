@@ -1,5 +1,15 @@
 [
+  "policies/bus-frequency-boost.json",
   "policies/core-infill.json",
   "policies/corridor-midrise.json",
-  "policies/edge-subdivisions.json"
+  "policies/edge-subdivisions.json",
+  "policies/hiring-subsidy.json",
+  "policies/housing-construction-subsidy.json",
+  "policies/new-business-startup-grant.json",
+  "policies/parking-minimum-reduction.json",
+  "policies/property-tax-adjustment.json",
+  "policies/protected-bike-network.json",
+  "policies/small-business-support-grant.json",
+  "policies/storefront-vacancy-tax.json",
+  "policies/transit-upzoning.json"
 ]

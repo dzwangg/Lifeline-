@@ -19,7 +19,7 @@ for (const file of files) {
     errors = [`not valid JSON: ${e.message}`];
   }
   if (!errors.length && ids.has(card.id)) errors.push(`id: "${card.id}" is already used by ${ids.get(card.id)}`);
-  const warnings = errors.length ? [] : card.zoneRules
+  const warnings = errors.length ? [] : (card.zoneRules ?? [])
     .filter(r => !zones.some(z => matchesWhere(r.where, z)))
     .map(r => `where "${r.where}" matches no zone in data/zones.geojson, so this rule changes nothing`);
   if (errors.length) invalid++;

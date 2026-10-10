@@ -6,3 +6,4 @@ export const stub = read('./fixtures/stub-card.json');
 export const zones = read('../data/zones.geojson').features.map(f => ({ ...f.properties, geometry: f.geometry }));
 export const assumptions = read('../data/assumptions.json');
 export const baselines = read('../data/baselines.json');
+export const cards = read('../data/cards.index.json').map(path => read(`../data/${path}`));

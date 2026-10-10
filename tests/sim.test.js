@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runScenario } from '../shared/sim.js';
-import { runWithHouseholds } from '../shared/agents.js';
+import { runCombined } from '../shared/combined.js';
 import { validateSimResult } from '../shared/schema.js';
 import { stub, zones, assumptions, baselines } from './data.js';
 
@@ -53,5 +53,5 @@ test('stacked effects are clamped to a sane range', () => {
 
 test('tests/fixtures/sim-result.json is current (npm run fixture to refresh)', () => {
   const fixture = JSON.parse(readFileSync(new URL('./fixtures/sim-result.json', import.meta.url), 'utf8'));
-  assert.deepEqual(fixture, runWithHouseholds([stub], {}, zones, assumptions, baselines));
+  assert.deepEqual(fixture, runCombined([stub], {}, zones, assumptions, baselines));
 });

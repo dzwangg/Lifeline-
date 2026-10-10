@@ -16,12 +16,13 @@
 .sim__resident:empty { display: none; }
 .sim__empty, .sim__note { margin: 0; color: var(--muted); line-height: 1.4; }
 
+.sim-card, .sim__list { min-width: 0; } /* so a one-line summary can't widen the card */
 .sim-card { padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .5); }
 .sim-card h3 { margin: 0 0 4px; font-size: 14px; }
-.sim-card__summary { margin: 0 0 6px; color: var(--muted); line-height: 1.4; }
+.sim-card__summary { margin: 0 0 6px; color: var(--muted); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* one line; the policy panel shows it whole */
 .sim-card__decider { margin-top: 6px; }
-.sim-card__decider summary { color: var(--muted); cursor: pointer; }
-.sim-card__decider ol { margin: 4px 0 0; padding-left: 18px; line-height: 1.4; }
+.sim-card__decider summary { color: var(--muted); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sim-card__decider ol, .sim-card__decider ul { margin: 4px 0 0; padding-left: 18px; line-height: 1.4; }
 .sim-card__tradeoffs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
 .sim-card__tradeoffs h4 { margin: 0 0 2px; font: 600 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 .sim-card__tradeoffs ul { margin: 0; padding-left: 16px; line-height: 1.35; }
@@ -45,13 +46,19 @@
 .sim__check input { margin: 0; accent-color: var(--sodium); }
 .sim__dev { font: 11px var(--mono); color: var(--muted); }
 
-.sim__metrics { display: grid; gap: 2px; }
-.sim-metric { display: grid; grid-template-columns: 1fr auto; column-gap: 8px; padding: 5px 8px; border-radius: 8px; cursor: help; }
-.sim-metric:hover, .sim-metric:focus-visible { background: rgba(255, 255, 255, .6); outline: none; }
+/* A metric is one line: label, the year's value, its change against no new policy. */
+.sim__metrics { display: grid; gap: 1px; }
+.sim-metric { display: grid; grid-template-columns: minmax(0, 1fr) auto 8.4em; align-items: baseline; column-gap: 8px; padding: 3px 6px; border-radius: 8px; }
+.sim-metric[tabindex] { cursor: help; }
+.sim-metric[tabindex]:hover, .sim-metric[tabindex]:focus-visible { background: rgba(255, 255, 255, .6); outline: none; }
 .sim-metric:focus-visible { box-shadow: 0 0 0 2px var(--sodium); }
-.sim-metric__label { font-weight: 600; }
-.sim-metric__value, .sim-metric__delta { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
-.sim-metric__delta { grid-column: 1 / -1; font-size: 11.5px; color: var(--muted); }
+.sim-metric__label { font-weight: 600; line-height: 1.25; }
+.sim-metric__value, .sim-metric__delta { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.sim-metric__delta { font-size: 11.5px; color: var(--muted); }
+.sim-metric__range { grid-column: 1 / -1; font: 11px var(--mono); color: var(--muted); text-align: right; }
+.sim-metric--head { padding-bottom: 0; font: 600 10.5px var(--mono); color: var(--muted); text-align: right; white-space: nowrap; }
+.sim__more summary { padding: 4px 6px; color: var(--muted); font-weight: 600; cursor: pointer; }
+.sim__sources { align-self: flex-start; font: 600 12px var(--display); color: var(--sodium); }
 
 .sim-why {
   display: none; position: absolute; right: calc(100% + 18px); top: 0; z-index: 1; /* beside the panel, from its top */
@@ -61,6 +68,7 @@
 .sim-metric:hover .sim-why, .sim-metric:focus .sim-why { display: block; }
 .sim-why ul { display: grid; gap: 8px; margin: 6px 0 0; padding: 0; list-style: none; }
 .sim-why li { display: grid; gap: 2px; }
+.sim-why__tree ul { gap: 4px; margin-top: 4px; padding-left: 12px; border-left: 1px solid var(--plate-edge); }
 .sim-why__key { font: 11.5px var(--mono); overflow-wrap: anywhere; }
 .sim-why__src, .sim-why__note { font-size: 11.5px; line-height: 1.35; color: var(--muted); overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
 .sim-why__flag { justify-self: start; padding: 1px 6px; border-radius: 4px; font: 600 10px var(--mono); letter-spacing: .08em; background: #ffd75e; color: #4a3500; }

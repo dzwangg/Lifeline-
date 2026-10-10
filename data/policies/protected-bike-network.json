@@ -1,0 +1,35 @@
+{
+  "id": "protected-bike-network",
+  "title": "Protected bike network",
+  "summary": "Builds physically separated bike lanes linking downtown, campus and the corridors.",
+  "category": "transport",
+  "icon": "bike",
+  "decider": {
+    "body": "Chapel Hill Town Council, with NCDOT on state-maintained streets",
+    "how": [
+      "Town staff design the routes.",
+      "Residents comment at public meetings and a Town Council hearing.",
+      "NCDOT reviews changes to the streets it maintains.",
+      "Town Council approves the funding."
+    ]
+  },
+  "params": [
+    { "key": "km", "label": "Protected lanes built", "min": 0, "max": 18, "default": 12, "unit": "km" }
+  ],
+  "levers": [
+    { "lever": "transport.protectedBikeKm", "param": "km" }
+  ],
+  "timing": { "delayQuarters": 4, "phaseInQuarters": 8 },
+  "evidence": [
+    { "claim": "Protected lanes consistently raise cycling", "source": "Buehler & Dill (2016), Transport Reviews", "url": "https://doi.org/10.1080/01441647.2015.1069908" }
+  ],
+  "tradeoffs": {
+    "pros": [
+      "Safer routes make cycling less stressful, so some short car and bus trips shift to bikes."
+    ],
+    "cons": [
+      "Costs about $800,000 per km to build, paid off over years, plus upkeep.",
+      "Takes about three years to build out."
+    ]
+  }
+}

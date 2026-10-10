@@ -1,12 +1,16 @@
 // Hand-written validators for PolicyCard and SimResult (see types.d.ts). Each returns a list of
 // "path: problem" strings; an empty list means valid.
 import { CATEGORIES, ICONS } from '../meridian-city/policy/policies.js'; // cards slot into the policy panel's categories
+import { LEVERS } from './luti/levers.js';
+import { ZONE_IDS as LUTI_ZONES } from './luti/data.js';
 
 /** @typedef {import('./types').PolicyCard} PolicyCard @typedef {import('./types').SimResult} SimResult @typedef {import('./types').Zone} Zone */
 
 export const ZONE_STATES = ['forest', 'low_res', 'mid_res', 'mixed_use', 'parking', 'transit_station'];
 export const METRICS = ['housingUnits', 'medianRent', 'treeCoverPct', 'avgCommuteMin', 'taxRevenue'];
-export const HOUSEHOLD_METRICS = ['households', 'pricedOut']; // added by shared/agents.js withHouseholds()
+export const HOUSEHOLD_METRICS = ['households', 'pricedOut']; // added by shared/combined.js
+export const LUTI_METRICS = ['jobs', 'businesses', 'storefrontVacancy', 'homeValue', 'netFiscal', 'transitRidership', 'trafficIndex']; // added by shared/combined.js
+const OPTIONAL_METRICS = [...HOUSEHOLD_METRICS, ...LUTI_METRICS];
 
 /** Does a rule's `where` ("tag:<tag>" or "id:<zoneId>") select this zone? @param {string} where @param {Pick<Zone, 'id' | 'tags'>} zone */
 export const matchesWhere = (where, zone) => where === `id:${zone.id}` || (where.startsWith('tag:') && zone.tags.includes(where.slice(4)));
@@ -34,7 +38,7 @@ function checker() {
 /** @param {PolicyCard} card */
 export function validateCard(card) {
   const { errors, ok, obj, list, strings } = checker();
-  if (!obj(card, '', ['id', 'title', 'summary', 'decider', 'params', 'zoneRules', 'tradeoffs'], ['category', 'icon'])) return errors;
+  if (!obj(card, '', ['id', 'title', 'summary', 'decider', 'params', 'tradeoffs'], ['category', 'icon', 'zoneRules', 'levers', 'timing', 'evidence'])) return errors;
   ok(typeof card.id === 'string' && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(card.id), 'id', 'must be lowercase words joined by dashes, e.g. "edge-forest-release"');
   ok(isStr(card.title), 'title', 'must be a non-empty string');
   ok(isStr(card.summary), 'summary', 'must be a non-empty string');
@@ -58,7 +62,8 @@ export function validateCard(card) {
       ok(p.min <= p.default && p.default <= p.max, `${path}.default`, 'must be between min and max');
   });
 
-  if (list(card.zoneRules, 'zoneRules')) card.zoneRules.forEach((r, i) => {
+  ok(card.zoneRules?.length || card.levers?.length, '(card)', 'needs at least one entry in zoneRules or levers');
+  if ('zoneRules' in card && list(card.zoneRules, 'zoneRules')) card.zoneRules.forEach((r, i) => {
     const path = `zoneRules[${i}]`;
     if (!obj(r, path, ['where', 'from', 'to', 'ratePerYear'], ['capParam'])) return;
     ok(typeof r.where === 'string' && /^(tag|id):\S+$/.test(r.where), `${path}.where`, 'must be "tag:<tag>" or "id:<zoneId>"');
@@ -66,6 +71,28 @@ export function validateCard(card) {
     ok(r.from !== r.to, `${path}.to`, 'must differ from "from"');
     ok(isNum(r.ratePerYear) && r.ratePerYear > 0 && r.ratePerYear <= 1, `${path}.ratePerYear`, 'must be a number above 0 and at most 1');
     if ('capParam' in r) ok(keys.includes(r.capParam), `${path}.capParam`, `must be the key of one of this card's params (${keys.join(', ') || 'none defined'})`);
+  });
+
+  if ('levers' in card && list(card.levers, 'levers')) card.levers.forEach((l, i) => {
+    const path = `levers[${i}]`;
+    if (!obj(l, path, ['lever'], ['value', 'param', 'zones'])) return;
+    const def = LEVERS[l.lever];
+    if (!ok(def, `${path}.lever`, `must be one of ${Object.keys(LEVERS).join(', ')}`)) return;
+    if (ok(('value' in l) !== ('param' in l), path, 'needs "value" or "param", not both')) {
+      if ('value' in l) ok(isNum(l.value), `${path}.value`, 'must be a number');
+      else ok(keys.includes(l.param), `${path}.param`, `must be the key of one of this card's params (${keys.join(', ') || 'none defined'})`);
+    }
+    if ('zones' in l) ok(def.zoned && Array.isArray(l.zones) && l.zones.length && l.zones.every(z => LUTI_ZONES.includes(z)), `${path}.zones`,
+      def.zoned ? `must be a list of ${LUTI_ZONES.join(', ')}` : 'not allowed: this lever applies town-wide');
+  });
+  if ('timing' in card && obj(card.timing, 'timing', ['delayQuarters', 'phaseInQuarters']))
+    for (const k of ['delayQuarters', 'phaseInQuarters']) ok(Number.isInteger(card.timing[k]) && card.timing[k] >= 0, `timing.${k}`, 'must be a whole number of quarters, 0 or more');
+  if ('evidence' in card && list(card.evidence, 'evidence')) card.evidence.forEach((e, i) => {
+    const path = `evidence[${i}]`;
+    if (!obj(e, path, ['claim', 'source'], ['url'])) return;
+    ok(isStr(e.claim), `${path}.claim`, 'must be a non-empty string');
+    ok(isStr(e.source), `${path}.source`, 'must be a non-empty string');
+    if ('url' in e) ok(typeof e.url === 'string' && /^https?:\/\/\S+$/.test(e.url), `${path}.url`, 'must be an http(s) link');
   });
 
   if (obj(card.tradeoffs, 'tradeoffs', ['pros', 'cons']))
@@ -91,12 +118,12 @@ export function validateSimResult(r) {
     if (!obj(t, path, ['year', 'zoneStates', 'metrics'])) return;
     ok(t.year === i, `${path}.year`, `must be ${i}`);
     ok(isObj(t.zoneStates) && Object.values(t.zoneStates).every(s => ZONE_STATES.includes(s)), `${path}.zoneStates`, 'must map zone ids to zone states');
-    if (obj(t.metrics, `${path}.metrics`, METRICS, HOUSEHOLD_METRICS)) for (const m of Object.keys(t.metrics)) ok(isNum(t.metrics[m]), `${path}.metrics.${m}`, 'must be a number');
+    if (obj(t.metrics, `${path}.metrics`, METRICS, OPTIONAL_METRICS)) for (const m of Object.keys(t.metrics)) ok(isNum(t.metrics[m]), `${path}.metrics.${m}`, 'must be a number');
   });
   if (list(r.deltas, 'deltas')) r.deltas.forEach((d, i) => {
     const path = `deltas[${i}]`;
     if (!obj(d, path, ['metric', 'baseline', 'final', 'changePct'], ['comparedWith'])) return;
-    ok([...METRICS, ...HOUSEHOLD_METRICS].includes(d.metric), `${path}.metric`, `must be one of ${[...METRICS, ...HOUSEHOLD_METRICS].join(', ')}`);
+    ok([...METRICS, ...OPTIONAL_METRICS].includes(d.metric), `${path}.metric`, `must be one of ${[...METRICS, ...OPTIONAL_METRICS].join(', ')}`);
     if ('comparedWith' in d) ok(['year 0', 'no new policy'].includes(d.comparedWith), `${path}.comparedWith`, 'must be "year 0" or "no new policy"');
     for (const k of ['baseline', 'final', 'changePct']) ok(isNum(d[k]), `${path}.${k}`, 'must be a number');
   });

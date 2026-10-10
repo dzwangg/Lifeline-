@@ -1,0 +1,37 @@
+{
+  "id": "housing-construction-subsidy",
+  "title": "Housing construction subsidy",
+  "summary": "Pays part of the cost of each new home so more new homes get built.",
+  "category": "housing",
+  "icon": "house",
+  "decider": {
+    "body": "Chapel Hill Town Council",
+    "how": [
+      "Town staff design the subsidy and propose its budget.",
+      "Residents comment at a public hearing on the budget.",
+      "Town Council votes on the budget that funds it."
+    ]
+  },
+  "params": [
+    { "key": "dollars_per_home", "label": "Subsidy per new home", "min": 0, "max": 60000, "default": 25000, "unit": "dollars" },
+    { "key": "dollars_per_year", "label": "Most spent in a year", "min": 0, "max": 10000000, "default": 3000000, "unit": "dollars" }
+  ],
+  "levers": [
+    { "lever": "housing.subsidyPerUnit", "param": "dollars_per_home" },
+    { "lever": "housing.subsidyCap", "param": "dollars_per_year" }
+  ],
+  "timing": { "delayQuarters": 2, "phaseInQuarters": 1 },
+  "evidence": [
+    { "claim": "New buildings lower nearby rents ~6%", "source": "Asquith, Mast & Reed (2023), Review of Economics and Statistics", "url": "https://doi.org/10.1162/rest_a_01055" },
+    { "claim": "1% more new supply lowers average rents ~0.19%", "source": "Mense (2025), Journal of Political Economy Macroeconomics", "url": "https://eprints.lse.ac.uk/127192/" }
+  ],
+  "tradeoffs": {
+    "pros": [
+      "Lowers the cost of each new home, so more building sites clear developers' profit hurdle."
+    ],
+    "cons": [
+      "Paid from the Town budget, up to the yearly limit.",
+      "Much of the money goes to homes that would have been built anyway."
+    ]
+  }
+}

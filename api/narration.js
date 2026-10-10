@@ -127,7 +127,9 @@ Rules:
 - Use ONLY numbers that appear in the input, and only the few that matter most to residents. Never calculate new numbers such as differences, sums or ratios. Write every number as digits.
 - Say numbers the way a local news anchor would: commas in large numbers, $ for money, % for percentages, rounded figures (for example "about 12,400" for 12408), and big dollar amounts in millions (for example "about $4.5 million" for 4518230).
 - When a delta is compared with no new policy, say so (for example "lower than with no new policy"); don't describe it as a change over time.
-- State both the benefits (pros) and the drawbacks (cons) from the input.
+- households and pricedOut count households, never people: always say "households".
+- No evaluative or advocacy language (such as "help", "good news", "unfortunately", "keep families in town"). State each change and what it is compared with, plainly.
+- State both the benefits (pros) and the drawbacks (cons), taken only from the input's tradeoffs; add none of your own.
 - Never recommend, endorse or oppose the policy and never take a side. Report what the simulation shows, as a simulation.`;
 
 const userPrompt = input => `Simulation results (JSON):\n${JSON.stringify(input)}\n\nWhat the metrics mean: ${

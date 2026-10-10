@@ -6,7 +6,8 @@
 <title>SquidLand</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;800&family=Overpass+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;800&family=Overpass+Mono:wght@400;600&family=Mukta:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="policy/policy-panel.css">
 <style>
   /* Frutiger Aero: sunlit sky, clear water, and luminous glass overlays. */
   :root {
@@ -56,6 +57,28 @@
   <div id="credit">Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors</div>
 </div>
 <div id="alt" class="plate">ALT <span id="altv">—</span> m</div>
+<button id="policy-launch" class="pp-launch" type="button" aria-haspopup="dialog" aria-keyshortcuts="P">Policies <span id="policy-count" class="pp-launch__count is-none">None active</span></button>
+
+<script type="module">
+// Policy panel: kept apart from the WebGL build below so it works while the city is still loading.
+import { createPolicyStore } from './policy/store.js';
+import { mountPolicyPanel } from './policy/policy-panel.js';
+
+const store = createPolicyStore();
+const panel = mountPolicyPanel({ store });
+const launch = document.getElementById('policy-launch'), count = document.getElementById('policy-count');
+launch.addEventListener('click', () => panel.open(launch));
+addEventListener('keydown', e => {
+  if (e.key.toLowerCase() !== 'p' || e.ctrlKey || e.metaKey || e.altKey || panel.isOpen() || e.target.closest?.('input, textarea, [contenteditable]')) return;
+  panel.open(launch);
+});
+store.subscribe(({ applied }) => {
+  const n = Object.values(applied).filter(Boolean).length;
+  count.textContent = n ? `${n} active` : 'None active';
+  count.classList.toggle('is-none', !n);
+});
+window.policyStore = store; // the simulation reads store.getState().applied once it models effects
+</script>
 
 <script defer src="chapel-hill.js"></script>
 <script type="module">

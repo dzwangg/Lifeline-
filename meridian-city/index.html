@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;800&family=Overpass+Mono:wght@400;600&family=Mukta:wght@400;600;700;800&display=swap">
 <link rel="stylesheet" href="policy/policy-panel.css">
+<link rel="stylesheet" href="sim/sim-plate.css">
 <style>
   /* Frutiger Aero: sunlit sky, clear water, and luminous glass overlays. */
   :root {
@@ -63,8 +64,11 @@
 // Policy panel: kept apart from the WebGL build below so it works while the city is still loading.
 import { createPolicyStore } from './policy/store.js';
 import { mountPolicyPanel } from './policy/policy-panel.js';
+import { cardsReady, panelPolicies } from './sim/scenario.js';
+import { mountSimPlate } from './sim/sim-plate.js';
 
-const store = createPolicyStore();
+const cards = await cardsReady; // policy cards from data/policies/ join the hardcoded policies in the panel
+const store = createPolicyStore({ policies: panelPolicies(cards) });
 const panel = mountPolicyPanel({ store });
 const launch = document.getElementById('policy-launch'), count = document.getElementById('policy-count');
 launch.addEventListener('click', () => panel.open(launch));
@@ -78,6 +82,7 @@ store.subscribe(({ applied }) => {
   count.classList.toggle('is-none', !n);
 });
 window.policyStore = store; // the simulation reads store.getState().applied once it models effects
+mountSimPlate({ policyStore: store, cards });
 </script>
 
 <script defer src="chapel-hill.js"></script>
@@ -85,6 +90,7 @@ window.policyStore = store; // the simulation reads store.getState().applied onc
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
 import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/controls/OrbitControls.js/+esm';
 import { Sky } from 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/objects/Sky.js/+esm';
+import { zonesReady, mountZoneLayer } from './sim/zone-layer.js';
 
 const $ = id => document.getElementById(id);
 const view = $('view');
@@ -449,6 +455,9 @@ function scatter(r, step, s0, s1) {
     if (!at(px, pz) && inside(r, px, pz)) trees.push(M(px, 0, pz, rr(0, 6.3), rr(s0, s1)));
   }
 }
+// Policy-sim zones (data/zones.geojson): grid bit 4 keeps base-map trees out of them; the zone layer draws their trees instead.
+const ZONES = await zonesReady;
+for (const { ring } of ZONES) { const [x0, z0, x1, z1] = bounds(ring); fill(x0, z0, x1, z1, 4, (x, z) => inside(ring, x, z)); }
 for (const [kind, r] of OSM.a) {
   if (kind === 'water') { cap(waterB, [r], .04, WHITE); continue; }
   if (kind === 'parking') { cap(lotB, [r], .04, WHITE); continue; }
@@ -456,7 +465,7 @@ for (const [kind, r] of OSM.a) {
   if (kind === 'wood' || kind === 'forest') scatter(r, 11, 1.1, 1.7);
   else if (kind !== 'pitch') scatter(r, WILD.has(kind) ? 16 : 24, .9, 1.5);
 }
-for (let i = 0; i < OSM.t.length; i += 2) trees.push(M(OSM.t[i], 0, OSM.t[i + 1], rr(0, 6.3), rr(.8, 1.3))); // individually mapped trees
+for (let i = 0; i < OSM.t.length; i += 2) if (!(at(OSM.t[i], OSM.t[i + 1]) & 4)) trees.push(M(OSM.t[i], 0, OSM.t[i + 1], rr(0, 6.3), rr(.8, 1.3))); // individually mapped trees
 cap(groundB, [rect(0, 0, 14000, 14000)], 0, WHITE);
 
 function addMesh(geo, material, shadow = true) { const m = new THREE.Mesh(geo, material); m.castShadow = shadow; m.receiveShadow = true; scene.add(m); return m; }
@@ -498,6 +507,7 @@ const canopyGeo = geoFrom([[blob(2.2, 0, 4.8, 0), I4, '#fff'], [blob(1.7, .9, 5.
 const GREENS = ['#4f7a3a', '#5d8a44', '#3f6b35', '#6e8f4a', '#557d3e', '#7a8f46'].map(col);
 instanced(trunkGeo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .95 }), trees);
 instanced(canopyGeo, new THREE.MeshStandardMaterial({ map: leafTex, roughness: .9 }), trees, trees.map(() => pick(GREENS).clone().multiplyScalar(rr(.8, 1.1))));
+mountZoneLayer({ scene, zones: ZONES, at, inside, bounds, trunkGeo, canopyGeo, leafTex, greens: GREENS });
 
 const lampGeo = geoFrom([
   [new THREE.CylinderGeometry(.09, .14, 8, 8), T(0, 4, 0), '#3b3f44'],

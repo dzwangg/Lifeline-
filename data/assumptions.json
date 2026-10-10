@@ -188,10 +188,10 @@
     "note": "Lowest home vacancy the market reaches. From the CH-LUTI model."
   },
   "lutiIncomeGrowth": {
-    "value": 0.03,
+    "value": 0.0275,
     "unit": "/yr",
-    "source": "PLACEHOLDER - needs citation",
-    "note": "Nominal median household income growth, for rent burden. From the CH-LUTI model."
+    "source": "U.S. Census Bureau QuickFacts, Chapel Hill town, North Carolina (ACS 5-year estimates): median gross rent $1,172 (2014-2018) and $1,483 (2019-2023); median household income $68,640 (2014-2018) and $85,825 (2019-2023). https://www.census.gov/quickfacts/fact/table/chapelhilltownnorthcarolina/",
+    "note": "Nominal household income growth, for rent burden in CH-LUTI and the household model. Our calculation: over those five years rent grew 4.82%/yr and income 4.57%/yr, so incomes trailed rents by 0.25 points a year. CH-LUTI's rent path rises with rentDrift (3%/yr at its central value, Zillow ZORI), so incomes grow 3% - 0.25 points = 2.75%/yr."
   },
   "lutiCpi": {
     "value": 0.025,

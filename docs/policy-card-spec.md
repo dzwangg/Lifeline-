@@ -166,7 +166,7 @@ CH-LUTI simulates 40 quarters from 2027 in five zones. The `SimResult` uses its 
 
 ## Both sides, always
 
-Every card must list at least one pro **and** at least one con, and validation fails otherwise. Meridian shows tradeoffs, never recommendations. Write both sides in neutral, concrete language ("adds homes near the corridor", "removes tree canopy from the edge woods"), not advocacy ("a smart investment", "a reckless giveaway"). Leave out numbers that depend on a slider or on what the model works out, such as home counts, acres or a cost at the default: the panel shows those, and card text would drift from them. Fixed facts and figures from a cited study are fine ("about $1.29 million a year per cent").
+Every card must list at least one pro **and** at least one con, and validation fails otherwise. Meridian shows tradeoffs, never recommendations. Write both sides in neutral, concrete language ("adds homes near the corridor", "removes tree canopy from the edge woods"), not advocacy ("a smart investment", "a reckless giveaway"). Leave out numbers that depend on a slider or on what the model works out, such as home counts, acres or a cost at the default: the panel shows those, and card text would drift from them. Fixed facts and figures from a cited study are fine ("about 0.5% more riders per 1% more service in the studies cited"), as long as the panel doesn't show a different number for the same thing.
 
 ## Example
 

@@ -32,7 +32,7 @@
 <body>
 <main>
 <h1>Sources</h1>
-<p class="lede">Every number the Squidland simulator takes from its data files, with its value, source and links. 74 are marked <span class="flag">PLACEHOLDER</span> or <span class="flag">VERIFY</span>: not yet citable. <a href="./">Back to the simulator</a>.</p>
+<p class="lede">Every number the Squidland simulator takes from its data files, with its value, source and links. 73 are marked <span class="flag">PLACEHOLDER</span> or <span class="flag">VERIFY</span>: not yet citable. <a href="./">Back to the simulator</a>.</p>
 <h2>Observed baselines</h2>
 <p class="note"><code>data/baselines.json</code></p>
 <div class="scroll"><table>
@@ -297,11 +297,11 @@
   <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Lowest home vacancy the market reaches. From the CH-LUTI model.</p></td>
   <td></td>
 </tr>
-<tr class="flagged">
+<tr>
   <th scope="row"><code>lutiIncomeGrowth</code></th>
-  <td>0.03 <span class="unit">/yr</span></td>
-  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Nominal median household income growth, for rent burden. From the CH-LUTI model.</p></td>
-  <td></td>
+  <td>0.0275 <span class="unit">/yr</span></td>
+  <td>U.S. Census Bureau QuickFacts, Chapel Hill town, North Carolina (ACS 5-year estimates): median gross rent $1,172 (2014-2018) and $1,483 (2019-2023); median household income $68,640 (2014-2018) and $85,825 (2019-2023).<p class="note">Nominal household income growth, for rent burden in CH-LUTI and the household model. Our calculation: over those five years rent grew 4.82%/yr and income 4.57%/yr, so incomes trailed rents by 0.25 points a year. CH-LUTI's rent path rises with rentDrift (3%/yr at its central value, Zillow ZORI), so incomes grow 3% - 0.25 points = 2.75%/yr.</p></td>
+  <td><a href="https://www.census.gov/quickfacts/fact/table/chapelhilltownnorthcarolina/">census.gov</a></td>
 </tr>
 <tr class="flagged">
   <th scope="row"><code>lutiCpi</code></th>

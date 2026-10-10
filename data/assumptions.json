@@ -30,5 +30,147 @@
     "unit": "minutes",
     "source": "PLACEHOLDER - needs citation",
     "note": "Extra minutes for each new home in a map_edge zone. The town mean moves by the penalty times those homes' share of all homes."
+  },
+  "agentScale": {
+    "value": 79,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Real households per simulated household: 23,713 / 300. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentHouseholds": {
+    "value": { "downtown": 105, "campus": 98, "edge": 97 },
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Simulated households per zone at year 0. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentUnits": {
+    "value": { "downtown": 108, "campus": 101, "edge": 100 },
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Simulated homes per zone at year 0. New homes from policies are added to edge. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentBuildYears": {
+    "value": 5,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Years over which new homes come online. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentGrowth": {
+    "value": 0.009,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Baseline in-migration per year. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentInducedShare": {
+    "value": 0.6,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Share of surplus vacancy that newcomers fill. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentInducedVacancy": {
+    "value": 0.04,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Vacancy above which extra newcomers are drawn in. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentRentAmp": {
+    "value": 0.028,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Strength of the rent response to vacancy. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentTargetVacancy": {
+    "value": 0.05,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Vacancy at which rent holds steady. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentRentCurve": {
+    "value": { "floor": -0.012, "offset": 0.022, "min": -0.06, "max": 0.11 },
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Shape and yearly limits of the rent-vs-vacancy curve. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentBurdenLine": {
+    "value": 0.5,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Rent share of income above which a renter may leave. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentBurdenRise": {
+    "value": 0.05,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Yearly rise in that share that counts toward leaving. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentLeaveProb": {
+    "value": 0.5,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Chance of leaving after two such years in a row. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentRenterShare": {
+    "value": { "downtown": 0.6, "campus": 0.8, "edge": 0.35 },
+    "source": "PLACEHOLDER - needs citation",
+    "note": "From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentStudentShare": {
+    "value": 0.4,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Share of renters who are students. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentIncomeMedian": {
+    "value": { "student": 40000, "renter": 64000, "owner": 115000 },
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Median household income by type (log-normal). From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentIncomeSpread": {
+    "value": { "student": 0.35, "renter": 0.45, "owner": 0.4 },
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Log-normal spread of income by type. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentRemoteShare": {
+    "value": 0.12,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentDurhamShare": {
+    "value": 0.2,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Share of households working in Durham. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentCampusWorkShare": {
+    "value": 0.5,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Of the rest, non-students working on campus (others work downtown). From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentZoneRent": {
+    "value": { "downtown": 1.1, "campus": 1.0, "edge": 0.92 },
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Rent level by zone, before calibration to the ACS median gross rent. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentRentSpread": {
+    "value": { "min": 0.82, "range": 0.4 },
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Each home's rent varies from min to min + range of its zone level. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentBaseCommuteMin": {
+    "value": { "downtown": 7, "campus": 5, "edge": 6 },
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Local commute by zone, before calibration to the ACS mean commute. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "agentDurhamExtraMin": {
+    "value": 9,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "roadT0Min": {
+    "value": 14,
+    "unit": "minutes",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Free-flow 15-501 travel time. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "roadCapacity": {
+    "value": 6900,
+    "unit": "vehicles",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "15-501 capacity. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "roadCarShare": {
+    "value": 0.7,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Share of road users who drive. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+  },
+  "roadBpr": {
+    "value": { "alpha": 0.15, "beta": 4 },
+    "source": "PLACEHOLDER - needs citation",
+    "note": "BPR delay curve: time = t0 x (1 + alpha x (volume/capacity)^beta). From the Chapel Hill Household Sim prototype (agents-prototype.js)."
   }
 }

@@ -4699,6 +4699,241 @@
       "key": "commuteDistancePenalty",
       "value": 3,
       "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentScale",
+      "value": 79,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentHouseholds.downtown",
+      "value": 105,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentHouseholds.campus",
+      "value": 98,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentHouseholds.edge",
+      "value": 97,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentUnits.downtown",
+      "value": 108,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentUnits.campus",
+      "value": 101,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentUnits.edge",
+      "value": 100,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentBuildYears",
+      "value": 5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentGrowth",
+      "value": 0.009,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentInducedShare",
+      "value": 0.6,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentInducedVacancy",
+      "value": 0.04,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRentAmp",
+      "value": 0.028,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentTargetVacancy",
+      "value": 0.05,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRentCurve.floor",
+      "value": -0.012,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRentCurve.offset",
+      "value": 0.022,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRentCurve.min",
+      "value": -0.06,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRentCurve.max",
+      "value": 0.11,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentBurdenLine",
+      "value": 0.5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentBurdenRise",
+      "value": 0.05,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentLeaveProb",
+      "value": 0.5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRenterShare.downtown",
+      "value": 0.6,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRenterShare.campus",
+      "value": 0.8,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRenterShare.edge",
+      "value": 0.35,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentStudentShare",
+      "value": 0.4,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentIncomeMedian.student",
+      "value": 40000,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentIncomeMedian.renter",
+      "value": 64000,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentIncomeMedian.owner",
+      "value": 115000,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentIncomeSpread.student",
+      "value": 0.35,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentIncomeSpread.renter",
+      "value": 0.45,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentIncomeSpread.owner",
+      "value": 0.4,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRemoteShare",
+      "value": 0.12,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentDurhamShare",
+      "value": 0.2,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentCampusWorkShare",
+      "value": 0.5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentZoneRent.downtown",
+      "value": 1.1,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentZoneRent.campus",
+      "value": 1,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentZoneRent.edge",
+      "value": 0.92,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRentSpread.min",
+      "value": 0.82,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRentSpread.range",
+      "value": 0.4,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentBaseCommuteMin.downtown",
+      "value": 7,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentBaseCommuteMin.campus",
+      "value": 5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentBaseCommuteMin.edge",
+      "value": 6,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentDurhamExtraMin",
+      "value": 9,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "roadT0Min",
+      "value": 14,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "roadCapacity",
+      "value": 6900,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "roadCarShare",
+      "value": 0.7,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "roadBpr.alpha",
+      "value": 0.15,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "roadBpr.beta",
+      "value": 4,
+      "source": "PLACEHOLDER - needs citation"
     }
   ]
 }

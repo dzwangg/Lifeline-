@@ -6,7 +6,8 @@ import { POLICIES } from '../policy/policies.js';
 
 const json = path => fetch(new URL(path, import.meta.url)).then(r => (r.ok ? r.json() : Promise.reject(new Error(`${path}: HTTP ${r.status}`))));
 const query = new URLSearchParams(location.search);
-export const stubOn = query.has('stub'); // ?stub loads tests/fixtures/stub-card.json, so the loop is demoable before real cards land
+export const stubOn = query.has('stub'); // ?stub adds tests/fixtures/stub-card.json next to the real cards
+export let stubAuto = false; // set once the index loads: with no real cards yet, the stub stands in so the loop is always demoable
 export const devMode = stubOn || query.has('dev') || ['localhost', '127.0.0.1'].includes(location.hostname);
 
 export const zonesReady = json('../../data/zones.geojson')
@@ -14,16 +15,21 @@ export const zonesReady = json('../../data/zones.geojson')
   .catch(e => { console.warn('Zones did not load, so policies cannot change the map.', e); return []; });
 export const dataReady = Promise.all([zonesReady, json('../../data/assumptions.json'), json('../../data/baselines.json')]);
 
-// Every card listed in data/cards.index.json. Invalid ones are logged and skipped.
+// Every card listed in data/cards.index.json, plus the stub card while there are none (or with ?stub). Invalid ones are logged and skipped.
 export const cardsReady = json('../../data/cards.index.json')
   .catch(e => { console.warn('No card index, so no policy cards.', e); return []; })
-  .then(paths => Promise.all([...paths.map(p => `../../data/${p}`), ...(stubOn ? ['../../tests/fixtures/stub-card.json'] : [])].map(path => json(path).then(
-    card => {
-      const errors = validateCard(card);
-      if (!errors.length) return card;
-      console.warn(`Skipping invalid policy card ${path}:\n  ${errors.join('\n  ')}`);
-    },
-    e => console.warn(`Skipping policy card ${path}:`, e)))))
+  .then(paths => {
+    stubAuto = !paths.length;
+    const urls = paths.map(p => `../../data/${p}`);
+    if (stubOn || stubAuto) urls.push('../../tests/fixtures/stub-card.json');
+    return Promise.all(urls.map(path => json(path).then(
+      card => {
+        const errors = validateCard(card);
+        if (!errors.length) return card;
+        console.warn(`Skipping invalid policy card ${path}:\n  ${errors.join('\n  ')}`);
+      },
+      e => console.warn(`Skipping policy card ${path}:`, e))));
+  })
   .then(cards => cards.filter((c, i) => c && cards.findIndex(o => o?.id === c.id) === i));
 
 // Cards in the policy panel's shape. A card replaces the hardcoded policy with the same id; the rest stay.

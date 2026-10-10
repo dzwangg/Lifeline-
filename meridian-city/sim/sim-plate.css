@@ -27,6 +27,14 @@
 .sim__slider { display: grid; gap: 4px; margin: 6px 0; }
 .sim__slider > span { display: flex; justify-content: space-between; gap: 8px; }
 .sim__slider input { width: 100%; margin: 0; accent-color: var(--sodium); }
+.sim__year { display: flex; align-items: flex-end; gap: 10px; margin-bottom: 8px; }
+.sim__year .sim__slider { flex: 1; margin: 0; }
+.sim__play {
+  flex: none; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%;
+  background: var(--sodium); color: #fff; cursor: pointer; box-shadow: 0 4px 12px rgba(7, 140, 155, .35), inset 0 1px 0 rgba(255, 255, 255, .4);
+}
+.sim__play svg { width: 12px; height: 12px; fill: currentColor; }
+.sim__play:focus-visible { outline: 2px solid var(--sodium); outline-offset: 2px; }
 .sim__val { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .sim__check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .sim__check input { margin: 0; accent-color: var(--sodium); }

@@ -1,5 +1,6 @@
 // The sim's data and state, shared by the zone layer (renderer) and the sim plate (UI).
 import { runScenario } from '../../shared/sim.js';
+import { simulate } from '../../shared/agents.js';
 import { validateCard } from '../../shared/schema.js';
 import { toLocal } from '../../shared/geo.js';
 import { POLICIES } from '../policy/policies.js';
@@ -39,7 +40,8 @@ export const panelPolicies = cards => [
 ];
 
 // cards: the applied cards. params: card id -> param key -> value. before: show year 0 whatever the year slider says.
-let state = { cards: [], params: {}, year: 10, before: false, result: null };
+// households: the agent model's run for the homes those cards add. resident: the household picked on the map.
+let state = { cards: [], params: {}, year: 10, before: false, result: null, households: null, resident: null };
 const listeners = new Set();
 export const scenario = {
   get: () => state,
@@ -50,14 +52,17 @@ export const scenario = {
     if ('cards' in patch || 'params' in patch) rerun();
   },
 };
-export const shownStates = s => s.result?.timeline[s.before ? 0 : s.year].zoneStates;
+export const shownYear = s => (s.before ? 0 : s.year);
+export const shownStates = s => s.result?.timeline[shownYear(s)].zoneStates;
 
 let timer;
 function rerun() { // debounced: a dragged slider fires many inputs
   clearTimeout(timer);
   timer = setTimeout(async () => {
     const [zones, assumptions, baselines] = await dataReady;
-    scenario.set({ result: runScenario(state.cards, state.params, zones, assumptions, baselines) });
+    const result = runScenario(state.cards, state.params, zones, assumptions, baselines), t = result.timeline;
+    const newHomes = t.at(-1).metrics.housingUnits - t[0].metrics.housingUnits; // what the active cards add by the last year
+    scenario.set({ result, households: simulate(newHomes, assumptions, baselines) });
   }, 120);
 }
 rerun(); // the baseline, before any card is applied

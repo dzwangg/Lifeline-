@@ -1,21 +1,27 @@
 // The sim plate: for each card applied in the policy panel, its sliders, decider and tradeoffs; then the year
 // slider, a before/after toggle and the metrics. Built only from card data, and it never recommends anything.
 import { h } from '../policy/components.js';
-import { scenario, dataReady, devMode, stubOn, stubAuto } from './scenario.js';
+import { scenario, dataReady, devMode, stubOn, stubAuto, shownYear } from './scenario.js';
 
 const YEAR_MS = 1000; // play speed: one simulated year per second, so 0 to 10 takes 10 s
 const PLAY_ICON = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3.5 2v8l6.5-4z"/></svg>', PAUSE_ICON = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 2h2.2v8H3zM6.8 2H9v8H6.8z"/></svg>';
 
 const sign = d => (d > 0 ? '+' : '−');
 const fixed = (n, digits) => n.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
-// inputs: the baselines.json / assumptions.json entries each metric is computed from (see shared/sim.js).
+// inputs: the baselines.json / assumptions.json entries each metric is computed from (see shared/sim.js and shared/agents.js).
+// agents: read from the household model's year instead of the SimResult, then scaled from simulated to real households.
 const METRICS = [
   { key: 'housingUnits', label: 'Homes', fmt: n => fixed(n, 0), inputs: ['housingUnits', 'unitsPerAcre'] },
   { key: 'medianRent', label: 'Median rent', fmt: n => `$${fixed(n, 2)}`, inputs: ['medianGrossRent', 'rentSupplyElasticity', 'housingUnits', 'unitsPerAcre'] },
   { key: 'treeCoverPct', label: 'Tree cover', fmt: n => `${fixed(n, 2)}%`, dfmt: n => `${fixed(n, 2)} pts`, inputs: ['treeCoverPct', 'mapAreaAcres', 'canopyMinPct'] },
   { key: 'avgCommuteMin', label: 'Mean commute', fmt: n => `${fixed(n, 2)} min`, inputs: ['meanCommuteMin', 'commuteDistancePenalty', 'housingUnits', 'unitsPerAcre'] },
   { key: 'taxRevenue', label: 'Property tax revenue', fmt: n => `$${fixed(n, 0)}`, inputs: ['housingUnits', 'unitsPerAcre', 'medianHomeValue', 'propertyTaxRate'] },
+  { key: 'households', label: 'Households (est.)', agents: y => y.pop, fmt: n => fixed(n, 0), inputs: ['agentScale', 'agentHouseholds', 'agentUnits', 'agentGrowth', 'agentInducedShare'] },
+  { key: 'pricedOut', label: 'Priced out (est.)', agents: y => y.displaced, fmt: n => fixed(n, 0), inputs: ['agentScale', 'agentBurdenLine', 'agentBurdenRise', 'agentLeaveProb', 'agentRentAmp', 'agentTargetVacancy'] },
 ];
+const WORK = { remote: 'Works from home', durham: 'Works in Durham', campus: 'Works at UNC', downtown: 'Works downtown' };
+const WHERE = { downtown: 'near Franklin St', campus: 'near campus', edge: 'at the edge of town' };
+const money = n => `$${fixed(n, 0)}`, share = b => `${Math.round(b * 100)}%`;
 const flagOf = source => /^(PLACEHOLDER|VERIFY)/.exec(source)?.[1];
 const showValue = v => (typeof v === 'object' ? Object.entries(v).map(([k, x]) => `${k} ${x}`).join(' · ') : String(v));
 
@@ -24,7 +30,7 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
   const sources = { ...baselines, ...assumptions };
   const cardById = new Map(cards.map(c => [c.id, c]));
 
-  const cardsEl = h('div', { class: 'sim__cards' });
+  const cardsEl = h('div', { class: 'sim__list' }), residentEl = h('div', { class: 'sim__resident', 'aria-live': 'polite' });
   const yearOut = h('output', { class: 'sim__val' });
   const yearIn = h('input', { type: 'range', min: 0, max: 10, step: 1, value: scenario.get().year, oninput: () => { pause(); scenario.set({ year: +yearIn.value }); } });
   const beforeIn = h('input', { type: 'checkbox', onchange: () => { pause(); scenario.set({ before: beforeIn.checked }); } });
@@ -46,7 +52,7 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
   }
   const rows = METRICS.map(Metric);
   const body = h('div', { class: 'sim__body', id: 'sim-body' },
-    cardsEl,
+    h('div', { class: 'sim__cards' }, residentEl, cardsEl),
     h('div', { class: 'sim__time' },
       h('div', { class: 'sim__year' }, playBtn, h('label', { class: 'sim__slider' }, h('span', {}, 'Year ', yearOut), yearIn)),
       h('label', { class: 'sim__check' }, beforeIn, 'Show before (year 0)')),
@@ -82,13 +88,37 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
     yearOut.textContent = s.before ? '0 (before)' : s.year;
     yearIn.value = s.year;
     if (!s.result) return;
-    const t = s.result.timeline, base = t[0].metrics, now = t[s.before ? 0 : s.year].metrics;
+    const y = shownYear(s), scale = sources.agentScale.value;
+    const get = (m, yr) => (m.agents ? s.households && m.agents(s.households.years[yr]) * scale : s.result.timeline[yr].metrics[m.key]);
     for (const { m, value, delta } of rows) {
-      const d = now[m.key] - base[m.key];
-      value.textContent = m.fmt(now[m.key]);
-      delta.textContent = d ? `${sign(d)}${(m.dfmt ?? m.fmt)(Math.abs(d))} (${sign(d)}${fixed(Math.abs(d / base[m.key] * 100), 2)}%)` : 'no change';
+      const now = get(m, y), base = get(m, 0), d = now - base;
+      value.textContent = now == null ? '…' : m.fmt(now);
+      delta.textContent = now == null ? '' : !d ? 'no change'
+        : `${sign(d)}${(m.dfmt ?? m.fmt)(Math.abs(d))}${base ? ` (${sign(d)}${fixed(Math.abs(d / base * 100), 2)}%)` : ''}`;
     }
+    renderResident(s);
   });
+
+  // The household picked on the map, as of the shown year (or its first or last year here, outside that range).
+  function renderResident(s) {
+    const a = s.resident == null ? null : s.households?.agents.find(x => x.id === s.resident);
+    if (!a) return residentEl.replaceChildren();
+    const y = shownYear(s), at = a.hist[Math.min(Math.max(y, a.joined), a.left ?? 10)];
+    const status = y < a.joined ? `Moves here in year ${a.joined}` : a.left !== null && a.left <= y ? `Left in year ${a.left}` : a.joined ? `Moved in year ${a.joined}` : 'Lives here';
+    residentEl.replaceChildren(h('section', { class: 'resident' },
+      h('header', { class: 'resident__head' },
+        h('h3', {}, a.name),
+        h('button', { class: 'resident__close', type: 'button', 'aria-label': 'Close resident card', onclick: () => scenario.set({ resident: null }) }, '×')),
+      h('p', { class: 'resident__status' }, status),
+      h('dl', { class: 'resident__facts' },
+        h('dt', {}, 'Job'), h('dd', {}, a.student ? (a.work === 'campus' ? 'Student at UNC' : `Student; ${WORK[a.work].toLowerCase()}`) : WORK[a.work]),
+        h('dt', {}, 'Home'), h('dd', {}, a.renter ? 'Renter' : 'Owner'),
+        h('dt', {}, 'Income'), h('dd', {}, `${money(a.income)} a year`),
+        h('dt', {}, 'Rent'), h('dd', {}, a.renter ? `${money(at.rent)}/mo · ${share(at.burden)} of income` : 'None, owns home'),
+        h('dt', {}, 'Commute'), h('dd', {}, a.work === 'remote' ? 'None, works from home' : `${at.commute} min`)),
+      h('p', { class: 'resident__story' }, story(a, y, at)),
+      a.renter && Sparkline(a, y)));
+  }
 
   function Card(card) {
     const values = scenario.get().params[card.id] ?? {};
@@ -137,6 +167,29 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
       e.note && h('span', { class: 'sim-why__note' }, e.note),
       e.alternate && h('span', { class: 'sim-why__note' }, `Alternate: ${showValue(e.alternate.value)}. ${e.alternate.source}`));
   }
+}
+
+function story(a, y, at) {
+  const where = WHERE[a.zone];
+  if (y < a.joined) return `${a.name} moves in ${where} in year ${a.joined}.`;
+  if (a.left !== null && a.left <= y) return `${a.name} left a rental ${where} in year ${a.left}, when rent had reached ${share(at.burden)} of income.`;
+  if (!a.renter) return `${a.name} owns a home ${where} and ${a.work === 'remote' ? 'works from home' : `spends ${at.commute} minutes getting to work`}.`;
+  const change = at.rent / a.hist[a.joined].rent - 1;
+  const trend = Math.abs(change) < .005 ? 'has held steady' : `is ${change > 0 ? 'up' : 'down'} ${share(Math.abs(change))}`;
+  return `${a.name} ${a.joined ? `moved in ${where} in year ${a.joined}` : `rents ${where}`}, and rent ${trend} since ${a.joined ? 'then' : 'year 0'}, now ${share(at.burden)} of income.`;
+}
+
+// Monthly rent over the years the household lived here, with a dot on the shown year.
+function Sparkline(a, y) {
+  const end = a.left ?? 10, pts = [];
+  for (let t = a.joined; t <= end; t++) pts.push([t, a.hist[t].rent]);
+  if (pts.length < 2) return null;
+  const W = 220, H = 40, rents = pts.map(p => p[1]), lo = Math.min(...rents), hi = Math.max(...rents);
+  const X = t => 4 + (t - a.joined) / (end - a.joined) * (W - 8), Y = v => H - 4 - (hi > lo ? (v - lo) / (hi - lo) : .5) * (H - 8);
+  const [ct, cv] = pts.find(p => p[0] === Math.min(Math.max(y, a.joined), end));
+  return h('figure', { class: 'resident__spark' },
+    h('div', { html: `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Monthly rent by year"><polyline points="${pts.map(([t, v]) => `${X(t).toFixed(1)},${Y(v).toFixed(1)}`).join(' ')}"/><circle cx="${X(ct).toFixed(1)}" cy="${Y(cv).toFixed(1)}" r="3"/></svg>` }),
+    h('figcaption', {}, `Rent, years ${a.joined}–${end}: ${money(rents[0])} → ${money(rents.at(-1))}`));
 }
 
 function toggleStub(on) {

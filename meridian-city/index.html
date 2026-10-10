@@ -91,6 +91,7 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
 import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/controls/OrbitControls.js/+esm';
 import { Sky } from 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/objects/Sky.js/+esm';
 import { zonesReady, mountZoneLayer } from './sim/zone-layer.js';
+import { mountAgentLayer } from './sim/agent-layer.js';
 
 const $ = id => document.getElementById(id);
 const view = $('view');
@@ -508,6 +509,7 @@ const GREENS = ['#4f7a3a', '#5d8a44', '#3f6b35', '#6e8f4a', '#557d3e', '#7a8f46'
 instanced(trunkGeo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .95 }), trees);
 instanced(canopyGeo, new THREE.MeshStandardMaterial({ map: leafTex, roughness: .9 }), trees, trees.map(() => pick(GREENS).clone().multiplyScalar(rr(.8, 1.1))));
 mountZoneLayer({ scene, zones: ZONES, at, inside, bounds, trunkGeo, canopyGeo, leafTex, greens: GREENS });
+mountAgentLayer({ scene, camera, dom: renderer.domElement, osm: OSM, zones: ZONES, at, inside, bounds });
 
 const lampGeo = geoFrom([
   [new THREE.CylinderGeometry(.09, .14, 8, 8), T(0, 4, 0), '#3b3f44'],

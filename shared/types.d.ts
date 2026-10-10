@@ -7,7 +7,7 @@ export interface Zone {
   id: string;
   state: ZoneState;
   areaAcres: number;
-  tags: string[]; // "map_edge" (near the map boundary, not the town limit), "corridor" (near a trunk road such as 15-501)
+  tags: string[]; // "map_edge" (wood near the map boundary, not the town limit), "corridor" (wood near a trunk road such as 15-501), "wood-NN"
   edgeDistM: number; // metres to the map boundary: rules convert zones closest-to-edge first
   geometry: { type: 'Polygon'; coordinates: [number, number][][] }; // GeoJSON, WGS84 lng/lat
 }

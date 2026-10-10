@@ -9,7 +9,7 @@
     "how": ["Test fixture only: replace with a real card in data/policies/."]
   },
   "params": [
-    { "key": "acres_released", "label": "Acres released", "min": 0, "max": 250, "default": 60, "unit": "acres" }
+    { "key": "acres_released", "label": "Acres released", "min": 0, "max": 150, "default": 130, "unit": "acres" }
   ],
   "zoneRules": [
     { "where": "tag:map_edge", "from": "forest", "to": "low_res", "ratePerYear": 0.1, "capParam": "acres_released" }

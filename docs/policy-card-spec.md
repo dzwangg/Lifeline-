@@ -59,14 +59,15 @@ Unknown fields are rejected, so a typo like `zonerules` fails validation instead
 | `parking` | Cleared ground |
 | `transit_station` | Taller blocks |
 
-Every zone in `data/zones.geojson` starts as `forest`.
+Every zone in `data/zones.geojson` starts as `forest`. A zone is a parcel of about an acre or less. The 30 largest woods on the map are each cut into parcels, so a policy spreads through a wood over the years instead of flipping all of it at once.
 
 ## `where` syntax
 
 - `tag:<tag>` matches every zone carrying that tag. The current tags are:
-  - `map_edge`: within 50 m of the map boundary. This is the edge of the area the map covers (downtown and UNC), **not** the town limit.
-  - `corridor`: within 150 m of an OSM trunk road. In this map those run along the south edge (the 15-501 corridor).
-- `id:<zoneId>` matches one zone, e.g. `id:zone-07`. Zone ids run from `zone-01` (largest) to `zone-30`. Open `data/zones.geojson` to see each zone's acres and tags.
+  - `map_edge`: in a wood within 50 m of the map boundary. This is the edge of the area the map covers (downtown and UNC), **not** the town limit.
+  - `corridor`: in a wood within 150 m of an OSM trunk road. In this map those run along the south edge (the 15-501 corridor).
+  - `wood-01` to `wood-30`: every parcel of one wood. `wood-01` is the largest.
+- `id:<zoneId>` matches one parcel, e.g. `id:zone-07-03` (wood 07, parcel 03). Open `data/zones.geojson` to see each parcel's acres and tags.
 
 The validate script warns when a `where` matches no zone.
 

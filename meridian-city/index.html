@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;800&family=Overpass+Mono:wght@400;600&family=Mukta:wght@400;600;700;800&display=swap">
 <link rel="stylesheet" href="policy/policy-panel.css">
+<link rel="stylesheet" href="sim/results-panel.css">
 <style>
   /* Frutiger Aero: sunlit sky, clear water, and luminous glass overlays. */
   :root {
@@ -63,9 +64,11 @@
 // Policy panel: kept apart from the WebGL build below so it works while the city is still loading.
 import { createPolicyStore } from './policy/store.js';
 import { mountPolicyPanel } from './policy/policy-panel.js';
+import { mountResults } from './sim/results-panel.js';
 
 const store = createPolicyStore();
 const panel = mountPolicyPanel({ store });
+mountResults({ store }); // runs the CH-LUTI model whenever policies are applied
 const launch = document.getElementById('policy-launch'), count = document.getElementById('policy-count');
 launch.addEventListener('click', () => panel.open(launch));
 addEventListener('keydown', e => {
@@ -77,7 +80,7 @@ store.subscribe(({ applied }) => {
   count.textContent = n ? `${n} active` : 'None active';
   count.classList.toggle('is-none', !n);
 });
-window.policyStore = store; // the simulation reads store.getState().applied once it models effects
+window.policyStore = store;
 </script>
 
 <script defer src="chapel-hill.js"></script>
@@ -568,11 +571,18 @@ $('stats').textContent = `Chapel Hill, NC · ${built.toLocaleString()} buildings
 $('loading').remove();
 
 const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------- simulation hook: sim/city-effects.js draws construction, buses, bike lanes and traffic levels into this scene ----------
+const frameHooks = [];
+window.meridian = { THREE, scene, camera, controls, env, OSM, EXT, roads, lanes, nodes, MAJOR, turn, M, area, bounds, carMesh, cars, frameHooks, still };
+dispatchEvent(new Event('meridian:ready'));
+
 const clock = new THREE.Clock(), altv = $('altv');
 let lastAlt = -1;
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), .05);
   controls.update();
+  for (const f of frameHooks) f(dt);
   if (!still) { moveCars(dt); waterNormals.offset.x += dt * .004; }
   fitShadow();
   renderer.render(scene, camera);

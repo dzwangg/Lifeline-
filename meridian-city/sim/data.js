@@ -78,4 +78,4 @@ export const ZONES = [
 // headway: typical peak minutes between Chapel Hill Transit buses serving the zone (derived from the route network; approximate).
 
 // Residents who commute out of town (Durham, RTP, Raleigh). derived: ~45% of resident commuters, LODES OD-style estimate.
-export const REGION = { outShare: 0.45, distanceKm: 20, headway: 30 };
+export const REGION = { outShare: 0.45, distanceKm: 16, headway: 30 }; // ~16 km: downtown Durham, Duke, RTP's west edge

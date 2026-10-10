@@ -43,19 +43,19 @@ export const PARAMS = {
     source: 'CBRE cap-rate surveys, Raleigh–Durham multifamily ~5–5.5% (2024–25)' },
   structuredParkingCost: { lo: 25000, mid: 30000, hi: 40000, unit: '$/space', group: 'Development',
     label: 'Cost of a structured parking space',
-    source: 'WGI Parking Structure Cost Outlook (2024): national median ≈ $30k per space' },
+    source: 'WGI Parking Structure Cost Outlook: national median $29,900 per space (2024), $33,300 (2026)' },
   siteDispersion: { lo: 0.08, mid: 0.12, hi: 0.2, unit: '', group: 'Development',
     label: 'Spread of profitability across sites',
     source: 'Calibrated so long-run housing supply elasticity lands near 0.5–1 (Saiz 2010 range for Southern metros)' },
   upzoneCapacity: { lo: 0.3, mid: 0.6, hi: 1.0, unit: '', group: 'Development',
     label: 'Share of extra allowed floor area that becomes buildable capacity',
-    source: 'Auckland’s 2016 upzoning roughly doubled permits on upzoned land (Greenaway-McGrevy & Phillips 2023, JUE)' },
+    source: 'Auckland’s 2016 upzoning significantly raised construction on upzoned land (Greenaway-McGrevy & Phillips 2023, JUE); size of response uncertain' },
   landCapture: { lo: 0.3, mid: 0.5, hi: 0.8, unit: '', group: 'Development',
     label: 'Share of an upzoning’s value landowners capture in land prices',
     source: 'Land-value capitalisation of zoning (Freemark 2020, UAR); evidence varies widely' },
   marketParkingRatio: { lo: 0.6, mid: 0.85, hi: 1.0, unit: 'spaces/unit', group: 'Development',
     label: 'Parking developers would build without a minimum',
-    source: 'After Buffalo removed minimums, projects built ~47% fewer spaces than required (Hess & Rehler 2021, JAPA)' },
+    source: 'After Buffalo dropped minimums, 47% of major projects built less than required; large projects about half (Hess & Rehler 2021, JAPA)' },
 
   // ---------- storefront businesses ----------
   closureRate: { lo: 0.08, mid: 0.10, hi: 0.13, unit: '/yr', group: 'Businesses',
@@ -70,7 +70,7 @@ export const PARAMS = {
   grantButFor: { lo: 0.05, mid: 0.15, hi: 0.30, unit: '', group: 'Businesses',
     label: 'Share of at-risk grant recipients a grant actually saves',
     source: 'No causal study of small-business grants found; borrowed from Bartik (2018) “but for” review of incentives: 2–25%, median ~12%' },
-  startupButFor: { lo: 0.10, mid: 0.25, hi: 0.45, unit: '', group: 'Businesses',
+  startupButFor: { lo: 0.10, mid: 0.2, hi: 0.4, unit: '', group: 'Businesses',
     label: 'Share of funded start-ups that would not have opened otherwise',
     source: 'Bartik (2018) “but for” range, widened for very small firms; weak evidence' },
   costPerHiringJob: { lo: 75000, mid: 35000, hi: 12000, unit: '$/job', group: 'Businesses',
@@ -127,6 +127,7 @@ export const FIXED = {
   spendingFromJobs: 0.45,       // share of storefront spending that comes from people who work in Town
   grantSize: 10000,
   startupGrantSize: 25000,
+  startupFirstYearSurvival: 0.8, // ~20% of new businesses close within a year (BLS Business Employment Dynamics)
   hiringJobAttrition: 0.2,      // per year, for jobs a hiring subsidy created
   atRiskMultiple: 2,            // grant recipients are businesses closing at twice the usual rate
   inCommuterTransitShare: 0.15,

@@ -10,11 +10,12 @@ const KINDS = ['tree', 'house', 'block'];
 const STEP = { tree: 11, house: 18, block: 34 }; // slot spacing in metres; 11 m matches the base map's woods
 const CLEAR = { tree: 0, house: 7, block: 14 }; // half-footprint that must miss buildings, roads and the zone's edge
 const MS = 600, STRIDE = 6; // a slot is x, z, rotation, width, height, depth
-const HOUSE_TINTS = ['#f2ede4', '#e8dccb', '#d9e2e6', '#efe2d0', '#ffffff'].map(c => new THREE.Color(c));
-const BLOCK_TINTS = ['#e6e2da', '#d6d9de', '#c9c4c0', '#efe6d6'].map(c => new THREE.Color(c));
+const HOUSE_TINTS = ['#ffffff', '#f3e6d0', '#e3ecd8', '#f0dfe6', '#dfe8f0'].map(c => new THREE.Color(c));
+const BLOCK_TINTS = ['#ffffff', '#f0e2cf', '#e6dcd2', '#f5ead8'].map(c => new THREE.Color(c));
 
-// at/inside/bounds and the tree parts come from the base map, so zone forests look like every other wood.
-export function mountZoneLayer({ scene, zones, at, inside, bounds, trunkGeo, canopyGeo, leafTex, greens }) {
+// at/inside/bounds come from the base map. parts[kind] lists what to draw for each kind, in the city's art:
+// { geo, material } meshes, or { make(count, pick) } for prebuilt instanced meshes such as sprite trees.
+export function mountZoneLayer({ scene, zones, at, inside, bounds, parts }) {
   let seed = 4242;
   const rnd = () => { seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
   const rr = (a, b) => a + rnd() * (b - a), pick = a => a[Math.floor(rnd() * a.length)];
@@ -35,19 +36,14 @@ export function mountZoneLayer({ scene, zones, at, inside, bounds, trunkGeo, can
     slots[kind] = new Float32Array(list);
   }
 
-  const std = o => new THREE.MeshStandardMaterial(o);
-  const boxGeo = new THREE.BoxGeometry(1, 1, 1).translate(0, .5, 0);
-  const roofGeo = new THREE.ConeGeometry(.78, .45, 4).rotateY(Math.PI / 4).translate(0, 1.225, 0);
-  const meshes = {
-    tree: [layer(trunkGeo, std({ vertexColors: true, roughness: .95 }), 'tree'), layer(canopyGeo, std({ map: leafTex, roughness: .9 }), 'tree', () => pick(greens).clone().multiplyScalar(rr(.8, 1.1)))],
-    house: [layer(boxGeo, std({ roughness: .85 }), 'house', () => pick(HOUSE_TINTS)), layer(roofGeo, std({ color: 0x5a5550, roughness: .9 }), 'house')],
-    block: [layer(boxGeo, std({ roughness: .8 }), 'block', () => pick(BLOCK_TINTS))],
-  };
-  function layer(geo, material, kind, color) {
-    const n = slots[kind].length / STRIDE, m = new THREE.InstancedMesh(geo, material, Math.max(n, 1));
+  const TINTS = { house: HOUSE_TINTS, block: BLOCK_TINTS };
+  const meshes = Object.fromEntries(KINDS.map(kind => [kind, parts[kind].map(part => layer(part, kind, TINTS[kind] && (() => pick(TINTS[kind]))))]));
+  function layer(part, kind, color) {
+    const n = slots[kind].length / STRIDE;
+    const m = part.make ? part.make(n, () => rnd()) : new THREE.InstancedMesh(part.geo, part.material, Math.max(n, 1));
     m.count = n;
-    if (color) for (let i = 0; i < n; i++) m.setColorAt(i, color());
-    m.castShadow = m.receiveShadow = true;
+    if (color && !part.make) for (let i = 0; i < n; i++) m.setColorAt(i, color());
+    m.castShadow = m.receiveShadow = !part.make; // sprite trees carry their own contact art
     m.frustumCulled = false; // instances start at scale 0, so a bounding sphere computed then would be wrong
     scene.add(m);
     return m;
@@ -86,9 +82,22 @@ export function mountZoneLayer({ scene, zones, at, inside, bounds, trunkGeo, can
     if (p < 1) requestAnimationFrame(tick); else running = false;
   }
 
+  // Zones whose state differs from year 0 get a dashed gold outline, so policy effects read clearly.
+  const outlineMat = new THREE.LineDashedMaterial({ color: 0xf7d774, dashSize: 3, gapSize: 2, depthTest: false, transparent: true });
+  const outlines = zones.map(({ ring }) => {
+    const pts = [];
+    for (let i = 0; i < ring.length; i += 2) pts.push(new THREE.Vector3(ring[i], .4, ring[i + 1]));
+    const line = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), outlineMat);
+    line.computeLineDistances(); line.visible = false; line.renderOrder = 997;
+    scene.add(line);
+    return line;
+  });
+
   scenario.subscribe(s => {
     const states = shownStates(s);
     if (!states) return;
+    const base = s.result?.timeline[0].zoneStates;
+    zones.forEach((z, zi) => { outlines[zi].visible = !!base && states[z.id] !== base[z.id]; });
     let changed = false;
     zones.forEach((z, zi) => {
       for (const k of KINDS) {

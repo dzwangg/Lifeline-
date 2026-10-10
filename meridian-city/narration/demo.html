@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Narration demo</title>
+</head>
+<body style="font-family:system-ui,sans-serif;max-width:40rem;margin:2rem auto;padding:0 1rem;line-height:1.5">
+<h1>Narration demo</h1>
+<p>Recap of <code>tests/fixtures/sim-result.json</code>.</p>
+<div id="narration"></div>
+<script type="module">
+import { mountNarration } from './narration.js';
+
+const result = await fetch('../../tests/fixtures/sim-result.json').then(r => r.json());
+mountNarration(document.getElementById('narration'), () => result);
+</script>
+</body>
+</html>

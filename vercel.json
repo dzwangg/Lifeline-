@@ -1,5 +1,8 @@
 {
   "redirects": [
     { "source": "/", "destination": "/meridian-city/", "permanent": false }
-  ]
+  ],
+  "functions": {
+    "api/narration.js": { "includeFiles": "demo-audio/**" }
+  }
 }

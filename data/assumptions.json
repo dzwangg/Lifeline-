@@ -17,24 +17,24 @@
     "note": "Which value in that range applies to each zone state is our mapping, not the ordinance's. Forest counts as full canopy."
   },
   "unitsPerAcre": {
-    "value": { "forest": 0, "low_res": 4, "mid_res": 20, "mixed_use": 30, "parking": 0, "transit_station": 0 },
-    "source": "PLACEHOLDER - needs citation"
+    "value": { "forest": 0, "low_res": 4, "mid_res": 15, "mixed_use": 70, "parking": 0, "transit_station": 0 },
+    "source": "Town of Chapel Hill Future Land Use Map, \"Charting Our Future\" (Dec 2020): Low Residential 1-4 units/acre, High Residential 8-15+, https://online.flippingbook.com/view/26191/1/ ; last codified LUMO Table 3.8-1 density caps (R-2 4.0, R-5 and R-6 15.0), https://api.municode.com/CodesContent?jobId=426902&nodeId=PTIICO_APXALAUSMA_ART3ZODIUSDIST_3.8DIST&productId=19952 ; approved mixed-use projects: Fordham Blvd Apartments (Chapelboro, 2017-05-09) https://chapelboro.com/news/development/proposal-calls-273-apartment-units-fordham-boulevard , Aura Blue Hill (News & Observer, 2021-10-28) https://www.yahoo.com/news/developer-request-leaves-chapel-hill-094500130.html , 101 E. Rosemary St (Town staff report, 2023) https://chapelhill.legistar1.com/chapelhill/attachments/9c06f852-7dd9-4b44-9094-b9564b4d7141.docx",
+    "note": "Which district stands for which zone state is our mapping. mixed_use 70 is the low end of three approved Chapel Hill projects (about 70, 99 and 214 units/acre, our calculation); a suburban-village style (MU-V arterial cap) would be about 20. Chapel Hill removed its residential density caps in 2023 (Ord. 2023-06-21/O-6)."
   },
   "treesPerAcre": {
     "value": 33,
-    "source": "PLACEHOLDER - needs citation",
-    "note": "33 matches the renderer's 11 m tree spacing. Not used by the metrics yet."
+    "source": "USDA Forest Service FIA, EVALIDator (FIADB-API), NC 2024 evaluation, Piedmont unit 3703: 30.5 live trees per acre at 13 in. DBH or more. https://apps.fs.usda.gov/fiadb-api/fullreport?snum=4&wc=372024&rselected=Unit%20code&cselected=Diameter%20class%3A%202%20inch%20class%20to%2029&outputFormat=NJSON",
+    "note": "Counts large trees only (about 13 in. DBH and up), which matches the renderer's 11 m tree spacing. At 5 in. and up the Piedmont average is 177 per acre (our calculation). Not used by the metrics yet."
   },
   "commuteDistancePenalty": {
-    "value": 3,
+    "value": 0.6,
     "unit": "minutes",
-    "source": "PLACEHOLDER - needs citation",
-    "note": "Extra minutes for each new home in a map_edge zone. The town mean moves by the penalty times those homes' share of all homes."
+    "source": "ACS 2020-2024 5-year: mean travel time = B08013 (aggregate minutes) / B08303 (workers who did not work from home), by census tract. https://data.census.gov/table/ACSDT5Y2024.B08013?g=160XX00US3711800 and https://data.census.gov/table/ACSDT5Y2024.B08303?g=160XX00US3711800",
+    "note": "Our calculation: map_edge zones, assigned to tracts by centroid and weighted by acres, average 20.1 min vs 19.5 town-wide. That is inside the tracts' margins of error, so statistically indistinguishable from 0. Used by the aggregate sim; the page's commute comes from the household model."
   },
   "agentScale": {
     "value": 79,
-    "source": "PLACEHOLDER - needs citation",
-    "note": "Real households per simulated household: 23,713 / 300. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "source": "Derived: 23,713 housing units (2020 Census, see housingUnits) / 300 simulated households."
   },
   "agentHouseholds": {
     "value": { "downtown": 105, "campus": 98, "edge": 97 },
@@ -46,15 +46,10 @@
     "source": "PLACEHOLDER - needs citation",
     "note": "Simulated homes per zone at year 0. New homes from policies are added to edge. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
   },
-  "agentBuildYears": {
-    "value": 5,
-    "source": "PLACEHOLDER - needs citation",
-    "note": "Years over which new homes come online. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
-  },
   "agentGrowth": {
-    "value": 0.009,
-    "source": "PLACEHOLDER - needs citation",
-    "note": "Baseline in-migration per year. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "value": 0.0073,
+    "source": "U.S. Census Bureau decennial census households (occupied housing units), Chapel Hill town: 20,564 in 2010 (SF1 H3) https://data.census.gov/table/DECENNIALSF12010.H3?g=160XX00US3711800 and 22,118 in 2020 (P.L. 94-171 H1) https://data.census.gov/table/DECENNIALPL2020.H1?g=160XX00US3711800",
+    "note": "Our calculation: compound growth 2010-2020. A historical rate, not a forecast. Baseline in-migration per year in the household model."
   },
   "agentInducedShare": {
     "value": 0.6,
@@ -117,14 +112,18 @@
     "note": "Log-normal spread of income by type. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
   },
   "agentRemoteShare": {
-    "value": 0.12,
-    "source": "PLACEHOLDER - needs citation",
-    "note": "From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "value": 0.28,
+    "source": "ACS 2020-2024 5-year, B08301 \"Means of Transportation to Work\", Chapel Hill town: 8,174 of 29,039 workers worked from home. https://data.census.gov/table/ACSDT5Y2024.B08301?g=160XX00US3711800",
+    "note": "A 2020-24 average that includes the 2021 peak (2019-2023: 0.271).",
+    "alternate": {
+      "value": 0.235,
+      "source": "Our calculation: Orange County's 2024 1-year to 2020-24 5-year ratio (22.4% / 26.8%) applied to Chapel Hill. https://data.census.gov/table/ACSDT1Y2024.B08301?g=050XX00US37135"
+    }
   },
   "agentDurhamShare": {
     "value": 0.2,
-    "source": "PLACEHOLDER - needs citation",
-    "note": "Share of households working in Durham. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "source": "U.S. Census Bureau LEHD Origin-Destination Employment Statistics (LODES 8), NC 2023, primary jobs (JT01): 4,225 of 20,644 Chapel Hill residents' primary jobs are in Durham city. https://lehd.ces.census.gov/data/lodes/LODES8/nc/od/nc_od_main_JT01_2023.csv.gz",
+    "note": "Our calculation, joined to the LODES block crosswalk. Durham County would be 0.25."
   },
   "agentCampusWorkShare": {
     "value": 0.5,
@@ -158,15 +157,21 @@
     "note": "Free-flow 15-501 travel time. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
   },
   "roadCapacity": {
-    "value": 6900,
-    "unit": "vehicles",
-    "source": "PLACEHOLDER - needs citation",
-    "note": "15-501 capacity. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "value": 2000,
+    "unit": "vehicles/hour per direction",
+    "source": "NCDOT \"Volume Over Capacity\" layer (capacity lookup by Three Oaks Engineering): US-15 route 20000015068, urban Piedmont, 2 lanes per direction with median, LOS E 37,000 vehicles/day two-way. https://services.arcgis.com/NuWFvHYDMVmmxMeM/ArcGIS/rest/services/NCDOT_Volume_Over_Capacity/FeatureServer/2",
+    "note": "Our calculation: converted with NCDOT's standard K = 0.09 and D = 0.6. The 15-501 segment on the map is Fordham Blvd, a signalized boulevard; NCDOT's 2021 capacity table gives about 1,955 for that facility type."
+  },
+  "roadPeakVolume": {
+    "value": 1960,
+    "unit": "vehicles/hour per direction",
+    "source": "NCDOT 2025 AADT, station 0680000193 \"US 15 WEST OF Morgan Creek Rd\": 41,500 vehicles/day, segment K = 0.08 and D = 0.591. https://services.arcgis.com/NuWFvHYDMVmmxMeM/ArcGIS/rest/services/NCDOT_2025_AADTandTrafficSegments_gdb/FeatureServer/1",
+    "note": "Our calculation: peak-hour, peak-direction demand. The household model's year 0 is calibrated to it, so 15-501 starts at 98% of capacity."
   },
   "roadCarShare": {
-    "value": 0.7,
-    "source": "PLACEHOLDER - needs citation",
-    "note": "Share of road users who drive. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "value": 0.74,
+    "source": "ACS 2020-2024 5-year, B08301, Chapel Hill town: car, truck or van is 15,393 of the 20,865 workers who did not work from home. https://data.census.gov/table/ACSDT5Y2024.B08301?g=160XX00US3711800",
+    "note": "The model counts road users after taking out remote workers, so the share of workers who travel applies (0.53 of all workers)."
   },
   "roadBpr": {
     "value": { "alpha": 0.15, "beta": 4 },

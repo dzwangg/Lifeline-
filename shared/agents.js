@@ -1,10 +1,11 @@
 // Household agent model, ported from the Chapel Hill Household Sim prototype (agents-prototype.js): pure and
-// deterministic, no DOM. 300 simulated households in three zones; new homes come online at the edge, rent follows
-// vacancy, renters whose rent burden stays high may leave, and 15-501 delay follows a BPR curve.
-// Coefficients are the agent* and road* entries in data/assumptions.json (all PLACEHOLDER). Year 0 is calibrated to
-// the ACS median gross rent and mean commute in data/baselines.json.
+// deterministic, no DOM. 300 simulated households in three zones; new homes come online where and when the policy
+// sim builds them, rent follows vacancy, renters whose rent burden stays high may leave, and 15-501 delay follows a
+// BPR curve. Coefficients are the agent* and road* entries in data/assumptions.json. Year 0 is calibrated to the ACS
+// median gross rent and mean commute in data/baselines.json, and to the observed 15-501 peak volume.
 
-/** @typedef {import('./types').Assumptions} Assumptions @typedef {import('./types').Baselines} Baselines */
+/** @typedef {import('./types').Assumptions} Assumptions @typedef {import('./types').Baselines} Baselines
+ *  @typedef {import('./types').SimResult} SimResult @typedef {import('./types').Zone} Zone */
 /** @typedef {'downtown' | 'campus' | 'edge'} AgentZone */
 /**
  * @typedef {object} Agent
@@ -42,12 +43,33 @@ function lognorm(r, median, sd) { // Box-Muller
   return median * Math.exp(sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v));
 }
 
+const NO_HOMES = { downtown: 0, campus: 0, edge: 0 };
+
+// Which household zone a sim parcel's homes belong to: map_edge parcels (edge and corridor cards) are on the town's
+// edge and commute over 15-501; the others (core infill) are near downtown.
+/** @param {Zone} zone @returns {AgentZone} */
+export const modelZone = zone => (zone.tags.includes('map_edge') ? 'edge' : 'downtown');
+
 /**
- * @param {number} newHomes real homes added by policies by the end of the run; they come online at the edge over agentBuildYears
+ * Real homes the policy sim has added by each year, by household zone.
+ * @param {SimResult} result @param {Zone[]} zones @param {Assumptions} assumptions
+ * @returns {Record<AgentZone, number>[]} one entry per year of the result's timeline
+ */
+export function homesByYear(result, zones, assumptions) {
+  const upa = assumptions.unitsPerAcre.value;
+  return result.timeline.map(({ zoneStates }) => {
+    const added = { ...NO_HOMES };
+    for (const z of zones) if (zoneStates[z.id] !== z.state) added[modelZone(z)] += (upa[zoneStates[z.id]] - upa[z.state]) * z.areaAcres;
+    return added;
+  });
+}
+
+/**
+ * @param {Record<AgentZone, number>[] | null} homes real homes added by each year 0-10 (see homesByYear); null for none
  * @param {Assumptions} assumptions @param {Baselines} baselines
  * @returns {{ agents: Agent[], years: AgentYear[] }}
  */
-export function simulate(newHomes, assumptions, baselines, seed = 7) {
+export function simulate(homes, assumptions, baselines, seed = 7) {
   const A = Object.fromEntries(Object.entries(assumptions).map(([k, v]) => [k, v.value]));
   const r = mulberry32(seed);
   const makeAgent = (id, zone, year, rentLevel) => {
@@ -70,11 +92,11 @@ export function simulate(newHomes, assumptions, baselines, seed = 7) {
   const k = baselines.medianGrossRent.value / rs[Math.floor(rs.length / 2)];
   agents.forEach(a => { a.rentBase *= k; });
 
-  let rentIndex = 1, unmet = 0, calib = null;
-  const years = [], extra = newHomes / A.agentScale, C = A.agentRentCurve;
+  let rentIndex = 1, unmet = 0, calib = null, roadK = null;
+  const years = [], C = A.agentRentCurve;
   for (let t = 0; t <= 10; t++) {
-    const frac = Math.min(t / A.agentBuildYears, 1);
-    const units = { ...A.agentUnits, edge: A.agentUnits.edge + Math.round(extra * frac) };
+    const added = homes?.[t] ?? NO_HOMES, units = {};
+    for (const z in A.agentUnits) units[z] = A.agentUnits[z] + Math.round(added[z] / A.agentScale);
     const live = () => agents.filter(a => a.left === null);
     if (t > 0) {
       // arrivals: baseline growth plus demand induced by surplus vacancy
@@ -108,7 +130,9 @@ export function simulate(newHomes, assumptions, baselines, seed = 7) {
     // commute: 15-501 load via BPR, time = t0 * (1 + alpha * (V/C)^beta)
     const L = live();
     const roadUsers = L.filter(a => a.work !== 'remote' && (a.zone === 'edge' || a.work === 'durham')).length;
-    const V = roadUsers * A.agentScale * A.roadCarShare, ratio = V / A.roadCapacity;
+    const V = roadUsers * A.agentScale * A.roadCarShare;
+    if (roadK === null) roadK = A.roadPeakVolume / V; // calibrate year 0 to the observed peak-hour, peak-direction volume
+    const ratio = V * roadK / A.roadCapacity;
     const roadTime = A.roadT0Min * (1 + A.roadBpr.alpha * Math.pow(ratio, A.roadBpr.beta));
     const raw = a => (a.work === 'remote' ? 0 : A.agentBaseCommuteMin[a.zone] + ((a.zone === 'edge' || a.work === 'durham') ? roadTime : 0) + (a.work === 'durham' ? A.agentDurhamExtraMin : 0));
     const commuters = L.filter(a => a.work !== 'remote');

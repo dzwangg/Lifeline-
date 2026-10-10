@@ -22,13 +22,13 @@
   "housingUnits": {
     "value": 23713,
     "year": 2020,
-    "source": "VERIFY against data.census.gov: 2020 Census count via zip-codes.com aggregation"
+    "source": "U.S. Census Bureau, 2020 Census Redistricting Data (P.L. 94-171), Table H1 \"Occupancy Status\", Chapel Hill town, NC: 22,118 occupied and 1,595 vacant. https://data.census.gov/table/DECENNIALPL2020.H1?g=160XX00US3711800"
   },
   "treeCoverPct": {
-    "value": 13.7,
-    "year": null,
-    "source": "PLACEHOLDER - needs citation",
-    "note": "Stand-in: the share of the map area mapped as OSM natural=wood (265 of 1,932 acres). That is not tree canopy."
+    "value": 46.9,
+    "year": 2021,
+    "source": "USFS / MRLC NLCD Tree Canopy Cover, CONUS v2021-4, 30 m. https://www.mrlc.gov/geoserver/mrlc_download/wcs",
+    "note": "Our calculation: mean canopy of the pixels inside the map area (bbox in meridian-city/fetch_osm.py). The Town publishes no official canopy figure. 30 m data reads low in urban areas; EPA EnviroAtlas 1 m land cover (2010) gives 50.3% over the same area."
   },
   "mapAreaAcres": {
     "value": 1932,

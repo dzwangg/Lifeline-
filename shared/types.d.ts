@@ -34,14 +34,18 @@ export interface PolicyCard {
   tradeoffs: { pros: string[]; cons: string[] }; // both must be non-empty
 }
 
-export interface Metrics { housingUnits: number; medianRent: number; treeCoverPct: number; avgCommuteMin: number; taxRevenue: number }
+export interface Metrics {
+  housingUnits: number; medianRent: number; treeCoverPct: number; avgCommuteMin: number; taxRevenue: number;
+  // With the household model (shared/agents.js withHouseholds), medianRent and avgCommuteMin come from it too.
+  households?: number; pricedOut?: number;
+}
 
 export interface SimResult {
   scenarioId: string;
   policies: { id: string; title: string; params: Record<string, number> }[];
   years: number;
   timeline: { year: number; zoneStates: Record<string, ZoneState>; metrics: Metrics }[];
-  deltas: { metric: string; baseline: number; final: number; changePct: number }[];
+  deltas: { metric: string; baseline: number; final: number; changePct: number; comparedWith?: 'year 0' | 'no new policy' }[];
   tradeoffs: { pros: string[]; cons: string[] };
   assumptions: { key: string; value: number; source: string }[];
 }

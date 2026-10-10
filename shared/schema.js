@@ -6,6 +6,7 @@ import { CATEGORIES, ICONS } from '../meridian-city/policy/policies.js'; // card
 
 export const ZONE_STATES = ['forest', 'low_res', 'mid_res', 'mixed_use', 'parking', 'transit_station'];
 export const METRICS = ['housingUnits', 'medianRent', 'treeCoverPct', 'avgCommuteMin', 'taxRevenue'];
+export const HOUSEHOLD_METRICS = ['households', 'pricedOut']; // added by shared/agents.js withHouseholds()
 
 /** Does a rule's `where` ("tag:<tag>" or "id:<zoneId>") select this zone? @param {string} where @param {Pick<Zone, 'id' | 'tags'>} zone */
 export const matchesWhere = (where, zone) => where === `id:${zone.id}` || (where.startsWith('tag:') && zone.tags.includes(where.slice(4)));
@@ -90,12 +91,13 @@ export function validateSimResult(r) {
     if (!obj(t, path, ['year', 'zoneStates', 'metrics'])) return;
     ok(t.year === i, `${path}.year`, `must be ${i}`);
     ok(isObj(t.zoneStates) && Object.values(t.zoneStates).every(s => ZONE_STATES.includes(s)), `${path}.zoneStates`, 'must map zone ids to zone states');
-    if (obj(t.metrics, `${path}.metrics`, METRICS)) for (const m of METRICS) ok(isNum(t.metrics[m]), `${path}.metrics.${m}`, 'must be a number');
+    if (obj(t.metrics, `${path}.metrics`, METRICS, HOUSEHOLD_METRICS)) for (const m of Object.keys(t.metrics)) ok(isNum(t.metrics[m]), `${path}.metrics.${m}`, 'must be a number');
   });
   if (list(r.deltas, 'deltas')) r.deltas.forEach((d, i) => {
     const path = `deltas[${i}]`;
-    if (!obj(d, path, ['metric', 'baseline', 'final', 'changePct'])) return;
-    ok(METRICS.includes(d.metric), `${path}.metric`, `must be one of ${METRICS.join(', ')}`);
+    if (!obj(d, path, ['metric', 'baseline', 'final', 'changePct'], ['comparedWith'])) return;
+    ok([...METRICS, ...HOUSEHOLD_METRICS].includes(d.metric), `${path}.metric`, `must be one of ${[...METRICS, ...HOUSEHOLD_METRICS].join(', ')}`);
+    if ('comparedWith' in d) ok(['year 0', 'no new policy'].includes(d.comparedWith), `${path}.comparedWith`, 'must be "year 0" or "no new policy"');
     for (const k of ['baseline', 'final', 'changePct']) ok(isNum(d[k]), `${path}.${k}`, 'must be a number');
   });
   if (obj(r.tradeoffs, 'tradeoffs', ['pros', 'cons'])) for (const side of ['pros', 'cons'])

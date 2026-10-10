@@ -418,9 +418,11 @@
       "metrics": {
         "housingUnits": 23713,
         "medianRent": 1483,
-        "treeCoverPct": 13.7,
+        "treeCoverPct": 46.9,
         "avgCommuteMin": 19.6,
-        "taxRevenue": 68352723
+        "taxRevenue": 68352723,
+        "households": 23700,
+        "pricedOut": 0
       }
     },
     {
@@ -829,10 +831,12 @@
       },
       "metrics": {
         "housingUnits": 23769,
-        "medianRent": 1482.65,
-        "treeCoverPct": 13.26,
-        "avgCommuteMin": 19.61,
-        "taxRevenue": 68514604
+        "medianRent": 1505,
+        "treeCoverPct": 46.46,
+        "avgCommuteMin": 19.7,
+        "taxRevenue": 68514604,
+        "households": 23870,
+        "pricedOut": 0
       }
     },
     {
@@ -1241,10 +1245,12 @@
       },
       "metrics": {
         "housingUnits": 23826,
-        "medianRent": 1482.29,
-        "treeCoverPct": 12.82,
-        "avgCommuteMin": 19.61,
-        "taxRevenue": 68678560
+        "medianRent": 1537,
+        "treeCoverPct": 46.02,
+        "avgCommuteMin": 19.7,
+        "taxRevenue": 68678560,
+        "households": 24044,
+        "pricedOut": 0
       }
     },
     {
@@ -1653,10 +1659,12 @@
       },
       "metrics": {
         "housingUnits": 23860,
-        "medianRent": 1482.08,
-        "treeCoverPct": 12.56,
-        "avgCommuteMin": 19.62,
-        "taxRevenue": 68777257
+        "medianRent": 1582,
+        "treeCoverPct": 45.76,
+        "avgCommuteMin": 19.8,
+        "taxRevenue": 68777257,
+        "households": 24214,
+        "pricedOut": 12
       }
     },
     {
@@ -2065,10 +2073,12 @@
       },
       "metrics": {
         "housingUnits": 23934,
-        "medianRent": 1481.62,
-        "treeCoverPct": 11.98,
-        "avgCommuteMin": 19.63,
-        "taxRevenue": 68989755
+        "medianRent": 1631,
+        "treeCoverPct": 45.18,
+        "avgCommuteMin": 19.8,
+        "taxRevenue": 68989755,
+        "households": 24063,
+        "pricedOut": 332
       }
     },
     {
@@ -2477,10 +2487,12 @@
       },
       "metrics": {
         "housingUnits": 23984,
-        "medianRent": 1481.31,
-        "treeCoverPct": 11.6,
-        "avgCommuteMin": 19.63,
-        "taxRevenue": 69133419
+        "medianRent": 1663,
+        "treeCoverPct": 44.8,
+        "avgCommuteMin": 19.8,
+        "taxRevenue": 69133419,
+        "households": 22957,
+        "pricedOut": 1616
       }
     },
     {
@@ -2889,10 +2901,12 @@
       },
       "metrics": {
         "housingUnits": 24031,
-        "medianRent": 1481.01,
-        "treeCoverPct": 11.23,
-        "avgCommuteMin": 19.64,
-        "taxRevenue": 69270741
+        "medianRent": 1661,
+        "treeCoverPct": 44.43,
+        "avgCommuteMin": 19.7,
+        "taxRevenue": 69270741,
+        "households": 22325,
+        "pricedOut": 2860
       }
     },
     {
@@ -3301,10 +3315,12 @@
       },
       "metrics": {
         "housingUnits": 24081,
-        "medianRent": 1480.7,
-        "treeCoverPct": 10.85,
-        "avgCommuteMin": 19.65,
-        "taxRevenue": 69412675
+        "medianRent": 1655,
+        "treeCoverPct": 44.05,
+        "avgCommuteMin": 19.7,
+        "taxRevenue": 69412675,
+        "households": 22748,
+        "pricedOut": 3484
       }
     },
     {
@@ -3713,10 +3729,12 @@
       },
       "metrics": {
         "housingUnits": 24116,
-        "medianRent": 1480.48,
-        "treeCoverPct": 10.57,
-        "avgCommuteMin": 19.65,
-        "taxRevenue": 69515754
+        "medianRent": 1653,
+        "treeCoverPct": 43.77,
+        "avgCommuteMin": 19.9,
+        "taxRevenue": 69515754,
+        "households": 23214,
+        "pricedOut": 3820
       }
     },
     {
@@ -4125,10 +4143,12 @@
       },
       "metrics": {
         "housingUnits": 24161,
-        "medianRent": 1480.2,
-        "treeCoverPct": 10.22,
-        "avgCommuteMin": 19.66,
-        "taxRevenue": 69643737
+        "medianRent": 1658,
+        "treeCoverPct": 43.42,
+        "avgCommuteMin": 20,
+        "taxRevenue": 69643737,
+        "households": 23649,
+        "pricedOut": 3970
       }
     },
     {
@@ -4537,10 +4557,12 @@
       },
       "metrics": {
         "housingUnits": 24222,
-        "medianRent": 1479.81,
-        "treeCoverPct": 9.75,
-        "avgCommuteMin": 19.66,
-        "taxRevenue": 69820837
+        "medianRent": 1668,
+        "treeCoverPct": 42.95,
+        "avgCommuteMin": 20,
+        "taxRevenue": 69820837,
+        "households": 23886,
+        "pricedOut": 4057
       }
     }
   ],
@@ -4549,31 +4571,50 @@
       "metric": "housingUnits",
       "baseline": 23713,
       "final": 24222,
-      "changePct": 2.15
+      "changePct": 2.15,
+      "comparedWith": "year 0"
     },
     {
       "metric": "medianRent",
-      "baseline": 1483,
-      "final": 1479.81,
-      "changePct": -0.22
+      "baseline": 1714,
+      "final": 1668,
+      "changePct": -2.68,
+      "comparedWith": "no new policy"
     },
     {
       "metric": "treeCoverPct",
-      "baseline": 13.7,
-      "final": 9.75,
-      "changePct": -28.83
+      "baseline": 46.9,
+      "final": 42.95,
+      "changePct": -8.42,
+      "comparedWith": "year 0"
     },
     {
       "metric": "avgCommuteMin",
-      "baseline": 19.6,
-      "final": 19.66,
-      "changePct": 0.31
+      "baseline": 19.5,
+      "final": 20,
+      "changePct": 2.56,
+      "comparedWith": "no new policy"
     },
     {
       "metric": "taxRevenue",
       "baseline": 68352723,
       "final": 69820837,
-      "changePct": 2.15
+      "changePct": 2.15,
+      "comparedWith": "year 0"
+    },
+    {
+      "metric": "households",
+      "baseline": 23700,
+      "final": 23886,
+      "changePct": 0.78,
+      "comparedWith": "year 0"
+    },
+    {
+      "metric": "pricedOut",
+      "baseline": 4396,
+      "final": 4057,
+      "changePct": -7.71,
+      "comparedWith": "no new policy"
     }
   ],
   "tradeoffs": {
@@ -4608,12 +4649,12 @@
     {
       "key": "housingUnits",
       "value": 23713,
-      "source": "VERIFY against data.census.gov: 2020 Census count via zip-codes.com aggregation"
+      "source": "U.S. Census Bureau, 2020 Census Redistricting Data (P.L. 94-171), Table H1 \"Occupancy Status\", Chapel Hill town, NC: 22,118 occupied and 1,595 vacant. https://data.census.gov/table/DECENNIALPL2020.H1?g=160XX00US3711800"
     },
     {
       "key": "treeCoverPct",
-      "value": 13.7,
-      "source": "PLACEHOLDER - needs citation"
+      "value": 46.9,
+      "source": "USFS / MRLC NLCD Tree Canopy Cover, CONUS v2021-4, 30 m. https://www.mrlc.gov/geoserver/mrlc_download/wcs"
     },
     {
       "key": "mapAreaAcres",
@@ -4663,41 +4704,281 @@
     {
       "key": "unitsPerAcre.forest",
       "value": 0,
-      "source": "PLACEHOLDER - needs citation"
+      "source": "Town of Chapel Hill Future Land Use Map, \"Charting Our Future\" (Dec 2020): Low Residential 1-4 units/acre, High Residential 8-15+, https://online.flippingbook.com/view/26191/1/ ; last codified LUMO Table 3.8-1 density caps (R-2 4.0, R-5 and R-6 15.0), https://api.municode.com/CodesContent?jobId=426902&nodeId=PTIICO_APXALAUSMA_ART3ZODIUSDIST_3.8DIST&productId=19952 ; approved mixed-use projects: Fordham Blvd Apartments (Chapelboro, 2017-05-09) https://chapelboro.com/news/development/proposal-calls-273-apartment-units-fordham-boulevard , Aura Blue Hill (News & Observer, 2021-10-28) https://www.yahoo.com/news/developer-request-leaves-chapel-hill-094500130.html , 101 E. Rosemary St (Town staff report, 2023) https://chapelhill.legistar1.com/chapelhill/attachments/9c06f852-7dd9-4b44-9094-b9564b4d7141.docx"
     },
     {
       "key": "unitsPerAcre.low_res",
       "value": 4,
-      "source": "PLACEHOLDER - needs citation"
+      "source": "Town of Chapel Hill Future Land Use Map, \"Charting Our Future\" (Dec 2020): Low Residential 1-4 units/acre, High Residential 8-15+, https://online.flippingbook.com/view/26191/1/ ; last codified LUMO Table 3.8-1 density caps (R-2 4.0, R-5 and R-6 15.0), https://api.municode.com/CodesContent?jobId=426902&nodeId=PTIICO_APXALAUSMA_ART3ZODIUSDIST_3.8DIST&productId=19952 ; approved mixed-use projects: Fordham Blvd Apartments (Chapelboro, 2017-05-09) https://chapelboro.com/news/development/proposal-calls-273-apartment-units-fordham-boulevard , Aura Blue Hill (News & Observer, 2021-10-28) https://www.yahoo.com/news/developer-request-leaves-chapel-hill-094500130.html , 101 E. Rosemary St (Town staff report, 2023) https://chapelhill.legistar1.com/chapelhill/attachments/9c06f852-7dd9-4b44-9094-b9564b4d7141.docx"
     },
     {
       "key": "unitsPerAcre.mid_res",
-      "value": 20,
-      "source": "PLACEHOLDER - needs citation"
+      "value": 15,
+      "source": "Town of Chapel Hill Future Land Use Map, \"Charting Our Future\" (Dec 2020): Low Residential 1-4 units/acre, High Residential 8-15+, https://online.flippingbook.com/view/26191/1/ ; last codified LUMO Table 3.8-1 density caps (R-2 4.0, R-5 and R-6 15.0), https://api.municode.com/CodesContent?jobId=426902&nodeId=PTIICO_APXALAUSMA_ART3ZODIUSDIST_3.8DIST&productId=19952 ; approved mixed-use projects: Fordham Blvd Apartments (Chapelboro, 2017-05-09) https://chapelboro.com/news/development/proposal-calls-273-apartment-units-fordham-boulevard , Aura Blue Hill (News & Observer, 2021-10-28) https://www.yahoo.com/news/developer-request-leaves-chapel-hill-094500130.html , 101 E. Rosemary St (Town staff report, 2023) https://chapelhill.legistar1.com/chapelhill/attachments/9c06f852-7dd9-4b44-9094-b9564b4d7141.docx"
     },
     {
       "key": "unitsPerAcre.mixed_use",
-      "value": 30,
-      "source": "PLACEHOLDER - needs citation"
+      "value": 70,
+      "source": "Town of Chapel Hill Future Land Use Map, \"Charting Our Future\" (Dec 2020): Low Residential 1-4 units/acre, High Residential 8-15+, https://online.flippingbook.com/view/26191/1/ ; last codified LUMO Table 3.8-1 density caps (R-2 4.0, R-5 and R-6 15.0), https://api.municode.com/CodesContent?jobId=426902&nodeId=PTIICO_APXALAUSMA_ART3ZODIUSDIST_3.8DIST&productId=19952 ; approved mixed-use projects: Fordham Blvd Apartments (Chapelboro, 2017-05-09) https://chapelboro.com/news/development/proposal-calls-273-apartment-units-fordham-boulevard , Aura Blue Hill (News & Observer, 2021-10-28) https://www.yahoo.com/news/developer-request-leaves-chapel-hill-094500130.html , 101 E. Rosemary St (Town staff report, 2023) https://chapelhill.legistar1.com/chapelhill/attachments/9c06f852-7dd9-4b44-9094-b9564b4d7141.docx"
     },
     {
       "key": "unitsPerAcre.parking",
       "value": 0,
-      "source": "PLACEHOLDER - needs citation"
+      "source": "Town of Chapel Hill Future Land Use Map, \"Charting Our Future\" (Dec 2020): Low Residential 1-4 units/acre, High Residential 8-15+, https://online.flippingbook.com/view/26191/1/ ; last codified LUMO Table 3.8-1 density caps (R-2 4.0, R-5 and R-6 15.0), https://api.municode.com/CodesContent?jobId=426902&nodeId=PTIICO_APXALAUSMA_ART3ZODIUSDIST_3.8DIST&productId=19952 ; approved mixed-use projects: Fordham Blvd Apartments (Chapelboro, 2017-05-09) https://chapelboro.com/news/development/proposal-calls-273-apartment-units-fordham-boulevard , Aura Blue Hill (News & Observer, 2021-10-28) https://www.yahoo.com/news/developer-request-leaves-chapel-hill-094500130.html , 101 E. Rosemary St (Town staff report, 2023) https://chapelhill.legistar1.com/chapelhill/attachments/9c06f852-7dd9-4b44-9094-b9564b4d7141.docx"
     },
     {
       "key": "unitsPerAcre.transit_station",
       "value": 0,
-      "source": "PLACEHOLDER - needs citation"
+      "source": "Town of Chapel Hill Future Land Use Map, \"Charting Our Future\" (Dec 2020): Low Residential 1-4 units/acre, High Residential 8-15+, https://online.flippingbook.com/view/26191/1/ ; last codified LUMO Table 3.8-1 density caps (R-2 4.0, R-5 and R-6 15.0), https://api.municode.com/CodesContent?jobId=426902&nodeId=PTIICO_APXALAUSMA_ART3ZODIUSDIST_3.8DIST&productId=19952 ; approved mixed-use projects: Fordham Blvd Apartments (Chapelboro, 2017-05-09) https://chapelboro.com/news/development/proposal-calls-273-apartment-units-fordham-boulevard , Aura Blue Hill (News & Observer, 2021-10-28) https://www.yahoo.com/news/developer-request-leaves-chapel-hill-094500130.html , 101 E. Rosemary St (Town staff report, 2023) https://chapelhill.legistar1.com/chapelhill/attachments/9c06f852-7dd9-4b44-9094-b9564b4d7141.docx"
     },
     {
       "key": "treesPerAcre",
       "value": 33,
-      "source": "PLACEHOLDER - needs citation"
+      "source": "USDA Forest Service FIA, EVALIDator (FIADB-API), NC 2024 evaluation, Piedmont unit 3703: 30.5 live trees per acre at 13 in. DBH or more. https://apps.fs.usda.gov/fiadb-api/fullreport?snum=4&wc=372024&rselected=Unit%20code&cselected=Diameter%20class%3A%202%20inch%20class%20to%2029&outputFormat=NJSON"
     },
     {
       "key": "commuteDistancePenalty",
-      "value": 3,
+      "value": 0.6,
+      "source": "ACS 2020-2024 5-year: mean travel time = B08013 (aggregate minutes) / B08303 (workers who did not work from home), by census tract. https://data.census.gov/table/ACSDT5Y2024.B08013?g=160XX00US3711800 and https://data.census.gov/table/ACSDT5Y2024.B08303?g=160XX00US3711800"
+    },
+    {
+      "key": "agentScale",
+      "value": 79,
+      "source": "Derived: 23,713 housing units (2020 Census, see housingUnits) / 300 simulated households."
+    },
+    {
+      "key": "agentHouseholds.downtown",
+      "value": 105,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentHouseholds.campus",
+      "value": 98,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentHouseholds.edge",
+      "value": 97,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentUnits.downtown",
+      "value": 108,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentUnits.campus",
+      "value": 101,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentUnits.edge",
+      "value": 100,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentGrowth",
+      "value": 0.0073,
+      "source": "U.S. Census Bureau decennial census households (occupied housing units), Chapel Hill town: 20,564 in 2010 (SF1 H3) https://data.census.gov/table/DECENNIALSF12010.H3?g=160XX00US3711800 and 22,118 in 2020 (P.L. 94-171 H1) https://data.census.gov/table/DECENNIALPL2020.H1?g=160XX00US3711800"
+    },
+    {
+      "key": "agentInducedShare",
+      "value": 0.6,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentInducedVacancy",
+      "value": 0.04,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRentAmp",
+      "value": 0.028,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentTargetVacancy",
+      "value": 0.05,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRentCurve.floor",
+      "value": -0.012,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRentCurve.offset",
+      "value": 0.022,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRentCurve.min",
+      "value": -0.06,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRentCurve.max",
+      "value": 0.11,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentBurdenLine",
+      "value": 0.5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentBurdenRiseSinceArrival",
+      "value": 0.05,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentLeaveProb",
+      "value": 0.5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRenterShare.downtown",
+      "value": 0.6,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRenterShare.campus",
+      "value": 0.8,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRenterShare.edge",
+      "value": 0.35,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentStudentShare",
+      "value": 0.4,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentIncomeMedian.student",
+      "value": 40000,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentIncomeMedian.renter",
+      "value": 64000,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentIncomeMedian.owner",
+      "value": 115000,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentIncomeSpread.student",
+      "value": 0.35,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentIncomeSpread.renter",
+      "value": 0.45,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentIncomeSpread.owner",
+      "value": 0.4,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRemoteShare",
+      "value": 0.28,
+      "source": "ACS 2020-2024 5-year, B08301 \"Means of Transportation to Work\", Chapel Hill town: 8,174 of 29,039 workers worked from home. https://data.census.gov/table/ACSDT5Y2024.B08301?g=160XX00US3711800"
+    },
+    {
+      "key": "agentRemoteShare.alternate",
+      "value": 0.235,
+      "source": "Our calculation: Orange County's 2024 1-year to 2020-24 5-year ratio (22.4% / 26.8%) applied to Chapel Hill. https://data.census.gov/table/ACSDT1Y2024.B08301?g=050XX00US37135"
+    },
+    {
+      "key": "agentDurhamShare",
+      "value": 0.2,
+      "source": "U.S. Census Bureau LEHD Origin-Destination Employment Statistics (LODES 8), NC 2023, primary jobs (JT01): 4,225 of 20,644 Chapel Hill residents' primary jobs are in Durham city. https://lehd.ces.census.gov/data/lodes/LODES8/nc/od/nc_od_main_JT01_2023.csv.gz"
+    },
+    {
+      "key": "agentCampusWorkShare",
+      "value": 0.5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentZoneRent.downtown",
+      "value": 1.1,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentZoneRent.campus",
+      "value": 1,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentZoneRent.edge",
+      "value": 0.92,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRentSpread.min",
+      "value": 0.82,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRentSpread.range",
+      "value": 0.4,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentBaseCommuteMin.downtown",
+      "value": 7,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentBaseCommuteMin.campus",
+      "value": 5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentBaseCommuteMin.edge",
+      "value": 6,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentDurhamExtraMin",
+      "value": 9,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "roadT0Min",
+      "value": 14,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "roadCapacity",
+      "value": 2000,
+      "source": "NCDOT \"Volume Over Capacity\" layer (capacity lookup by Three Oaks Engineering): US-15 route 20000015068, urban Piedmont, 2 lanes per direction with median, LOS E 37,000 vehicles/day two-way. https://services.arcgis.com/NuWFvHYDMVmmxMeM/ArcGIS/rest/services/NCDOT_Volume_Over_Capacity/FeatureServer/2"
+    },
+    {
+      "key": "roadPeakVolume",
+      "value": 1960,
+      "source": "NCDOT 2025 AADT, station 0680000193 \"US 15 WEST OF Morgan Creek Rd\": 41,500 vehicles/day, segment K = 0.08 and D = 0.591. https://services.arcgis.com/NuWFvHYDMVmmxMeM/ArcGIS/rest/services/NCDOT_2025_AADTandTrafficSegments_gdb/FeatureServer/1"
+    },
+    {
+      "key": "roadCarShare",
+      "value": 0.74,
+      "source": "ACS 2020-2024 5-year, B08301, Chapel Hill town: car, truck or van is 15,393 of the 20,865 workers who did not work from home. https://data.census.gov/table/ACSDT5Y2024.B08301?g=160XX00US3711800"
+    },
+    {
+      "key": "roadBpr.alpha",
+      "value": 0.15,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "roadBpr.beta",
+      "value": 4,
       "source": "PLACEHOLDER - needs citation"
     }
   ]

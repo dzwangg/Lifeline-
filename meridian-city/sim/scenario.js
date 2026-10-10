@@ -1,5 +1,6 @@
 // The sim's data and state, shared by the zone layer (renderer) and the sim plate (UI).
 import { runScenario } from '../../shared/sim.js';
+import { averageRuns, homesByYear, simulate, withHouseholds } from '../../shared/agents.js';
 import { validateCard } from '../../shared/schema.js';
 import { toLocal } from '../../shared/geo.js';
 import { POLICIES } from '../policy/policies.js';
@@ -39,7 +40,11 @@ export const panelPolicies = cards => [
 ];
 
 // cards: the applied cards. params: card id -> param key -> value. before: show year 0 whatever the year slider says.
-let state = { cards: [], params: {}, year: 10, before: false, result: null };
+// result: the SimResult with the household model's averaged numbers (what the panel and the narration pipeline use).
+// averages / noPolicy: the household model averaged over shared/agents.js SEEDS runs, with and without the cards' homes.
+// households: one of those runs (seed 7), drawn on the map. resident: the household picked on the map.
+// roadView: the camera is flown to 15-501.
+let state = { cards: [], params: {}, year: 10, before: false, result: null, averages: null, noPolicy: null, households: null, resident: null, roadView: false };
 const listeners = new Set();
 export const scenario = {
   get: () => state,
@@ -50,14 +55,17 @@ export const scenario = {
     if ('cards' in patch || 'params' in patch) rerun();
   },
 };
-export const shownStates = s => s.result?.timeline[s.before ? 0 : s.year].zoneStates;
+export const shownYear = s => (s.before ? 0 : s.year);
+export const shownStates = s => s.result?.timeline[shownYear(s)].zoneStates;
 
 let timer;
 function rerun() { // debounced: a dragged slider fires many inputs
   clearTimeout(timer);
   timer = setTimeout(async () => {
     const [zones, assumptions, baselines] = await dataReady;
-    scenario.set({ result: runScenario(state.cards, state.params, zones, assumptions, baselines) });
+    const raw = runScenario(state.cards, state.params, zones, assumptions, baselines), homes = homesByYear(raw, zones, assumptions);
+    const noPolicy = state.noPolicy ?? averageRuns(null, assumptions, baselines), averages = averageRuns(homes, assumptions, baselines);
+    scenario.set({ result: withHouseholds(raw, averages, noPolicy), averages, noPolicy, households: simulate(homes, assumptions, baselines) });
   }, 120);
 }
 rerun(); // the baseline, before any card is applied

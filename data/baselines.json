@@ -1,0 +1,38 @@
+{
+  "medianGrossRent": {
+    "value": 1483,
+    "year": 2023,
+    "source": "Median gross rent, ACS 2019-2023 5-year estimates, U.S. Census Bureau QuickFacts: Chapel Hill town, North Carolina"
+  },
+  "meanCommuteMin": {
+    "value": 19.6,
+    "year": 2023,
+    "source": "Mean travel time to work (minutes), ACS 2019-2023 5-year estimates, U.S. Census Bureau QuickFacts: Chapel Hill town, North Carolina"
+  },
+  "medianHomeValue": {
+    "value": 576500,
+    "year": 2023,
+    "source": "Median value of owner-occupied housing units, ACS 2019-2023 5-year estimates, U.S. Census Bureau QuickFacts: Chapel Hill town, North Carolina"
+  },
+  "population": {
+    "value": 61960,
+    "year": 2020,
+    "source": "2020 Decennial Census, Chapel Hill town, North Carolina"
+  },
+  "housingUnits": {
+    "value": 23713,
+    "year": 2020,
+    "source": "VERIFY against data.census.gov: 2020 Census count via zip-codes.com aggregation"
+  },
+  "treeCoverPct": {
+    "value": 13.7,
+    "year": null,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Stand-in: the share of the map area mapped as OSM natural=wood (265 of 1,932 acres). That is not tree canopy."
+  },
+  "mapAreaAcres": {
+    "value": 1932,
+    "year": null,
+    "source": "Derived: the 2.8 km square the map covers (bbox in meridian-city/fetch_osm.py)"
+  }
+}

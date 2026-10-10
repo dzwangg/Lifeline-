@@ -1,0 +1,21 @@
+{
+  "id": "stub-card",
+  "title": "STUB: Release edge forest for homes",
+  "summary": "Test fixture, not a real policy. Turns forest near the map edge into low-density housing.",
+  "category": "housing",
+  "icon": "house",
+  "decider": {
+    "body": "STUB: no real decision-maker",
+    "how": ["Test fixture only: replace with a real card in data/policies/."]
+  },
+  "params": [
+    { "key": "acres_released", "label": "Acres released", "min": 0, "max": 250, "default": 60, "unit": "acres" }
+  ],
+  "zoneRules": [
+    { "where": "tag:map_edge", "from": "forest", "to": "low_res", "ratePerYear": 0.1, "capParam": "acres_released" }
+  ],
+  "tradeoffs": {
+    "pros": ["STUB pro: more homes are built."],
+    "cons": ["STUB con: forest is cleared."]
+  }
+}

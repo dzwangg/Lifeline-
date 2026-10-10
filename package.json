@@ -1,0 +1,12 @@
+{
+  "name": "meridian",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "lint": "for f in $(find shared scripts tests meridian-city/sim meridian-city/policy -name '*.js' 2>/dev/null); do node --check \"$f\" || exit 1; done",
+    "validate:cards": "node scripts/validate-cards.js",
+    "zones": "node scripts/make-zones.js",
+    "fixture": "node scripts/sim-fixture.js"
+  }
+}

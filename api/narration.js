@@ -1,6 +1,9 @@
 // POST /api/narration: a short spoken news-style recap of a SimResult (see shared/types.d.ts).
-// Body: a SimResult, or just its { policies, years, deltas, tradeoffs }. Reply: { text, audio, cached, fallback }
+// Body (at most 16 KB): a SimResult's { policies, years, deltas }. Reply: { text, audio, cached, fallback }
 // where audio is a base64 mp3 or null, and fallback means the text is the deterministic template, not Gemini's.
+// Abuse limits: no client text reaches Gemini or ElevenLabs. Policy ids must be cards in data/cards.index.json (plus the
+// stub card outside production) with in-range params, and titles and tradeoffs are read from the card files here.
+// Calls that would reach Gemini or ElevenLabs are rate-limited per IP.
 // Order: in-memory cache, then committed clips (demo-audio/<input hash>.json holds the text, <speech hash>.mp3 its audio),
 // then Gemini + ElevenLabs. ElevenLabs gets speakable(text), the numbers in words; the reply's text keeps the digits.
 // DEMO_MODE=1 never calls out. A missing key degrades its own step (no Gemini key: template; no ElevenLabs key: no audio).
@@ -26,29 +29,43 @@ const NO_POLICY = 'no new policy';
 
 const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
-const isStr = (v, max) => typeof v === 'string' && v.trim() !== '' && v.length <= max;
 const isList = (v, max, each) => Array.isArray(v) && v.length >= 1 && v.length <= max && v.every(each);
 
-/** Hand-written check of the fields the recap uses; the caps keep the prompt small. @returns {{ errors: string[], input?: NarrationInput }} */
-export function parseInput(b) {
+const readJson = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8').then(JSON.parse);
+let catalog; // per instance: the card files only change with a deploy
+/** The cards a recap can describe, by id: data/cards.index.json, plus tests/fixtures/stub-card.json outside production. */
+export async function loadCards(production = process.env.VERCEL_ENV === 'production') {
+  catalog ??= Promise.all([
+    readJson('data/cards.index.json').then(paths => Promise.all(paths.map(p => readJson(`data/${p}`)))),
+    readJson('tests/fixtures/stub-card.json'),
+  ]);
+  const [cards, stub] = await catalog;
+  return new Map([...cards, ...(production ? [] : [stub])].map(c => [c.id, c]));
+}
+
+/** Hand-written check of the fields the recap uses. Titles and tradeoffs come from `cards`, never the body. @returns {{ errors: string[], input?: NarrationInput }} */
+export function parseInput(b, cards) {
   if (!isObj(b)) return { errors: ['body must be a JSON object'] };
   const errors = [];
   const ok = (pass, problem) => pass || errors.push(problem);
-  ok(isList(b.policies, 10, p => isObj(p) && isStr(p.id, 100) && isStr(p.title, 200) && isObj(p.params)
-    && Object.keys(p.params).length <= 20 && Object.entries(p.params).every(([k, v]) => k.length <= 50 && isNum(v))),
-    'policies must be 1-10 of { id, title, params: { key: number } }');
+  const inRange = (params, card) => isObj(params) && Object.entries(params).every(([k, v]) => {
+    const spec = card.params.find(s => s.key === k);
+    return spec && isNum(v) && v >= spec.min && v <= spec.max;
+  });
+  ok(isList(b.policies, 10, p => isObj(p) && cards.has(p.id) && inRange(p.params, cards.get(p.id))),
+    `policies must be 1-10 of { id, params } where id is one of ${[...cards.keys()].join(', ')} and params are that card's, within its range`);
   ok(Number.isInteger(b.years) && b.years >= 1 && b.years <= 100, 'years must be a whole number from 1 to 100');
   ok(isList(b.deltas, 10, d => isObj(d) && Object.hasOwn(METRICS, d.metric) && [d.baseline, d.final, d.changePct].every(isNum)
     && [undefined, 'year 0', NO_POLICY].includes(d.comparedWith)),
     `deltas must be 1-10 of { metric: ${Object.keys(METRICS).join('|')}, baseline, final, changePct, comparedWith?: "year 0"|"${NO_POLICY}" }`);
-  ok(isObj(b.tradeoffs) && ['pros', 'cons'].every(k => isList(b.tradeoffs[k], 10, s => isStr(s, 300))),
-    'tradeoffs.pros and tradeoffs.cons must each be 1-10 non-empty strings');
   if (errors.length) return { errors };
+  const picked = b.policies.map(p => cards.get(p.id));
+  const sides = side => [...new Set(picked.flatMap(c => c.tradeoffs[side]))]; // as runScenario merges them
   return { errors, input: {
-    policies: b.policies.map(({ id, title, params }) => ({ id, title, params })),
+    policies: b.policies.map(({ id, params }) => ({ id, title: cards.get(id).title, params })),
     years: b.years,
     deltas: b.deltas.map(({ metric, baseline, final, changePct, comparedWith = 'year 0' }) => ({ metric, baseline, final, changePct, comparedWith })),
-    tradeoffs: { pros: b.tradeoffs.pros, cons: b.tradeoffs.cons },
+    tradeoffs: { pros: sides('pros'), cons: sides('cons') },
   } };
 }
 
@@ -216,15 +233,33 @@ async function demoClip(key) {
 }
 
 const cache = new Map(); // ponytail: per-instance and capped at 100 by insertion order; a shared KV if cold starts hurt.
+const MAX_BODY = 16_384; // the real body is about 1 KB; a full SimResult (zone maps and all) is about 115 KB
+const RATE_LIMIT = 10; // calls that reach Gemini or ElevenLabs, per IP per minute
+// ponytail: per instance, so it resets on cold starts and doesn't add up across instances. The real cap is a Vercel
+// Firewall rate-limit rule on /api/narration; this one stops a single client hammering a warm instance.
+const hits = new Map(); // ip -> { n, reset }
+
+/** Seconds until this IP may call again, or 0 if it is under the limit (and now counted). */
+function retryAfter(ip, now = Date.now()) {
+  if (hits.size > 10_000) hits.clear();
+  const h = hits.get(ip);
+  if (!h || now >= h.reset) {
+    hits.set(ip, { n: 1, reset: now + 60_000 });
+    return 0;
+  }
+  return ++h.n > RATE_LIMIT ? Math.ceil((h.reset - now) / 1000) : 0;
+}
 
 export async function POST(request) {
+  const raw = await request.text();
+  if (raw.length > MAX_BODY) return Response.json({ error: `body must be at most ${MAX_BODY} bytes: send { policies, years, deltas }` }, { status: 413 });
   let body;
   try {
-    body = await request.json();
+    body = JSON.parse(raw);
   } catch {
     return Response.json({ error: 'body must be JSON' }, { status: 400 });
   }
-  const { errors, input } = parseInput(body);
+  const { errors, input } = parseInput(body, await loadCards());
   if (errors.length) return Response.json({ error: errors.join('; ') }, { status: 400 });
 
   const key = hashInput(input);
@@ -236,6 +271,9 @@ export async function POST(request) {
   }
   if (process.env.DEMO_MODE === '1') return Response.json({ text: templateRecap(input), audio: null, cached: false, fallback: true });
 
+  // Vercel sets x-forwarded-for to the client's IP and overwrites any value the client sends.
+  const wait = retryAfter(request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown');
+  if (wait) return Response.json({ error: 'too many recaps; try again shortly' }, { status: 429, headers: { 'retry-after': String(wait) } });
   const { failed, ...result } = await narrate(input);
   if (!failed) {
     cache.set(key, result);

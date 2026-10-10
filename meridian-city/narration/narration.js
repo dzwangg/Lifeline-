@@ -30,11 +30,11 @@ export function mountNarration(container, getSimResult) {
     if (!r?.policies?.length) { text.textContent = 'Add a policy to hear a recap.'; return; }
     text.textContent = 'Writing a recap…';
     try {
-      const { policies, years, deltas, tradeoffs } = r; // just what the recap needs, not every year's zone map
+      const { policies, years, deltas } = r; // just what the recap needs; the server reads titles and tradeoffs from the cards
       const res = await fetch('/api/narration', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ policies, years, deltas, tradeoffs }),
+        body: JSON.stringify({ policies, years, deltas }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();

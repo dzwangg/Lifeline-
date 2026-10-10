@@ -4,40 +4,54 @@
 // Clicking a marker opens that household in the sim panel.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
 import { scenario, shownYear } from './scenario.js';
+import { modelZone } from '../../shared/agents.js';
 
-// Where the model's three zones sit. The baked map has no street names, so downtown = open ground beside the shops
-// clustered along Franklin St, campus = beside UNC's university buildings, edge = the sim's map_edge parcels.
+// Where the model's three zones sit today. The baked map has no street names, so downtown = open ground beside the
+// shops clustered along Franklin St, campus = beside UNC's university buildings, edge = beside existing houses near
+// the map boundary. Newcomers move into the sim's parcels once their zone has some built (see place()).
 const DOWNTOWN = [-800, -900, 0, -300], CAMPUS = [-400, -650, 600, 300]; // x0, z0, x1, z1 in local metres (x east, z south)
-const GREEN = new THREE.Color('#4cbf58'), AMBER = new THREE.Color('#f0b400'), RED = new THREE.Color('#e0473e'), OWNER = new THREE.Color('#9aa3a8');
+const EDGE_TOWN_M = 300, HOUSE = new Set(['detached', 'house', 'semidetached_house', 'residential', 'terrace', 'static_caravan', 'bungalow']); // as in index.html
+const HOMES = new Set(['low_res', 'mid_res', 'mixed_use']); // parcel states that hold homes
+const GREEN = new THREE.Color('#21c45d'), AMBER = new THREE.Color('#ffae00'), RED = new THREE.Color('#ff3b30'), OWNER = new THREE.Color('#9aa3a8');
 const BURDEN = [[.3, GREEN], [.5, AMBER], [Infinity, RED]]; // rent share of income: under 30%, 30-50%, over 50%
 const LOAD = [[.8, GREEN], [1, AMBER], [Infinity, RED]]; // road volume / capacity
 const band = (bands, v) => bands.find(([max]) => v < max)[1];
 const FADE_MS = 900, CAPACITY = 800; // markers; the model makes ~350-450 households
 
 export function mountAgentLayer({ scene, camera, dom, osm, zones, at, inside, bounds }) {
-  // Candidate spots per zone, fixed for the session; a household picks one from its own stable x/y draws.
-  const beside = (box, keep) => {
+  // Spots fixed for the session; a household picks one from its own stable x/y draws.
+  const inBox = (box, x, z) => x >= box[0] && x <= box[2] && z >= box[1] && z <= box[3];
+  const beside = keep => { // open ground around the matching buildings
     const pts = [];
     for (const b of osm.b) {
-      if (!keep(b)) continue;
       const [x0, z0, x1, z1] = bounds(b[4]), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-      if (cx < box[0] || cx > box[2] || cz < box[1] || cz > box[3]) continue;
+      if (!keep(b, cx, cz)) continue;
       for (const [x, z] of [[x0 - 6, z0 - 6], [x1 + 6, z0 - 6], [x1 + 6, z1 + 6], [x0 - 6, z1 + 6], [cx, z0 - 6], [cx, z1 + 6], [x0 - 6, cz], [x1 + 6, cz]])
         if (!(at(x, z) & 3)) pts.push([x, z]);
     }
     return pts;
   };
-  const edge = [];
-  for (const { ring, tags } of zones) {
-    if (!tags.includes('map_edge')) continue;
-    const [x0, z0, x1, z1] = bounds(ring);
-    for (let x = x0 + 4; x < x1; x += 9) for (let z = z0 + 4; z < z1; z += 9) if (!(at(x, z) & 3) && inside(ring, x, z)) edge.push([x, z]);
-  }
-  const spots = { downtown: beside(DOWNTOWN, b => b[3] === 1), campus: beside(CAMPUS, b => b[0] === 'university' || b[0] === 'college'), edge };
-  const place = a => { const list = spots[a.zone], [x, z] = list[Math.floor(a.x * list.length)]; return [x + (a.y - .5) * 5, z + ((a.y * 7919) % 1 - .5) * 5]; };
+  const existing = {
+    downtown: beside((b, x, z) => b[3] === 1 && inBox(DOWNTOWN, x, z)),
+    campus: beside((b, x, z) => (b[0] === 'university' || b[0] === 'college') && inBox(CAMPUS, x, z)),
+    edge: beside((b, x, z) => HOUSE.has(b[0]) && osm.ext - Math.max(Math.abs(x), Math.abs(z)) < EDGE_TOWN_M),
+  };
+  const parcels = zones.map(zone => { // open ground inside each sim parcel
+    const pts = [], [x0, z0, x1, z1] = bounds(zone.ring);
+    for (let x = x0 + 4; x < x1; x += 9) for (let z = z0 + 4; z < z1; z += 9) if (!(at(x, z) & 3) && inside(zone.ring, x, z)) pts.push([x, z]);
+    return { id: zone.id, zone: modelZone(zone), pts };
+  }).filter(p => p.pts.length);
+  // A newcomer moves into a parcel its zone had built by the year it arrived; everyone else lives in the existing areas.
+  const place = (a, result) => {
+    const states = a.joined && result.timeline[a.joined].zoneStates;
+    const built = states ? parcels.filter(p => p.zone === a.zone && HOMES.has(states[p.id])) : [];
+    if (built.length) { const { pts } = built[Math.floor(a.x * built.length)]; return pts[Math.floor(a.y * pts.length)]; }
+    const list = existing[a.zone], [x, z] = list[Math.floor(a.x * list.length)];
+    return [x + (a.y - .5) * 5, z + ((a.y * 7919) % 1 - .5) * 5];
+  };
 
-  const markerGeo = new THREE.OctahedronGeometry(2.4).scale(1, 1.5, 1).translate(0, 11, 0); // floats above the tree canopy
-  const ringGeo = new THREE.TorusGeometry(3.8, .45, 6, 28).rotateX(Math.PI / 2).translate(0, 11, 0);
+  const markerGeo = new THREE.OctahedronGeometry(4.8).scale(1, 1.5, 1).translate(0, 16, 0); // floats above the tree canopy
+  const ringGeo = new THREE.TorusGeometry(7.6, .9, 6, 28).rotateX(Math.PI / 2).translate(0, 16, 0);
   const layer = (geo, material) => {
     const m = new THREE.InstancedMesh(geo, material, CAPACITY);
     m.count = 0;
@@ -45,24 +59,25 @@ export function mountAgentLayer({ scene, camera, dom, osm, zones, at, inside, bo
     scene.add(m);
     return m;
   };
-  const markers = layer(markerGeo, new THREE.MeshBasicMaterial());
-  const rings = layer(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
-  const fadeMat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false });
+  const markers = layer(markerGeo, new THREE.MeshBasicMaterial({ toneMapped: false })); // exact colours, not tone mapped
+  const rings = layer(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }));
+  const fadeMat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, toneMapped: false });
   const leaving = layer(markerGeo, fadeMat);
   markers.setColorAt(0, OWNER); leaving.setColorAt(0, OWNER); // allocate the colour buffers
 
-  // Trunk roads drawn again just above the asphalt, in the load colour. Widths match ROAD_W in index.html.
-  const road = new THREE.Mesh(ribbons(osm.r.filter(([cls]) => cls === 'trunk' || cls === 'trunk_link').map(([cls, , r]) => [r, cls === 'trunk' ? 15 : 6]), .15),
-    new THREE.MeshBasicMaterial({ transparent: true, opacity: .7, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -12 }));
+  // Trunk roads drawn again just above the asphalt in the load colour: wider than the road (15 m, 6 m for links), and
+  // clear of fog and tone mapping so the band reads from far away.
+  const road = new THREE.Mesh(ribbons(osm.r.filter(([cls]) => cls === 'trunk' || cls === 'trunk_link').map(([cls, , r]) => [r, cls === 'trunk' ? 26 : 12]), .15),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: .92, depthWrite: false, side: THREE.DoubleSide, fog: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -12 }));
   road.visible = false;
   scene.add(road);
 
   const _m = new THREE.Matrix4(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), HIDE = new THREE.Matrix4().makeScale(0, 0, 0);
-  let agents = [], pos = [], shown = '', fadeStart = 0;
+  let agents = [], result = null, pos = [], shown = '', fadeStart = 0;
   scenario.subscribe(s => {
     if (!s.households) return;
     const t = shownYear(s), key = `${t}`;
-    if (s.households.agents !== agents) { agents = s.households.agents; pos = agents.map(place); shown = ''; }
+    if (s.households.agents !== agents || s.result !== result) { agents = s.households.agents; result = s.result; pos = agents.map(a => place(a, result)); shown = ''; }
     const n = Math.min(agents.length, CAPACITY);
     markers.count = rings.count = leaving.count = n;
     for (let i = 0; i < n; i++) {

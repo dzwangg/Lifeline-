@@ -88,6 +88,8 @@ Converting a zone changes the stocks: housing units come from `unitsPerAcre`, an
 
 When several cards are active, their percentage effects add up and are then clamped to ±50% of baseline. If two cards target the same zone, the card that comes first by `id` converts it.
 
+On the page, median rent and commute come from the household model (`shared/agents.js`) instead. It takes the homes your rules build each year: homes in `map_edge` parcels count as edge-of-town homes, and all others as downtown. Rent and commute are shown against the same model run with no new policy. The SimResult still carries the aggregate rent and commute above.
+
 ## capParam
 
 `capParam` links a rule to a slider. With `"capParam": "acres_released"` and the slider at 40, the card converts at most 40 acres in total. Rules that name the same param share those 40 acres. A slider at 0 means the card changes nothing. Without `capParam`, only `ratePerYear` limits the rule.

@@ -8,14 +8,15 @@ import { readFile } from 'node:fs/promises';
 
 /** @typedef {import('../shared/types').SimResult} SimResult @typedef {Pick<SimResult, 'policies' | 'years' | 'deltas' | 'tradeoffs'>} NarrationInput */
 
+// fmt says a value the way a news anchor would; pct metrics are already percentages, so the template gives from/to, not a % change.
 const METRICS = {
-  housingUnits: { meaning: 'number of homes', label: 'The number of homes', fmt: n => fmtNum(n, 0) },
-  medianRent: { meaning: 'median monthly rent in dollars', label: 'Median monthly rent', fmt: n => `$${fmtNum(n, 0)}` },
-  treeCoverPct: { meaning: 'share of land covered by trees, in percent', label: 'Tree cover', fmt: n => `${fmtNum(n, 1)}%` },
-  avgCommuteMin: { meaning: 'average commute in minutes', label: 'The average commute', fmt: n => `${fmtNum(n, 1)} minutes` },
-  taxRevenue: { meaning: 'yearly property tax revenue in dollars', label: 'Yearly property tax revenue', fmt: n => `$${fmtNum(n / 1e6, 1)} million` },
+  housingUnits: { meaning: 'number of homes', label: 'The number of homes', fmt: n => `about ${fmtNum(n, { maximumSignificantDigits: 3 })}` },
+  medianRent: { meaning: 'median monthly rent in dollars', label: 'Median rent', fmt: n => `$${fmtNum(n, { maximumFractionDigits: 0 })} a month` },
+  treeCoverPct: { meaning: 'share of land covered by trees, in percent', label: 'Tree cover', fmt: n => `${fmtNum(n, { maximumFractionDigits: 1 })}%`, pct: true },
+  avgCommuteMin: { meaning: 'average commute in minutes', label: 'The average commute', fmt: n => `${fmtNum(n, { maximumFractionDigits: 1 })} minutes` },
+  taxRevenue: { meaning: 'yearly property tax revenue in dollars', label: 'Yearly tax revenue', fmt: n => `$${fmtNum(n / 1e6, { maximumFractionDigits: 1 })} million` },
 };
-const fmtNum = (n, digits) => n.toLocaleString('en-US', { maximumFractionDigits: digits });
+const fmtNum = (n, opts) => n.toLocaleString('en-US', opts); // Intl rounds the decimal value: 2.15 -> 2.2, where toPrecision gives 2.1
 
 const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
@@ -70,19 +71,22 @@ export function badNumbers(text, input) {
 /** The deterministic recap used whenever Gemini is off, failing, or keeps citing numbers that are not in the input. */
 export function templateRecap(input) {
   const changes = input.deltas.map(({ metric, baseline, final, changePct }) => {
-    const { label, fmt } = METRICS[metric];
+    const { label, fmt, pct } = METRICS[metric];
+    const verb = changePct > 0 ? 'rises' : 'falls';
     return changePct === 0 ? `${label} stays at ${fmt(final)}.`
-      : `${label} goes from ${fmt(baseline)} to ${fmt(final)} (${changePct > 0 ? 'up' : 'down'} ${Math.abs(changePct)}%).`;
+      : pct ? `${label} ${verb} from ${fmt(baseline)} to ${fmt(final)}.`
+      : `${label} ${verb} ${fmtNum(Math.abs(changePct), { maximumSignificantDigits: 2 })}%, to ${fmt(final)}.`;
   });
   const titles = input.policies.map(p => `“${p.title}”`).join(' and ');
-  return [`Over ${input.years} years, the simulation of ${titles} shows these changes.`, ...changes,
-    `Possible benefits: ${input.tradeoffs.pros.join(' ')}`, `Possible drawbacks: ${input.tradeoffs.cons.join(' ')}`].join(' ');
+  return [`Here is what the simulation shows for ${titles} over ${input.years} years.`, ...changes,
+    `On the plus side: ${input.tradeoffs.pros.join(' ')}`, `On the downside: ${input.tradeoffs.cons.join(' ')}`].join(' ');
 }
 
-const SYSTEM_PROMPT = `You write short news-style recaps of a city policy simulation for residents with no policy background.
+const SYSTEM_PROMPT = `You write short news-style recaps of a city policy simulation for residents with no policy background. The recap is read aloud.
 Rules:
-- Between 60 and 90 words, one paragraph, plain everyday language, no jargon, no headings or lists.
-- Use ONLY numbers that appear in the input. You may round them, but never calculate new numbers such as differences, sums or ratios. Write every number as digits.
+- Between 60 and 90 words (about 30 seconds spoken), one paragraph, plain everyday language, no jargon, no headings or lists.
+- Use ONLY numbers that appear in the input, and only the few that matter most to residents. Never calculate new numbers such as differences, sums or ratios. Write every number as digits.
+- Say numbers the way a local news anchor would: commas in large numbers, $ for money, % for percentages, rounded figures (for example "about 12,400" for 12408), and big dollar amounts in millions (for example "about $4.5 million" for 4518230).
 - State both the benefits (pros) and the drawbacks (cons) from the input.
 - Never recommend, endorse or oppose the policy and never take a side. Report what the simulation shows, as a simulation.`;
 
@@ -90,13 +94,20 @@ const userPrompt = input => `Simulation results (JSON):\n${JSON.stringify(input)
   Object.entries(METRICS).map(([k, m]) => `${k} = ${m.meaning}`).join('; ')
 }. In each delta, baseline is the starting value, final is the value after the simulated years, and changePct is the percent change between them.`;
 
-async function gemini(env, contents) {
+// Thinking makes Gemini 3 slow here (12-19s at its default level, 1.5s at "minimal"), but each model accepts different
+// levels (gemini-3.8-flash rejects "minimal"), so a 400 about the level retries once with the model's default.
+async function gemini(env, contents, thinkingLevel = env.GEMINI_THINKING_LEVEL || 'minimal') {
+  const generationConfig = { temperature: 0.2, ...(thinkingLevel && { thinkingConfig: { thinkingLevel } }) };
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(env.GEMINI_MODEL)}:generateContent`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-    body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] }, contents, generationConfig: { temperature: 0.2 } }),
+    body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] }, contents, generationConfig }),
     signal: AbortSignal.timeout(20_000),
   });
+  if (res.status === 400 && thinkingLevel && /thinking/i.test(await res.text())) {
+    console.warn(`narration: ${env.GEMINI_MODEL} rejected thinking level "${thinkingLevel}"; retrying with its default`);
+    return gemini(env, contents, null);
+  }
   if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
   const parts = (await res.json()).candidates?.[0]?.content?.parts ?? [];
   const text = parts.filter(p => !p.thought).map(p => p.text ?? '').join('').trim();

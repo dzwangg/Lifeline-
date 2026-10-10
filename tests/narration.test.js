@@ -12,7 +12,7 @@ const GOOD = 'Over 10 years, the simulated policy adds homes, from 23,713 to abo
   + 'Tree cover falls from 13.7% to 9.75%, a drop of nearly 29%. Commutes stay near 20 minutes, and yearly tax revenue grows to $69.8 million. '
   + 'Supporters note that more homes are built; critics note that forest is cleared.';
 const BAD = 'Homes rise by 509 and rent falls $3 by 2035.';
-const KEYS = { GEMINI_API_KEY: 'gem-secret', GEMINI_MODEL: 'gemini-test', ELEVENLABS_API_KEY: 'el-secret', ELEVENLABS_VOICE_ID: 'voice', ELEVENLABS_MODEL: '', DEMO_MODE: '' };
+const KEYS = { GEMINI_API_KEY: 'gem-secret', GEMINI_MODEL: 'gemini-test', ELEVENLABS_API_KEY: 'el-secret', ELEVENLABS_VOICE_ID: 'voice', ELEVENLABS_MODEL: '', GEMINI_THINKING_LEVEL: '', DEMO_MODE: '' };
 
 /** Runs fn with these env vars and a fake fetch that answers Gemini with `drafts` in turn; returns the calls it saw. */
 async function withMocks(env, drafts, fn) {
@@ -44,6 +44,13 @@ test('number check: rounding, signs, %, $, commas and scale words pass', () => {
   assert.deepEqual(badNumbers('Rent changes -0.22%, homes reach 24,222 (about 24,000), revenue about $70 million, over 10 years, on 130 acres.', input), []);
 });
 
+test('number check: anchor-style rounded figures pass, wrong roundings do not', () => {
+  const anchor = 'Homes rise to about 24,200, rent dips to about $1,480 a month, and tree cover falls to nearly 10%. '
+    + 'Tax revenue climbs to about $70 million, or $69.8 million, and commutes stay near 20 minutes.';
+  assert.deepEqual(badNumbers(anchor, input), []);
+  assert.deepEqual(badNumbers('Tax revenue reaches about $75 million, or $69.9 million, and homes about 24,100.', input), ['75 million', '69.9 million', '24,100']);
+});
+
 test('number check: names numbers that are not in the input, even derived ones', () => {
   assert.deepEqual(badNumbers(BAD, input), ['509', '3', '2035']);
   assert.deepEqual(badNumbers('Tree cover falls 28.9%, homes reach 24,300.', input), ['28.9', '24,300']);
@@ -56,10 +63,12 @@ test('hash is stable across key order and extra fields, and changes with the con
   assert.notEqual(hashInput(variant('a')), hashInput(input));
 });
 
-test('template recap is deterministic, covers every delta and both sides, and passes the number check', () => {
+test('template recap is deterministic, short, covers every delta and both sides, and passes the number check', () => {
   const text = templateRecap(input);
   assert.equal(text, templateRecap(structuredClone(input)));
-  for (const s of ['10 years', '23,713', '24,222', '$1,483', '13.7%', '$69.8 million', 'STUB pro', 'STUB con']) assert.ok(text.includes(s), s);
+  for (const s of ['10 years', 'rises 2.2%, to about 24,200', '$1,480 a month', 'from 13.7% to 9.8%', '$69.8 million', 'STUB pro', 'STUB con']) assert.ok(text.includes(s), s);
+  const words = text.split(/\s+/).length;
+  assert.ok(words >= 60 && words <= 90, `${words} words`);
   assert.deepEqual(badNumbers(text, input), []);
 });
 
@@ -70,7 +79,7 @@ test('handler: Gemini text read aloud, then served from cache', async () => {
     const [g, el] = calls;
     assert.equal(g.init.headers['x-goog-api-key'], 'gem-secret');
     assert.match(g.url, /models\/gemini-test:generateContent$/);
-    assert.equal(JSON.parse(g.init.body).generationConfig.temperature, 0.2);
+    assert.deepEqual(JSON.parse(g.init.body).generationConfig, { temperature: 0.2, thinkingConfig: { thinkingLevel: 'minimal' } });
     assert.match(el.url, /text-to-speech\/voice\?/);
     assert.equal(JSON.parse(el.init.body).model_id, 'eleven_flash_v2_5');
     assert.deepEqual(await post(variant('a')), { status: 200, text: GOOD, audio: 'AQID', cached: true, fallback: false });
@@ -90,6 +99,26 @@ test('handler: one retry listing the bad numbers, then the template', async () =
     assert.deepEqual([r.text, r.audio, r.fallback], [templateRecap(variant('c')), 'AQID', true]);
     assert.equal(calls.filter(c => c.url.includes('generativelanguage')).length, 2);
   });
+});
+
+test('handler: GEMINI_THINKING_LEVEL is sent, and a 400 about it retries once without thinkingConfig', async () => {
+  const rejected = () => Response.json({ error: { code: 400, message: 'Thinking level LOW is not supported for this model.' } }, { status: 400 });
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    await withMocks({ ...KEYS, GEMINI_THINKING_LEVEL: 'low' }, [rejected(), GOOD], async calls => {
+      const r = await post(variant('h'));
+      assert.deepEqual([r.text, r.fallback], [GOOD, false]);
+      assert.deepEqual(calls.slice(0, 2).map(c => JSON.parse(c.init.body).generationConfig), [{ temperature: 0.2, thinkingConfig: { thinkingLevel: 'low' } }, { temperature: 0.2 }]);
+    });
+    await withMocks(KEYS, [Response.json({ error: { code: 400, message: 'Invalid JSON payload.' } }, { status: 400 }), GOOD], async calls => {
+      const r = await post(variant('i'));
+      assert.deepEqual([r.text, r.fallback], [templateRecap(variant('i')), true]); // other 400s are not retried
+      assert.equal(calls.filter(c => c.url.includes('generativelanguage')).length, 1);
+    });
+  } finally {
+    console.warn = warn;
+  }
 });
 
 test('handler: API errors fall back to the template, are not cached, and never log keys', async () => {

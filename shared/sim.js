@@ -28,7 +28,7 @@ export function runScenario(cards, params, zones, assumptions, baselines, years 
     params: Object.fromEntries(c.params.map(p => [p.key, clamp(params?.[c.id]?.[p.key] ?? p.default, p.min, p.max)])),
   }));
   // Running totals per card, so each card's percentage effects can be summed and clamped.
-  const fx = cards.map(() => ({ units: 0, newUnits: 0, edgeUnits: 0, canopyAcres: 0, acres: {}, done: [] }));
+  const fx = cards.map(() => ({ units: 0, edgeUnits: 0, canopyAcres: 0, acres: {}, done: [] }));
 
   const timeline = [];
   for (let year = 0; year <= years; year++) {
@@ -46,7 +46,7 @@ export function runScenario(cards, params, zones, assumptions, baselines, years 
         quota--;
         const units = (A.unitsPerAcre[rule.to] - A.unitsPerAcre[rule.from]) * z.areaAcres;
         f.units += units;
-        if (units > 0) { f.newUnits += units; if (z.tags.includes('map_edge')) f.edgeUnits += units; }
+        if (units > 0 && z.tags.includes('map_edge')) f.edgeUnits += units;
         f.canopyAcres += (canopy(rule.to) - canopy(rule.from)) * z.areaAcres;
       }
     }));
@@ -72,7 +72,8 @@ function metrics(fx, A, B) {
   const sum = f => fx.reduce((s, e) => s + f(e), 0);
   const units = B.housingUnits + sum(e => e.units);
   const rentPct = clamp(sum(e => A.rentSupplyElasticity * e.units / B.housingUnits * 100), -MAX_CHANGE * 100, MAX_CHANGE * 100);
-  const commute = clamp(sum(e => (e.newUnits ? A.commuteDistancePenalty * e.edgeUnits / e.newUnits : 0)), -MAX_CHANGE * B.meanCommuteMin, MAX_CHANGE * B.meanCommuteMin);
+  // Each new home at the map edge adds the penalty to its own commute, so the town mean moves by those homes' share of all homes.
+  const commute = clamp(sum(e => A.commuteDistancePenalty * e.edgeUnits / units), -MAX_CHANGE * B.meanCommuteMin, MAX_CHANGE * B.meanCommuteMin);
   return {
     housingUnits: Math.round(units),
     medianRent: round2(B.medianGrossRent * (1 + rentPct / 100)),

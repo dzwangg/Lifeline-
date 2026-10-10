@@ -91,7 +91,7 @@
         "housingUnits": 23882,
         "medianRent": 1481.95,
         "treeCoverPct": 12.39,
-        "avgCommuteMin": 22.6,
+        "avgCommuteMin": 19.62,
         "taxRevenue": 68838827
       }
     },
@@ -133,7 +133,7 @@
         "housingUnits": 23940,
         "medianRent": 1481.58,
         "treeCoverPct": 11.94,
-        "avgCommuteMin": 22.6,
+        "avgCommuteMin": 19.63,
         "taxRevenue": 69006012
       }
     },
@@ -175,7 +175,7 @@
         "housingUnits": 23953,
         "medianRent": 1481.5,
         "treeCoverPct": 11.84,
-        "avgCommuteMin": 22.6,
+        "avgCommuteMin": 19.63,
         "taxRevenue": 69043370
       }
     },
@@ -217,7 +217,7 @@
         "housingUnits": 23953,
         "medianRent": 1481.5,
         "treeCoverPct": 11.84,
-        "avgCommuteMin": 22.6,
+        "avgCommuteMin": 19.63,
         "taxRevenue": 69043370
       }
     },
@@ -259,7 +259,7 @@
         "housingUnits": 23953,
         "medianRent": 1481.5,
         "treeCoverPct": 11.84,
-        "avgCommuteMin": 22.6,
+        "avgCommuteMin": 19.63,
         "taxRevenue": 69043370
       }
     },
@@ -301,7 +301,7 @@
         "housingUnits": 23953,
         "medianRent": 1481.5,
         "treeCoverPct": 11.84,
-        "avgCommuteMin": 22.6,
+        "avgCommuteMin": 19.63,
         "taxRevenue": 69043370
       }
     },
@@ -343,7 +343,7 @@
         "housingUnits": 23953,
         "medianRent": 1481.5,
         "treeCoverPct": 11.84,
-        "avgCommuteMin": 22.6,
+        "avgCommuteMin": 19.63,
         "taxRevenue": 69043370
       }
     },
@@ -385,7 +385,7 @@
         "housingUnits": 23953,
         "medianRent": 1481.5,
         "treeCoverPct": 11.84,
-        "avgCommuteMin": 22.6,
+        "avgCommuteMin": 19.63,
         "taxRevenue": 69043370
       }
     },
@@ -427,7 +427,7 @@
         "housingUnits": 23953,
         "medianRent": 1481.5,
         "treeCoverPct": 11.84,
-        "avgCommuteMin": 22.6,
+        "avgCommuteMin": 19.63,
         "taxRevenue": 69043370
       }
     },
@@ -469,7 +469,7 @@
         "housingUnits": 23953,
         "medianRent": 1481.5,
         "treeCoverPct": 11.84,
-        "avgCommuteMin": 22.6,
+        "avgCommuteMin": 19.63,
         "taxRevenue": 69043370
       }
     }
@@ -496,8 +496,8 @@
     {
       "metric": "avgCommuteMin",
       "baseline": 19.6,
-      "final": 22.6,
-      "changePct": 15.31
+      "final": 19.63,
+      "changePct": 0.15
     },
     {
       "metric": "taxRevenue",

@@ -29,6 +29,6 @@
     "value": 3,
     "unit": "minutes",
     "source": "PLACEHOLDER - needs citation",
-    "note": "Added to the mean commute in proportion to the share of a policy's new homes that land in map_edge zones."
+    "note": "Extra minutes for each new home in a map_edge zone. The town mean moves by the penalty times those homes' share of all homes."
   }
 }

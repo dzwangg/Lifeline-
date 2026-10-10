@@ -81,7 +81,7 @@ Each year, for every active card (cards run in `id` order) and every rule on the
 Converting a zone changes the stocks: housing units come from `unitsPerAcre`, and the zone's canopy share comes from `canopyMinPct` (both in `data/assumptions.json`). The metrics follow from the stocks:
 
 - **Median rent**: `rentSupplyElasticity × % change in housing supply`
-- **Commute**: baseline + `commuteDistancePenalty × share of the card's new homes in map_edge zones`
+- **Commute**: baseline + `commuteDistancePenalty × (new homes in map_edge zones ÷ all homes)`
 - **Tree cover**: baseline minus lost canopy acres as a share of the map area
 - **Tax revenue**: `units × median home value × propertyTaxRate`
 

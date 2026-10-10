@@ -68,6 +68,7 @@ export async function buildWorld({ container, osm, names = [], zones = [], progr
   let time = 0, simTime = 0;
   return {
     view, grid, buildings, streets, traffic, selection, zoneParts, lod: sprites.lod,
+    sprites, art, // the sprite system and its atlas, for layers added from outside (see WORLD.md)
     stats: { buildings: buildings.meta.length, tallest: Math.max(...buildings.meta.map(m => m.height)), trees: treeItems.length, ...traffic.count },
     gridAt: (x, z) => grid.at(x, z),
     // dt: real seconds, for the camera and inspection (the selection pulse). simDt: simulated seconds from the shared

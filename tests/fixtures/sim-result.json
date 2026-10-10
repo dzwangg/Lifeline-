@@ -4576,9 +4576,9 @@
     },
     {
       "metric": "medianRent",
-      "baseline": 1715,
+      "baseline": 1714,
       "final": 1668,
-      "changePct": -2.74,
+      "changePct": -2.68,
       "comparedWith": "no new policy"
     },
     {
@@ -4590,9 +4590,9 @@
     },
     {
       "metric": "avgCommuteMin",
-      "baseline": 19.6,
+      "baseline": 19.5,
       "final": 20,
-      "changePct": 2.04,
+      "changePct": 2.56,
       "comparedWith": "no new policy"
     },
     {
@@ -4611,9 +4611,9 @@
     },
     {
       "metric": "pricedOut",
-      "baseline": 4400,
+      "baseline": 4396,
       "final": 4057,
-      "changePct": -7.8,
+      "changePct": -7.71,
       "comparedWith": "no new policy"
     }
   ],
@@ -4827,7 +4827,7 @@
       "source": "PLACEHOLDER - needs citation"
     },
     {
-      "key": "agentBurdenRise",
+      "key": "agentBurdenRiseSinceArrival",
       "value": 0.05,
       "source": "PLACEHOLDER - needs citation"
     },

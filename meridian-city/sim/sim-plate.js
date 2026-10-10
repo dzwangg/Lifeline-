@@ -21,7 +21,7 @@ const METRICS = [
   { key: 'avgCommuteMin', label: 'Mean commute', vsNoPolicy: true, fmt: n => `${fixed(n, 1)} min`, inputs: ['meanCommuteMin', 'roadT0Min', 'roadCapacity', 'roadPeakVolume', 'roadBpr', 'roadCarShare', 'agentRemoteShare', 'agentDurhamShare', 'agentBaseCommuteMin', 'agentDurhamExtraMin'] },
   { key: 'taxRevenue', label: 'Property tax revenue', fmt: n => `$${fixed(n, 0)}`, inputs: ['housingUnits', 'unitsPerAcre', 'medianHomeValue', 'propertyTaxRate'] },
   { key: 'households', label: 'Households (est.)', fmt: n => fixed(n, 0), inputs: ['agentScale', 'agentHouseholds', 'agentUnits', 'agentGrowth', 'agentInducedShare'] },
-  { key: 'pricedOut', label: 'Priced out (est.)', vsNoPolicy: true, caveat: ESTIMATES, fmt: n => fixed(n, 0), inputs: ['agentScale', 'agentBurdenLine', 'agentBurdenRise', 'agentLeaveProb', 'agentRentAmp', 'agentTargetVacancy'] },
+  { key: 'pricedOut', label: 'Priced out (est.)', vsNoPolicy: true, caveat: ESTIMATES, fmt: n => fixed(n, 0), inputs: ['agentScale', 'agentBurdenLine', 'agentBurdenRiseSinceArrival', 'agentLeaveProb', 'agentRentAmp', 'agentTargetVacancy'] },
 ];
 const WORK = { remote: 'Works from home', durham: 'Works in Durham', campus: 'Works at UNC', downtown: 'Works downtown' };
 const WHERE = { downtown: 'near Franklin St', campus: 'near campus', edge: 'at the edge of town' };

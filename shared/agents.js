@@ -1,6 +1,7 @@
 // Household agent model, ported from the Chapel Hill Household Sim prototype (agents-prototype.js): pure and
 // deterministic, no DOM. 300 simulated households in three zones; new homes come online where and when the policy
-// sim builds them, rent follows vacancy, renters whose rent burden stays high may leave, and 15-501 delay follows a
+// sim builds them, rent follows vacancy, renters whose rent burden stays high may leave (over the line and well above
+// what it was when they arrived, two years running), and 15-501 delay follows a
 // BPR curve. Coefficients are the agent* and road* entries in data/assumptions.json. Year 0 is calibrated to the ACS
 // median gross rent and mean commute in data/baselines.json, and to the observed 15-501 peak volume.
 
@@ -23,7 +24,7 @@ import { runScenario } from './sim.js';
  * @property {number} y
  * @property {number} joined year the household moved in (0 = already here)
  * @property {number | null} left year it left, if it did
- * @property {number} strikes @property {number | null} burden0
+ * @property {number} strikes years in a row over the leaving threshold @property {number | null} burden0 rent burden on arrival
  * @property {({ rent: number | null, burden: number | null, commute: number, here: boolean } | undefined)[]} hist by year, while here
  */
 /**
@@ -106,7 +107,7 @@ export function simulate(homes, assumptions, baselines, seed = 7) {
       // arrivals: baseline growth plus demand induced by surplus vacancy
       let pop = live().length;
       const total = units.downtown + units.campus + units.edge, vacPrev = (total - pop) / total;
-      const want = Math.round(pop * A.agentGrowth + (r() < (pop * A.agentGrowth % 1) ? 1 : 0)) + Math.max(0, Math.round((vacPrev - A.agentInducedVacancy) * total * A.agentInducedShare));
+      const want = Math.floor(pop * A.agentGrowth) + (r() < (pop * A.agentGrowth % 1) ? 1 : 0) + Math.max(0, Math.round((vacPrev - A.agentInducedVacancy) * total * A.agentInducedShare));
       unmet = 0;
       for (let i = 0; i < want; i++) {
         const occ = { downtown: 0, campus: 0, edge: 0 };
@@ -123,11 +124,12 @@ export function simulate(homes, assumptions, baselines, seed = 7) {
       const v = (total - pop - unmet) / total;
       const g = Math.max(C.min, Math.min(C.max, A.agentRentAmp * (A.agentTargetVacancy - v) / (Math.max(v, C.floor) + C.offset)));
       rentIndex *= 1 + g;
-      // displacement: burden over the line and rising for 2 straight years
+      // displacement: burden over the line and at least agentBurdenRiseSinceArrival above the burden on arrival, two
+      // years running. It compares with arrival, not last year, so a small dip after a big rise still counts.
       for (const a of live()) {
         if (!a.renter || a.burden0 === null) continue;
         const b = a.rentBase * rentIndex * 12 / a.income;
-        if (b > A.agentBurdenLine && b - a.burden0 >= A.agentBurdenRise) a.strikes++; else a.strikes = 0;
+        if (b > A.agentBurdenLine && b - a.burden0 >= A.agentBurdenRiseSinceArrival) a.strikes++; else a.strikes = 0;
         if (a.strikes >= 2 && r() < A.agentLeaveProb) a.left = t;
       }
     }

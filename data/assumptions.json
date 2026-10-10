@@ -81,10 +81,10 @@
     "source": "PLACEHOLDER - needs citation",
     "note": "Rent share of income above which a renter may leave. From the household-model prototype."
   },
-  "agentBurdenRise": {
+  "agentBurdenRiseSinceArrival": {
     "value": 0.05,
     "source": "PLACEHOLDER - needs citation",
-    "note": "Yearly rise in that share that counts toward leaving. From the household-model prototype."
+    "note": "Rise in rent share of income since arrival (0.05 = 5 points) that, with the share over agentBurdenLine, counts a year toward leaving; after two such years running a renter may leave. From the household-model prototype."
   },
   "agentLeaveProb": {
     "value": 0.5,

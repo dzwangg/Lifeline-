@@ -88,7 +88,7 @@ Converting a zone changes the stocks: housing units come from `unitsPerAcre`, an
 
 When several cards are active, their percentage effects add up and are then clamped to ±50% of baseline. If two cards target the same zone, the card that comes first by `id` converts it.
 
-On the page, median rent and commute come from the household model (`shared/agents.js`) instead. It takes the homes your rules build each year: homes in `map_edge` parcels count as edge-of-town homes, and all others as downtown. Rent and commute are shown against the same model run with no new policy. The SimResult still carries the aggregate rent and commute above.
+On the page, median rent and commute come from the household model (`shared/agents.js`) instead. It takes the homes your rules build each year: homes in `map_edge` parcels count as edge-of-town homes, and all others as downtown. Rent and commute are shown against the same model run with no new policy. Only the `SimResult` returned directly by `runScenario` carries the aggregate rent and commute above. The page and narration fixture use `withHouseholds`, which replaces those fields with the household model's averages.
 
 ## capParam
 

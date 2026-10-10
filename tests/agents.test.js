@@ -38,3 +38,31 @@ test('the full SimResult carries the averaged household numbers, compared as the
   const vs = Object.fromEntries(r.deltas.map(d => [d.metric, d.comparedWith]));
   assert.deepEqual(vs, { housingUnits: 'year 0', medianRent: 'no new policy', treeCoverPct: 'year 0', avgCommuteMin: 'no new policy', taxRevenue: 'year 0', households: 'year 0', pricedOut: 'no new policy' });
 });
+
+test('baseline growth adds the expected households on average, either side of a half', () => {
+  // No induced demand and plenty of spare homes, so year-1 arrivals are growth alone: 300 households x growth.
+  const units = { ...assumptions.agentUnits, value: { downtown: 200, campus: 200, edge: 200 } };
+  for (const expected of [1.3, 1.7]) {
+    const A = { ...assumptions, agentUnits: units, agentInducedShare: { ...assumptions.agentInducedShare, value: 0 }, agentGrowth: { ...assumptions.agentGrowth, value: expected / 300 } };
+    let arrivals = 0;
+    for (let seed = 1; seed <= 400; seed++) arrivals += simulate(null, A, baselines, seed).agents.filter(a => a.joined === 1).length;
+    assert.ok(Math.abs(arrivals / 400 - expected) < .1, `expected ~${expected}, got ${arrivals / 400}`);
+  }
+});
+
+test('a renter whose burden dips a little but stays well above arrival still counts as priced out', () => {
+  const line = assumptions.agentBurdenLine.value, rise = assumptions.agentBurdenRiseSinceArrival.value, slack = 1e-3; // hist rents are rounded to the dollar
+  const dipped = [];
+  for (let seed = 1; seed <= 20; seed++) {
+    const { agents, years } = simulate(null, assumptions, baselines, seed);
+    for (const a of agents) {
+      if (a.left === null || a.hist[a.left].burden >= a.hist[a.left - 1].burden) continue;
+      dipped.push(a);
+      for (const t of [a.left - 1, a.left]) { // the two years running that counted
+        assert.ok(a.hist[t].burden > line - slack && a.hist[t].burden - a.burden0 >= rise - slack, `seed ${seed}, household ${a.id}, year ${t}`);
+      }
+      assert.ok(years[a.left].displaced >= 1);
+    }
+  }
+  assert.ok(dipped.length > 0, 'no renter left in a year their burden dipped; the case is not exercised');
+});

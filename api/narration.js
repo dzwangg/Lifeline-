@@ -1,7 +1,8 @@
 // POST /api/narration: a short spoken news-style recap of a SimResult (see shared/types.d.ts).
 // Body: a SimResult, or just its { policies, years, deltas, tradeoffs }. Reply: { text, audio, cached, fallback }
 // where audio is a base64 mp3 or null, and fallback means the text is the deterministic template, not Gemini's.
-// Order: in-memory cache, then committed clips in demo-audio/<hash>.{json,mp3}, then Gemini + ElevenLabs.
+// Order: in-memory cache, then committed clips (demo-audio/<input hash>.json holds the text, <speech hash>.mp3 its audio),
+// then Gemini + ElevenLabs. ElevenLabs gets speakable(text), the numbers in words; the reply's text keeps the digits.
 // DEMO_MODE=1 never calls out. A missing key degrades its own step (no Gemini key: template; no ElevenLabs key: no audio).
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -74,6 +75,30 @@ export function badNumbers(text, input) {
     .map(n => n.raw);
 }
 
+const ONES = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
+  'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+const under100 = n => n < 20 ? ONES[n] : TENS[Math.floor(n / 10)] + (n % 10 ? `-${ONES[n % 10]}` : '');
+const under1000 = n => [n >= 100 && `${ONES[Math.floor(n / 100)]} hundred`, (n % 100 || n < 100) && under100(n % 100)].filter(Boolean).join(' ');
+/** 4060 -> "four thousand sixty", 130 -> "a hundred thirty" */
+const wholeWords = n => n === 0 ? 'zero' : [[1e12, 'trillion'], [1e9, 'billion'], [1e6, 'million'], [1e3, 'thousand'], [1, '']]
+  .filter(([size]) => Math.floor(n / size) % 1000).map(([size, name]) => `${under1000(Math.floor(n / size) % 1000)} ${name}`.trim())
+  .join(' ').replace(/^one hundred/, 'a hundred');
+// A number not glued to a word or another number: sign, $, digits, decimals, scale word, %.
+const SPOKEN = /(?<![\w.,])([-−])?(\$)?(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?(?:\s*(thousand|million|billion)\b)?(%)?/g;
+
+/** The recap as ElevenLabs should say it: numbers in the words a news anchor uses ("$1,670" -> "sixteen hundred seventy dollars"). */
+export const speakable = text => text
+  .replace(/\b15-501\b/g, 'fifteen-five-oh-one') // ponytail: the one road name in the cards; a lookup table if more appear
+  .replace(SPOKEN, (m, sign, dollar, int, dec, scale, pct) => {
+    const n = +int.replace(/,/g, '');
+    // Anchors say "sixteen hundred seventy dollars" for $1,100-$9,999, but "two thousand five dollars", not "twenty hundred five".
+    const whole = dollar && !dec && !scale && n >= 1100 && n <= 9999 && n % 1000 >= 100
+      ? `${under100(Math.floor(n / 100))} hundred${n % 100 ? ` ${under100(n % 100)}` : ''}` : wholeWords(n);
+    const point = dec ? ` point ${[...dec.slice(1)].map(d => ONES[d]).join(' ')}` : '';
+    return [sign && 'minus', whole + point, scale, pct && 'percent', dollar && 'dollars'].filter(Boolean).join(' ');
+  });
+
 /** The deterministic recap used whenever Gemini is off, failing, or keeps citing numbers that are not in the input. */
 export function templateRecap(input) {
   const list = items => new Intl.ListFormat('en', { type: 'conjunction' }).format(items);
@@ -136,7 +161,7 @@ async function speak(env, text) {
   const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(env.ELEVENLABS_VOICE_ID)}?output_format=mp3_44100_128`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', accept: 'audio/mpeg', 'xi-api-key': env.ELEVENLABS_API_KEY },
-    body: JSON.stringify({ text, model_id: env.ELEVENLABS_MODEL || 'eleven_flash_v2_5' }),
+    body: JSON.stringify({ text: speakable(text), model_id: env.ELEVENLABS_MODEL || 'eleven_flash_v2_5', apply_text_normalization: 'on' }),
     signal: AbortSignal.timeout(20_000),
   });
   if (!res.ok) throw new Error(`ElevenLabs HTTP ${res.status}`);
@@ -175,13 +200,13 @@ export async function narrate(input, env = process.env) {
   return { text, audio, fallback, failed };
 }
 
+/** The mp3 is named by the words it says, so a clip recorded before speakable() changed is never reused. */
+export const speechKey = text => hashInput(speakable(text));
+
 async function demoClip(key) {
   try {
-    const [meta, mp3] = await Promise.all([
-      readFile(new URL(`../demo-audio/${key}.json`, import.meta.url), 'utf8'),
-      readFile(new URL(`../demo-audio/${key}.mp3`, import.meta.url)),
-    ]);
-    const { text, fallback } = JSON.parse(meta);
+    const { text, fallback } = JSON.parse(await readFile(new URL(`../demo-audio/${key}.json`, import.meta.url), 'utf8'));
+    const mp3 = await readFile(new URL(`../demo-audio/${speechKey(text)}.mp3`, import.meta.url));
     return { text, audio: mp3.toString('base64'), fallback };
   } catch {
     return null;

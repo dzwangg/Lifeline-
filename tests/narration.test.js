@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
-import { POST, badNumbers, hashInput, parseInput, templateRecap } from '../api/narration.js';
+import { POST, badNumbers, hashInput, parseInput, speakable, speechKey, templateRecap } from '../api/narration.js';
 
 const fixture = JSON.parse(readFileSync(new URL('./fixtures/sim-result.json', import.meta.url), 'utf8'));
 const { input } = parseInput(fixture);
@@ -90,7 +90,8 @@ test('handler: Gemini text read aloud, then served from cache', async () => {
     assert.match(g.url, /models\/gemini-test:generateContent$/);
     assert.deepEqual(JSON.parse(g.init.body).generationConfig, { temperature: 0.2, thinkingConfig: { thinkingLevel: 'minimal' } });
     assert.match(el.url, /text-to-speech\/voice\?/);
-    assert.equal(JSON.parse(el.init.body).model_id, 'eleven_flash_v2_5');
+    assert.deepEqual(JSON.parse(el.init.body), { text: speakable(GOOD), model_id: 'eleven_flash_v2_5', apply_text_normalization: 'on' });
+    assert.match(JSON.parse(el.init.body).text, /twenty-four thousand two hundred, a two point one five percent rise/);
     assert.deepEqual(await post(variant('a')), { status: 200, text: GOOD, audio: 'AQID', cached: true, fallback: false });
     assert.equal(calls.length, 2);
   });
@@ -160,21 +161,54 @@ test('handler: missing keys give the template with no audio; DEMO_MODE never cal
   });
 });
 
-test('handler: a committed demo clip is served first', async () => {
-  const dir = new URL('../demo-audio/', import.meta.url), key = hashInput(variant('g'));
+test('handler: a committed demo clip is served first, but only if its mp3 says the current speech text', async () => {
+  const dir = new URL('../demo-audio/', import.meta.url);
+  const clip = (tag, mp3Name) => {
+    const key = hashInput(variant(tag)), text = `Rent is $1,670, case ${tag}.`;
+    writeFileSync(new URL(`${key}.json`, dir), JSON.stringify({ text, fallback: false }));
+    writeFileSync(new URL(`${mp3Name(key, text)}.mp3`, dir), Buffer.from([1, 2, 3]));
+    return [`${key}.json`, `${mp3Name(key, text)}.mp3`];
+  };
   mkdirSync(dir, { recursive: true });
-  writeFileSync(new URL(`${key}.mp3`, dir), Buffer.from([1, 2, 3]));
-  writeFileSync(new URL(`${key}.json`, dir), JSON.stringify({ text: 'Clip text.', fallback: false }));
+  const files = [...clip('g', (key, text) => speechKey(text)), ...clip('j', key => key)]; // j: named the old way, by input hash
   try {
     await withMocks({ ...KEYS, DEMO_MODE: '1' }, [], async calls => {
-      assert.deepEqual(await post(variant('g')), { status: 200, text: 'Clip text.', audio: 'AQID', cached: true, fallback: false });
+      assert.deepEqual(await post(variant('g')), { status: 200, text: 'Rent is $1,670, case g.', audio: 'AQID', cached: true, fallback: false });
+      assert.deepEqual(await post(variant('j')), { status: 200, text: templateRecap(variant('j')), audio: null, cached: false, fallback: true });
       assert.equal(calls.length, 0);
     });
   } finally {
-    rmSync(new URL(`${key}.mp3`, dir));
-    rmSync(new URL(`${key}.json`, dir));
+    for (const f of files) rmSync(new URL(f, dir));
     try { rmdirSync(dir); } catch {} // only if this test created it and it is empty
   }
+});
+
+test('speakable: numbers in the words a news anchor says', () => {
+  const cases = {
+    '$1,670': 'sixteen hundred seventy dollars',
+    '$69.8 million': 'sixty-nine point eight million dollars',
+    '43%': 'forty-three percent',
+    '20 minutes': 'twenty minutes',
+    'about 4,060': 'about four thousand sixty',
+    '130 acres': 'a hundred thirty acres',
+    // decimals
+    '2.15%': 'two point one five percent',
+    '0.78%': 'zero point seven eight percent',
+    '19.5 minutes': 'nineteen point five minutes',
+    // negative changes, with a hyphen or a minus sign
+    'rent changes -2.68%': 'rent changes minus two point six eight percent',
+    '(−7.7%)': '(minus seven point seven percent)',
+    // the hundreds style is for dollars from 1,100 to 9,999 only
+    '$1,100': 'eleven hundred dollars',
+    '$9,999': 'ninety-nine hundred ninety-nine dollars',
+    '$1,050': 'one thousand fifty dollars',
+    '$2,000': 'two thousand dollars',
+    '1,670 homes': 'one thousand six hundred seventy homes',
+    // hyphens that are not minus signs
+    'the 15-501 corridor over a 10-year span': 'the fifteen-five-oh-one corridor over a ten-year span',
+  };
+  for (const [text, said] of Object.entries(cases)) assert.equal(speakable(text), said, text);
+  assert.doesNotMatch(speakable(templateRecap(input)), /\d/);
 });
 
 test('handler: rejects bad input with 400', async () => {

@@ -4,6 +4,20 @@ A policy card is one JSON file in `data/policies/`. Each card describes a local 
 
 ## Workflow
 
+### For players in the game
+
+Set `GEMINI_API_KEY` on the server and run `npm start`, then open `http://127.0.0.1:3000/`. In **Policies → Propose a new policy**, describe a land-use change and select **Draft policy**. The new card appears in the library. Put it in a matching slot and select **Apply policies** to run it in the simulation. Player-created cards are saved in that browser's local storage and restored on return. The server handles Gemini requests; the API key is never sent to the browser. A static file server cannot provide the drafting endpoint.
+
+The default model is `gemini-3.8-flash`. If your key has access to a different Gemini model, set `GEMINI_MODEL` on the server before starting it.
+
+### For developers
+
+To draft a new card from a plain-language idea, set `GEMINI_API_KEY` in your shell and run `npm run create:card -- "Allow mid-rise homes near the corridor"`. With no idea argument, the script prompts for one. It asks Gemini for a card, validates the schema, checks that its selectors match real zones, runs the ten-year simulation at the default slider values, and writes `data/policies/<id>.json` plus `data/cards.index.json`. Reload the game to see the new card in the policy library. Review the generated text and assumptions before sharing it.
+
+The generator only accepts ideas the current simulation can represent as zone conversions. It reports unsupported requests, such as a tax change or hiring grant, rather than creating a card whose effects the game cannot calculate. Your API key stays in the Node process and is not put in the browser.
+
+To author a card by hand:
+
 1. Write `data/policies/<card-id>.json` (the file name should match the card's `id`).
 2. Run `npm run validate:cards`. It checks every card and prints each problem with the field path, e.g. `tradeoffs.cons: needs at least one entry`.
 3. Commit the card **and** `data/cards.index.json`. The validate script rewrites that file, and the site loads cards from it because a static host can't list a folder.

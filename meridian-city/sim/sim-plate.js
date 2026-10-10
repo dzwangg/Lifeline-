@@ -22,7 +22,6 @@ const showValue = v => (typeof v === 'object' ? Object.entries(v).map(([k, x]) =
 export async function mountSimPlate({ policyStore, cards, host = document.body }) {
   const [, assumptions, baselines] = await dataReady;
   const sources = { ...baselines, ...assumptions };
-  const cardById = new Map(cards.map(c => [c.id, c]));
 
   const cardsEl = h('div', { class: 'sim__cards' });
   const yearOut = h('output', { class: 'sim__val' });
@@ -62,6 +61,7 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
   // Cards applied in the policy panel drive the sim. The panel's hardcoded policies have no zone rules to run.
   let shown = null;
   const sync = ({ applied }) => {
+    const cardById = new Map(cards.map(c => [c.id, c]));
     const ids = Object.values(applied).filter(Boolean);
     if (ids.join() === shown) return; // the panel also emits while its draft changes
     shown = ids.join();

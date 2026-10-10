@@ -5,7 +5,7 @@ const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').match
 const ARROWS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
 
 // Mounts the policy overlay. Returns { open(trigger?), close(), isOpen() }.
-export function mountPolicyPanel({ store, host = document.body } = {}) {
+export function mountPolicyPanel({ store, host = document.body, onCreate } = {}) {
   const cats = new Map(store.categories.map(c => [c.id, c]));
   const catOf = policy => cats.get(policy.category);
   // armed: a card picked up by click or keyboard, waiting for a destination. from: its slot, if any.
@@ -20,6 +20,14 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
   const chips = h('div', { class: 'pp-chips', role: 'group', 'aria-label': 'Filter by category' });
   const libCount = h('span', { class: 'pp-lib__count' });
   const grid = h('div', { class: 'pp-grid' });
+  const ideaInput = h('textarea', { class: 'pp-create__input', rows: 3, maxlength: 1200, placeholder: 'What should the city do?', 'aria-label': 'Describe a new policy' });
+  const createButton = GlassButton('Draft policy', { variant: 'primary', type: 'submit' });
+  const createStatus = h('p', { class: 'pp-create__status', role: 'status', 'aria-live': 'polite' });
+  const createPreview = h('div', { class: 'pp-create__preview' });
+  const createForm = h('form', { class: 'pp-create' },
+    h('label', { class: 'pp-create__label' }, 'Propose a new policy', ideaInput),
+    h('p', { class: 'pp-create__hint' }, 'Describe a change to mapped land, such as housing near a road. Gemini will draft a card for you to review and apply.'),
+    createButton, createStatus, createPreview);
   const btnClear = GlassButton('Clear selection', { variant: 'quiet' });
   const btnCancel = GlassButton('Cancel');
   const btnApply = GlassButton('Apply policies', { variant: 'primary' });
@@ -33,6 +41,7 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
     h('label', { class: 'pp-search' },
       h('span', { class: 'pp-search__icon', 'aria-hidden': 'true', html: '<svg viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>' }),
       search),
+    onCreate && createForm,
     chips,
     h('p', { class: 'pp-library__return', 'aria-hidden': 'true' }, 'Drop here to return the card'),
     grid);
@@ -380,6 +389,34 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
   });
 
   search.addEventListener('input', () => { ui.query = search.value; render(); });
+  createForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    const idea = ideaInput.value.trim();
+    if (!idea || !onCreate) return;
+    createButton.disabled = true;
+    ideaInput.disabled = true;
+    createStatus.textContent = 'Drafting your policy…';
+    try {
+      const card = await onCreate(idea);
+      ui.query = search.value = '';
+      ui.filter = 'all';
+      render();
+      createPreview.replaceChildren(
+        h('strong', {}, card.title), h('p', {}, card.summary),
+        h('p', {}, `Decided by: ${card.decider.body}`),
+        h('strong', {}, 'Pros'), h('ul', {}, card.tradeoffs.pros.map(item => h('li', {}, item))),
+        h('strong', {}, 'Cons'), h('ul', {}, card.tradeoffs.cons.map(item => h('li', {}, item))));
+      createStatus.textContent = `Created “${card.title}”. Select it in the library, then place it in a matching slot and apply.`;
+      ideaInput.value = '';
+      announce(`Created ${card.title}. Select it in the library to review.`);
+      focusByKey(`lib:${card.id}`);
+    } catch (error) {
+      createStatus.textContent = error.message;
+    } finally {
+      createButton.disabled = false;
+      ideaInput.disabled = false;
+    }
+  });
   nameInput.addEventListener('input', () => store.setScenarioName(nameInput.value.replace(/\s*\n\s*/g, ' ')));
   nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); nameInput.blur(); } });
   nameInput.addEventListener('blur', () => { if (!nameInput.value.trim()) store.setScenarioName('Untitled scenario'); });

@@ -42,6 +42,13 @@ export function createPolicyStore({
     slotOf,
     fits,
     compatibleSlots: policyId => slots.filter(s => fits(policyId, s.id)).map(s => s.id),
+    addPolicy(policy) {
+      if (policyById.has(policy.id) || !categories.some(c => c.id === policy.category)) return false;
+      policyById.set(policy.id, policy);
+      policies.push(policy);
+      emit({ type: 'addPolicy', policyId: policy.id });
+      return true;
+    },
 
     // Puts a policy in a slot. A policy already in another slot moves (each policy appears once);
     // whatever was in the target either swaps into the vacated slot or returns to the library.

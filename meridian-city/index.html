@@ -66,10 +66,35 @@ import { createPolicyStore } from './policy/store.js';
 import { mountPolicyPanel } from './policy/policy-panel.js';
 import { cardsReady, panelPolicies } from './sim/scenario.js';
 import { mountSimPlate } from './sim/sim-plate.js';
+import { validateCard } from '../shared/schema.js';
 
 const cards = await cardsReady; // policy cards from data/policies/ join the hardcoded policies in the panel
+const initialIds = new Set(cards.map(card => card.id));
+const savedKey = 'meridian.playerPolicies.v1';
+try {
+  const saved = JSON.parse(localStorage.getItem(savedKey) || '[]');
+  if (Array.isArray(saved)) for (const card of saved) {
+    if (!validateCard(card).length && !cards.some(existing => existing.id === card.id)) cards.push(card);
+  }
+} catch (error) { console.warn('Could not restore player policies.', error); }
 const store = createPolicyStore({ policies: panelPolicies(cards) });
-const panel = mountPolicyPanel({ store });
+const panel = mountPolicyPanel({ store, onCreate: async idea => {
+  const response = await fetch('/api/policies/generate', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idea }),
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.card) throw new Error(result?.error || 'Policy drafting requires the game server. Run npm start.');
+  const card = result.card;
+  let id = card.id, suffix = 2;
+  while (store.getPolicy(id)) id = `${card.id}-${suffix++}`;
+  card.id = id;
+  cards.push(card);
+  store.addPolicy({ id, title: card.title, category: card.category ?? 'housing', icon: card.icon ?? 'house', summary: card.summary });
+  try { localStorage.setItem(savedKey, JSON.stringify(cards.filter(c => !initialIds.has(c.id)))); }
+  catch (error) { console.warn('Could not save player policy for the next visit.', error); }
+  return card;
+} });
 const launch = document.getElementById('policy-launch'), count = document.getElementById('policy-count');
 launch.addEventListener('click', () => panel.open(launch));
 addEventListener('keydown', e => {

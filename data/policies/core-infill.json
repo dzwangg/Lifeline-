@@ -1,0 +1,35 @@
+{
+  "id": "core-infill",
+  "title": "Mixed-use infill in the town core",
+  "summary": "Rezones two wooded sites in the town core for buildings with shops below and apartments above.",
+  "category": "housing",
+  "icon": "house",
+  "decider": {
+    "body": "Chapel Hill Town Council",
+    "how": [
+      "Planning staff review the rezoning application.",
+      "The Planning Commission reviews the proposal and makes a recommendation.",
+      "Residents comment at a Town Council public hearing.",
+      "Town Council votes on the rezoning."
+    ]
+  },
+  "params": [
+    { "key": "acres_built", "label": "Acres built as mixed-use", "min": 0, "max": 25, "default": 10, "unit": "acres" }
+  ],
+  "zoneRules": [
+    { "where": "tag:wood-04", "from": "forest", "to": "mixed_use", "ratePerYear": 0.2, "capParam": "acres_built" },
+    { "where": "tag:wood-06", "from": "forest", "to": "mixed_use", "ratePerYear": 0.2, "capParam": "acres_built" }
+  ],
+  "tradeoffs": {
+    "pros": [
+      "At 10 acres, adds about 300 apartments.",
+      "Adds ground-floor space for shops and offices.",
+      "Places homes closer to downtown and campus than the edge woods."
+    ],
+    "cons": [
+      "At 10 acres, removes about 8 acres of tree canopy from two woods in the core.",
+      "Taller, denser buildings next to existing neighborhoods.",
+      "More foot and car traffic on downtown streets."
+    ]
+  }
+}

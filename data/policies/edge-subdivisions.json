@@ -1,0 +1,35 @@
+{
+  "id": "edge-subdivisions",
+  "title": "New neighborhoods in the edge woods",
+  "summary": "Rezones wooded parcels near the edge of the map for single-family subdivisions.",
+  "category": "housing",
+  "icon": "house",
+  "decider": {
+    "body": "Chapel Hill Town Council",
+    "how": [
+      "Planning staff review the rezoning and subdivision applications.",
+      "OWASA reviews whether water and sewer lines can be extended to the parcels.",
+      "The Planning Commission reviews the proposal and makes a recommendation.",
+      "Residents comment at a Town Council public hearing.",
+      "Town Council votes on the rezoning."
+    ]
+  },
+  "params": [
+    { "key": "acres_released", "label": "Acres opened to subdivisions", "min": 0, "max": 150, "default": 60, "unit": "acres" }
+  ],
+  "zoneRules": [
+    { "where": "tag:map_edge", "from": "forest", "to": "low_res", "ratePerYear": 0.1, "capParam": "acres_released" }
+  ],
+  "tradeoffs": {
+    "pros": [
+      "At 60 acres, adds about 240 single-family homes.",
+      "Adds detached houses with yards.",
+      "Adds property tax base."
+    ],
+    "cons": [
+      "At 60 acres, removes about 36 acres of tree canopy.",
+      "New homes at the map edge add to the average commute.",
+      "Needs new roads and water and sewer lines to reach the parcels."
+    ]
+  }
+}

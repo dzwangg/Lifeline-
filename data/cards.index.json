@@ -1,1 +1,5 @@
-[]
+[
+  "policies/core-infill.json",
+  "policies/corridor-midrise.json",
+  "policies/edge-subdivisions.json"
+]

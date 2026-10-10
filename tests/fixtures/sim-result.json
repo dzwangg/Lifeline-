@@ -838,19 +838,19 @@
       },
       "metrics": {
         "housingUnits": 24103,
-        "medianRent": 1490,
+        "medianRent": 1525,
         "treeCoverPct": 46.46,
-        "avgCommuteMin": 19.7,
+        "avgCommuteMin": 19.6,
         "taxRevenue": 69476835,
-        "households": 23457,
-        "pricedOut": 453,
+        "households": 23910,
+        "pricedOut": 0,
         "jobs": 54590,
         "businesses": 839,
-        "storefrontVacancy": 0.2437,
-        "homeValue": 592645,
-        "netFiscal": 93864136,
-        "transitRidership": 4326475,
-        "trafficIndex": 1.0038
+        "storefrontVacancy": 0.2438,
+        "homeValue": 592638,
+        "netFiscal": 93864229,
+        "transitRidership": 4326462,
+        "trafficIndex": 1.0039
       }
     },
     {
@@ -1259,19 +1259,19 @@
       },
       "metrics": {
         "housingUnits": 24494,
-        "medianRent": 1503,
+        "medianRent": 1567,
         "treeCoverPct": 46.02,
-        "avgCommuteMin": 19.8,
+        "avgCommuteMin": 19.6,
         "taxRevenue": 70603022,
-        "households": 23916,
-        "pricedOut": 858,
-        "jobs": 54999,
+        "households": 24322,
+        "pricedOut": 0,
+        "jobs": 54996,
         "businesses": 842,
-        "storefrontVacancy": 0.2448,
-        "homeValue": 608909,
-        "netFiscal": 95003972,
-        "transitRidership": 4374800,
-        "trafficIndex": 1.012
+        "storefrontVacancy": 0.2455,
+        "homeValue": 608918,
+        "netFiscal": 95006364,
+        "transitRidership": 4374563,
+        "trafficIndex": 1.0123
       }
     },
     {
@@ -1680,19 +1680,19 @@
       },
       "metrics": {
         "housingUnits": 24873,
-        "medianRent": 1513,
+        "medianRent": 1613,
         "treeCoverPct": 45.76,
-        "avgCommuteMin": 19.9,
-        "taxRevenue": 71695915,
-        "households": 24326,
-        "pricedOut": 1268,
-        "jobs": 55446,
-        "businesses": 848,
-        "storefrontVacancy": 0.2434,
-        "homeValue": 626979,
-        "netFiscal": 96019335,
-        "transitRidership": 4428576,
-        "trafficIndex": 1.0211
+        "avgCommuteMin": 19.6,
+        "taxRevenue": 71696138,
+        "households": 24733,
+        "pricedOut": 0,
+        "jobs": 55438,
+        "businesses": 847,
+        "storefrontVacancy": 0.2448,
+        "homeValue": 627006,
+        "netFiscal": 96024556,
+        "transitRidership": 4427955,
+        "trafficIndex": 1.0217
       }
     },
     {
@@ -2101,19 +2101,19 @@
       },
       "metrics": {
         "housingUnits": 25286,
-        "medianRent": 1521,
+        "medianRent": 1660,
         "treeCoverPct": 45.18,
-        "avgCommuteMin": 20.1,
-        "taxRevenue": 72887666,
-        "households": 24699,
-        "pricedOut": 1665,
-        "jobs": 55905,
-        "businesses": 854,
-        "storefrontVacancy": 0.2407,
-        "homeValue": 645378,
-        "netFiscal": 97241681,
-        "transitRidership": 4477245,
-        "trafficIndex": 1.0305
+        "avgCommuteMin": 19.6,
+        "taxRevenue": 72887918,
+        "households": 25094,
+        "pricedOut": 0,
+        "jobs": 55891,
+        "businesses": 853,
+        "storefrontVacancy": 0.2428,
+        "homeValue": 645405,
+        "netFiscal": 97245594,
+        "transitRidership": 4476376,
+        "trafficIndex": 1.0312
       }
     },
     {
@@ -2522,19 +2522,19 @@
       },
       "metrics": {
         "housingUnits": 25683,
-        "medianRent": 1532,
+        "medianRent": 1709,
         "treeCoverPct": 44.8,
-        "avgCommuteMin": 20.2,
-        "taxRevenue": 74031142,
-        "households": 25114,
-        "pricedOut": 2044,
-        "jobs": 56383,
-        "businesses": 862,
-        "storefrontVacancy": 0.2366,
-        "homeValue": 664273,
-        "netFiscal": 98361859,
-        "transitRidership": 4528621,
-        "trafficIndex": 1.0402
+        "avgCommuteMin": 19.6,
+        "taxRevenue": 74030680,
+        "households": 25489,
+        "pricedOut": 0,
+        "jobs": 56361,
+        "businesses": 860,
+        "storefrontVacancy": 0.24,
+        "homeValue": 664312,
+        "netFiscal": 98365337,
+        "transitRidership": 4527360,
+        "trafficIndex": 1.0411
       }
     },
     {
@@ -2943,19 +2943,19 @@
       },
       "metrics": {
         "housingUnits": 26077,
-        "medianRent": 1543,
+        "medianRent": 1759,
         "treeCoverPct": 44.43,
-        "avgCommuteMin": 20.4,
-        "taxRevenue": 75166426,
-        "households": 25507,
-        "pricedOut": 2420,
-        "jobs": 56880,
-        "businesses": 872,
-        "storefrontVacancy": 0.2313,
-        "homeValue": 684140,
-        "netFiscal": 99440692,
-        "transitRidership": 4581599,
-        "trafficIndex": 1.0501
+        "avgCommuteMin": 19.6,
+        "taxRevenue": 75165683,
+        "households": 25887,
+        "pricedOut": 0,
+        "jobs": 56848,
+        "businesses": 869,
+        "storefrontVacancy": 0.2361,
+        "homeValue": 684190,
+        "netFiscal": 99444252,
+        "transitRidership": 4579868,
+        "trafficIndex": 1.0511
       }
     },
     {
@@ -3363,20 +3363,20 @@
         "zone-30-06": "low_res"
       },
       "metrics": {
-        "housingUnits": 26471,
-        "medianRent": 1558,
+        "housingUnits": 26470,
+        "medianRent": 1812,
         "treeCoverPct": 44.05,
-        "avgCommuteMin": 20.6,
-        "taxRevenue": 76301635,
-        "households": 25896,
-        "pricedOut": 2788,
-        "jobs": 57386,
-        "businesses": 882,
-        "storefrontVacancy": 0.2255,
-        "homeValue": 704706,
-        "netFiscal": 100540847,
-        "transitRidership": 4633449,
-        "trafficIndex": 1.0602
+        "avgCommuteMin": 19.6,
+        "taxRevenue": 76301057,
+        "households": 26264,
+        "pricedOut": 1,
+        "jobs": 57345,
+        "businesses": 878,
+        "storefrontVacancy": 0.2316,
+        "homeValue": 704751,
+        "netFiscal": 100543412,
+        "transitRidership": 4631285,
+        "trafficIndex": 1.0613
       }
     },
     {
@@ -3784,20 +3784,20 @@
         "zone-30-06": "low_res"
       },
       "metrics": {
-        "housingUnits": 26851,
-        "medianRent": 1569,
+        "housingUnits": 26850,
+        "medianRent": 1867,
         "treeCoverPct": 43.77,
-        "avgCommuteMin": 20.8,
-        "taxRevenue": 77397125,
-        "households": 26249,
-        "pricedOut": 3175,
-        "jobs": 57902,
-        "businesses": 892,
-        "storefrontVacancy": 0.2188,
-        "homeValue": 726035,
-        "netFiscal": 101598918,
-        "transitRidership": 4685161,
-        "trafficIndex": 1.0706
+        "avgCommuteMin": 19.6,
+        "taxRevenue": 77395841,
+        "households": 26633,
+        "pricedOut": 4,
+        "jobs": 57852,
+        "businesses": 887,
+        "storefrontVacancy": 0.2265,
+        "homeValue": 726080,
+        "netFiscal": 101597802,
+        "transitRidership": 4682637,
+        "trafficIndex": 1.0716
       }
     },
     {
@@ -4205,20 +4205,20 @@
         "zone-30-06": "low_res"
       },
       "metrics": {
-        "housingUnits": 27256,
-        "medianRent": 1578,
+        "housingUnits": 27255,
+        "medianRent": 1923,
         "treeCoverPct": 43.42,
-        "avgCommuteMin": 21,
-        "taxRevenue": 78565387,
-        "households": 26639,
-        "pricedOut": 3543,
-        "jobs": 58426,
-        "businesses": 903,
-        "storefrontVacancy": 0.2116,
-        "homeValue": 747902,
-        "netFiscal": 102725763,
-        "transitRidership": 4736735,
-        "trafficIndex": 1.081
+        "avgCommuteMin": 19.7,
+        "taxRevenue": 78563693,
+        "households": 27003,
+        "pricedOut": 7,
+        "jobs": 58366,
+        "businesses": 898,
+        "storefrontVacancy": 0.2212,
+        "homeValue": 747948,
+        "netFiscal": 102721338,
+        "transitRidership": 4733849,
+        "trafficIndex": 1.082
       }
     },
     {
@@ -4627,19 +4627,19 @@
       },
       "metrics": {
         "housingUnits": 27678,
-        "medianRent": 1590,
+        "medianRent": 1980,
         "treeCoverPct": 42.95,
-        "avgCommuteMin": 21.2,
-        "taxRevenue": 79782688,
-        "households": 27058,
-        "pricedOut": 3894,
-        "jobs": 58961,
-        "businesses": 914,
-        "storefrontVacancy": 0.2043,
-        "homeValue": 770145,
-        "netFiscal": 103838150,
-        "transitRidership": 4790647,
-        "trafficIndex": 1.0915
+        "avgCommuteMin": 19.7,
+        "taxRevenue": 79781434,
+        "households": 27399,
+        "pricedOut": 13,
+        "jobs": 58890,
+        "businesses": 908,
+        "storefrontVacancy": 0.2155,
+        "homeValue": 770182,
+        "netFiscal": 103831660,
+        "transitRidership": 4787355,
+        "trafficIndex": 1.0927
       }
     }
   ],
@@ -4653,94 +4653,97 @@
     },
     {
       "metric": "medianRent",
-      "baseline": 1594,
-      "final": 1590,
+      "baseline": 1990,
+      "final": 1980,
       "comparedWith": "no new policy",
-      "changePct": -0.25
+      "changePct": -0.5
     },
     {
       "metric": "treeCoverPct",
       "baseline": 46.9,
       "final": 42.95,
       "comparedWith": "no new policy",
-      "changePct": -8.42
+      "changePct": -8.42,
+      "changePts": -3.95
     },
     {
       "metric": "avgCommuteMin",
-      "baseline": 20.8,
-      "final": 21.2,
+      "baseline": 19.7,
+      "final": 19.7,
       "comparedWith": "no new policy",
-      "changePct": 1.92
+      "changePct": 0
     },
     {
       "metric": "taxRevenue",
       "baseline": 78411671,
-      "final": 79782688,
+      "final": 79781434,
       "comparedWith": "no new policy",
       "changePct": 1.75
     },
     {
       "metric": "households",
-      "baseline": 26613,
-      "final": 27058,
+      "baseline": 26959,
+      "final": 27399,
       "comparedWith": "no new policy",
-      "changePct": 1.67
+      "changePct": 1.63
     },
     {
       "metric": "pricedOut",
-      "baseline": 3921,
-      "final": 3894,
+      "baseline": 13,
+      "final": 13,
       "comparedWith": "no new policy",
-      "changePct": -0.69
+      "changePct": 0
     },
     {
       "metric": "jobs",
       "baseline": 58766,
-      "final": 58961,
+      "final": 58890,
       "comparedWith": "no new policy",
-      "changePct": 0.33
+      "changePct": 0.21
     },
     {
       "metric": "businesses",
       "baseline": 902,
-      "final": 914,
+      "final": 908,
       "comparedWith": "no new policy",
-      "changePct": 1.33
+      "changePct": 0.67
     },
     {
       "metric": "storefrontVacancy",
       "baseline": 0.2177,
-      "final": 0.2043,
+      "final": 0.2155,
       "comparedWith": "no new policy",
-      "changePct": -6.16
+      "changePct": -1.01,
+      "changePts": -0.22
     },
     {
       "metric": "homeValue",
       "baseline": 773350,
-      "final": 770145,
+      "final": 770182,
       "comparedWith": "no new policy",
       "changePct": -0.41
     },
     {
       "metric": "netFiscal",
       "baseline": 103370982,
-      "final": 103838150,
+      "final": 103831660,
       "comparedWith": "no new policy",
       "changePct": 0.45
     },
     {
       "metric": "transitRidership",
       "baseline": 4745995,
-      "final": 4790647,
+      "final": 4787355,
       "comparedWith": "no new policy",
-      "changePct": 0.94
+      "changePct": 0.87
     },
     {
       "metric": "trafficIndex",
       "baseline": 1.0878,
-      "final": 1.0915,
+      "final": 1.0927,
       "comparedWith": "no new policy",
-      "changePct": 0.34
+      "changePct": 0.45,
+      "changePts": 0.49
     }
   ],
   "tradeoffs": {
@@ -4913,44 +4916,9 @@
       "source": "PLACEHOLDER - needs citation"
     },
     {
-      "key": "agentRentAmp",
-      "value": 0.028,
-      "source": "PLACEHOLDER - needs citation"
-    },
-    {
-      "key": "agentTargetVacancy",
-      "value": 0.05,
-      "source": "PLACEHOLDER - needs citation"
-    },
-    {
-      "key": "agentRentCurve.floor",
-      "value": -0.012,
-      "source": "PLACEHOLDER - needs citation"
-    },
-    {
-      "key": "agentRentCurve.offset",
-      "value": 0.022,
-      "source": "PLACEHOLDER - needs citation"
-    },
-    {
-      "key": "agentRentCurve.min",
-      "value": -0.06,
-      "source": "PLACEHOLDER - needs citation"
-    },
-    {
-      "key": "agentRentCurve.max",
-      "value": 0.11,
-      "source": "PLACEHOLDER - needs citation"
-    },
-    {
       "key": "agentBurdenLine",
       "value": 0.3,
       "source": "U.S. Census Bureau ACS 2020-2024 5-year, B25070 \"Gross Rent as a Percentage of Household Income\", Chapel Hill town, which reports renters paying 30% or more; HUD counts households paying more than 30% of income for housing as cost-burdened. https://data.census.gov/table/ACSDT5Y2024.B25070?g=160XX00US3711800"
-    },
-    {
-      "key": "agentBurdenRiseSinceArrival",
-      "value": 0.002,
-      "source": "PLACEHOLDER - needs citation"
     },
     {
       "key": "agentLeaveRate",
@@ -5101,11 +5069,6 @@
       "key": "roadPeakVolume",
       "value": 1960,
       "source": "NCDOT 2025 AADT, station 0680000193 \"US 15 WEST OF Morgan Creek Rd\": 41,500 vehicles/day, segment K = 0.08 and D = 0.591. https://services.arcgis.com/NuWFvHYDMVmmxMeM/ArcGIS/rest/services/NCDOT_2025_AADTandTrafficSegments_gdb/FeatureServer/1"
-    },
-    {
-      "key": "roadCarShare",
-      "value": 0.74,
-      "source": "ACS 2020-2024 5-year, B08301, Chapel Hill town: car, truck or van is 15,393 of the 20,865 workers who did not work from home. https://data.census.gov/table/ACSDT5Y2024.B08301?g=160XX00US3711800"
     },
     {
       "key": "roadBpr.alpha",

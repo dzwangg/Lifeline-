@@ -50,24 +50,25 @@ test('newcomers bring the town up to CH-LUTI\'s household count, either side of 
   }
 });
 
-test('priced out moves in proportion to rent: 1% higher rents everywhere raise it by about 1-3%, not 10x', () => {
-  const up = { ...baselines, medianGrossRent: { ...baselines.medianGrossRent, value: baselines.medianGrossRent.value * 1.01 } };
-  const [a, b] = [baselines, up].map(B => averageRuns(growth, assumptions, B)[10]); // the same households, so only rent differs
-  const rent = b.medianRent / a.medianRent - 1, out = b.pricedOut / a.pricedOut - 1;
-  assert.ok(Math.abs(rent - .01) < .002, `rent ${rent}`);
-  assert.ok(out > .005 && out < .03, `priced out ${(out * 100).toFixed(2)}% for rent ${(rent * 100).toFixed(2)}%`);
-  // A card: the tax cut raises rent about 1% (and brings more renters); priced out moves at most about 3 times as much, not 10.
-  const tax = runModels(cards.filter(c => c.id === 'property-tax-adjustment'), {}, zones, assumptions, baselines).averages[10], none = averageRuns(growth, assumptions, baselines)[10];
-  const [dr, dp] = [tax.medianRent / none.medianRent - 1, tax.pricedOut / none.pricedOut - 1];
-  assert.ok(dr > .005 && dp > 0 && dp < 3 * dr, `tax card: rent ${(dr * 100).toFixed(2)}%, priced out ${(dp * 100).toFixed(2)}%`);
+test('priced out moves in proportion to rent: 1% more rent prices out about 1 in 100 year-0 renters, 2% about twice that', () => {
+  // The same town, with every zone's rent 1% or 2% above CH-LUTI's no-policy path by year 10 (phased in), and nothing else changed.
+  const above = pct => ({ ...growth, rent: growth.rent.map((zones, t) => Object.fromEntries(Object.entries(zones).map(([z, v]) => [z, v * (1 + pct * t / 10)]))) });
+  const [base, one, two] = [0, .01, .02].map(pct => averageRuns(above(pct), assumptions, baselines)[10].pricedOut);
+  const renters = simulate(growth, assumptions, baselines).agents.filter(a => a.joined === 0 && a.renter).length * assumptions.agentScale.value;
+  assert.ok(one - base > .003 * renters && one - base < .02 * renters, `+1% rent: ${one - base} of ${renters} renters`);
+  assert.ok(Math.abs((two - base) / (one - base) - 2) < .5, `+2% rent: ${two - base}, vs ${one - base} for +1%`);
 });
 
-test('only burden that has risen since arrival counts toward leaving', () => {
-  // Many new homes in year 1 push vacancy up, so rents fall every year after: no renter's burden rises, so none leaves.
-  const glut = { homes: Array.from({ length: 11 }, (_, t) => ({ downtown: 0, campus: 0, edge: t ? 4000 : 0, corridor: 0 })), households: Array(11).fill(0) };
-  for (let seed = 1; seed <= 20; seed++) {
-    const { years } = simulate(glut, assumptions, baselines, seed);
-    assert.ok(years.slice(2).every((y, i) => y.rentIndex < years[i + 1].rentIndex), `seed ${seed}: rents fall`);
-    assert.equal(years[10].displaced, 0, `seed ${seed}`);
+test('only burden that builds up since arrival counts: rent rising exactly as fast as income prices out nobody', () => {
+  const pace = { ...growth, rent: growth.rent.map((zones, t) => Object.fromEntries(Object.keys(zones).map(z => [z, (1 + assumptions.lutiIncomeGrowth.value) ** t]))) };
+  for (let seed = 1; seed <= 20; seed++) assert.equal(simulate(pace, assumptions, baselines, seed).years[10].displaced, 0, `seed ${seed}`);
+});
+
+test('a household\'s rent and commute follow CH-LUTI\'s path for its zone', () => {
+  const { agents } = simulate(growth, assumptions, baselines);
+  const a = agents.find(x => x.joined === 0 && x.renter && x.work !== 'remote' && x.left === null);
+  for (const t of [5, 10]) {
+    assert.ok(Math.abs(a.hist[t].rent / a.hist[0].rent - growth.rent[t][a.zone]) < .002, `rent, year ${t}`);
+    assert.ok(Math.abs(a.hist[t].commute / a.hist[0].commute - growth.commute[t][a.zone]) < .01, `commute, year ${t}`);
   }
 });

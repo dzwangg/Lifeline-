@@ -13,8 +13,8 @@
     ]
   },
   "params": [
-    { "key": "dollars_per_home", "label": "Subsidy per new home", "min": 0, "max": 60000, "default": 25000, "unit": "dollars" },
-    { "key": "dollars_per_year", "label": "Most spent in a year", "min": 0, "max": 10000000, "default": 3000000, "unit": "dollars" }
+    { "key": "dollars_per_home", "label": "Subsidy per new home", "min": 0, "max": 7500, "default": 7500, "unit": "dollars" },
+    { "key": "dollars_per_year", "label": "Most spent in a year", "min": 0, "max": 3000000, "default": 3000000, "unit": "dollars" }
   ],
   "levers": [
     { "lever": "housing.subsidyPerUnit", "param": "dollars_per_home" },

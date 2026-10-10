@@ -1,7 +1,7 @@
 {
   "id": "small-business-support-grant",
   "title": "Small-business support grants",
-  "summary": "Grants that help established local shops cover rent, payroll and upgrades.",
+  "summary": "Grants to established local shops toward rent, payroll and upgrades.",
   "category": "business",
   "icon": "storefront",
   "decider": {

@@ -5,7 +5,8 @@ import { validateSimResult } from '../shared/schema.js';
 import { cards, zones, assumptions, baselines } from './data.js';
 
 const card = id => cards.find(c => c.id === id);
-const models = (...ids) => runModels(ids.map(card), {}, zones, assumptions, baselines);
+const CUT = { 'property-tax-adjustment': { cents_per_100: -4 } }; // the tax card's default is no change
+const models = (...ids) => runModels(ids.map(card), CUT, zones, assumptions, baselines);
 const none = models();
 const final = r => r.result.timeline.at(-1).metrics;
 

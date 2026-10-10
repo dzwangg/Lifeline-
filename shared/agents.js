@@ -1,8 +1,9 @@
 // Household agent model, ported from the Chapel Hill Household Sim prototype (agents-prototype.js): pure and
-// deterministic, no DOM. 300 simulated households in four zones; new homes come online where and when the other models
-// build them, newcomers fill the town up to CH-LUTI's household count, rent follows vacancy, renters may leave with a
-// yearly chance that grows with how far their rent burden is above 30% once it has risen since they arrived, and
-// 15-501 delay follows a BPR curve. Coefficients are the agent* and road* entries in data/assumptions.json. Year 0 is
+// deterministic, no DOM. 300 simulated households in four zones, for the map, the resident cards and priced out. CH-LUTI
+// sets the town: new homes come online where and when the models build them, newcomers fill the town up to CH-LUTI's
+// household count, and each household's rent and commute follow CH-LUTI's trajectory for its zone, with incomes growing
+// as CH-LUTI's do. Renters may leave with a yearly chance that grows with how far their rent burden has risen above 30%
+// since they arrived. Coefficients are the agent* and road* entries in data/assumptions.json. Year 0 is
 // calibrated to the ACS median gross rent and mean commute in data/baselines.json, and to the observed 15-501 peak volume.
 // shared/combined.js builds the inputs and puts the averaged numbers into the SimResult.
 
@@ -10,9 +11,12 @@
  *  @typedef {import('./types').SimResult} SimResult @typedef {import('./types').Zone} Zone */
 /** @typedef {'downtown' | 'campus' | 'edge' | 'corridor'} AgentZone */
 /**
- * @typedef {object} HouseholdInputs one entry per year 0-10
+ * @typedef {object} HouseholdInputs one entry per year 0-10, from CH-LUTI's central run
  * @property {Record<AgentZone, number>[]} homes real homes added since year 0, by household zone
- * @property {number[]} households real households added since year 0 (CH-LUTI's count)
+ * @property {number[]} households real households added since year 0
+ * @property {Record<AgentZone, number>[]} [rent] rent by household zone, as a multiple of year 0's (1 if missing)
+ * @property {Record<AgentZone, number>[]} [commute] commute by household zone, as a multiple of year 0's
+ * @property {number[]} [traffic] car traffic, as a multiple of year 0's (for 15-501's load on the map)
  */
 /**
  * @typedef {object} Agent
@@ -30,14 +34,14 @@
  * @property {number | null} left year it left, if it did
  * @property {number} hazard leaving pressure so far @property {number} leaveAt it leaves once hazard reaches this (an Exp(1) draw on arrival)
  * @property {number | null} burden0 rent burden on arrival
- * @property {({ rent: number | null, burden: number | null, commute: number, here: boolean } | undefined)[]} hist by year, while here
+ * @property {({ rent: number | null, income: number, burden: number | null, commute: number, here: boolean } | undefined)[]} hist by year, while here
  */
 /**
  * @typedef {object} AgentYear
- * @property {number} t @property {Record<AgentZone, number>} units @property {number} pop households here
- * @property {number} unmet newcomers who found no home @property {number} rentIndex
+ * @property {number} t @property {Record<AgentZone, number>} units simulated homes (fractional) @property {number} pop households here
  * @property {number} medianRent renters' median monthly rent @property {number} commute mean commute, minutes
- * @property {number} displaced households that have left so far @property {number} roadRatio 15-501 volume / capacity
+ * @property {number} displaced year-0 households that have left so far (newcomers who leave don't count)
+ * @property {number} roadRatio 15-501 volume / capacity
  * @property {number} roadTime 15-501 travel time, minutes
  */
 
@@ -83,7 +87,7 @@ export function homesByYear(result, zones, assumptions) {
 export function simulate(inputs, assumptions, baselines, seed = 7) {
   const A = Object.fromEntries(Object.entries(assumptions).map(([k, v]) => [k, v.value]));
   const r = mulberry32(seed);
-  const makeAgent = (id, zone, year, rentLevel) => {
+  const makeAgent = (id, zone, year) => {
     const renter = r() < A.agentRenterShare[zone];
     const student = renter && r() < A.agentStudentShare;
     const kind = student ? 'student' : renter ? 'renter' : 'owner';
@@ -92,80 +96,69 @@ export function simulate(inputs, assumptions, baselines, seed = 7) {
     const work = rw < A.agentRemoteShare ? 'remote' : rw < A.agentRemoteShare + A.agentDurhamShare ? 'durham' : (student || r() < A.agentCampusWorkShare) ? 'campus' : 'downtown';
     return {
       id, name: NAMES[Math.floor(r() * NAMES.length)], zone, renter, student, income: Math.round(income / 100) * 100, work,
-      rentBase: A.agentZoneRent[zone] * (A.agentRentSpread.min + r() * A.agentRentSpread.range) * rentLevel, x: r(), y: r(), joined: year, left: null, hazard: 0, leaveAt: -Math.log(1 - r()), burden0: null, hist: [],
+      rentBase: A.agentZoneRent[zone] * (A.agentRentSpread.min + r() * A.agentRentSpread.range), x: r(), y: r(), joined: year, left: null, hazard: 0, leaveAt: -Math.log(1 - r()), burden0: null, hist: [],
     };
   };
 
   let agents = [], id = 0;
   const pop0 = Object.values(A.agentHouseholds).reduce((s, n) => s + n, 0);
-  for (const z in A.agentHouseholds) for (let i = 0; i < A.agentHouseholds[z]; i++) agents.push(makeAgent(id++, z, 0, 1));
+  for (const z in A.agentHouseholds) for (let i = 0; i < A.agentHouseholds[z]; i++) agents.push(makeAgent(id++, z, 0));
   // calibrate rent so the renters' median matches the ACS median gross rent
   const rs = agents.filter(a => a.renter).map(a => a.rentBase).sort((a, b) => a - b);
   const k = baselines.medianGrossRent.value / rs[Math.floor(rs.length / 2)];
   agents.forEach(a => { a.rentBase *= k; });
 
-  let rentIndex = 1, unmet = 0, calib = null, roadK = null;
-  const years = [], C = A.agentRentCurve;
+  // CH-LUTI's index for a household zone in year t; incomes grow as CH-LUTI's do, so burdens follow real rent changes
+  const index = (key, t, zone) => inputs?.[key]?.[t]?.[zone] ?? 1, growth = 1 + A.lutiIncomeGrowth;
+  // year-0 commute: the zone's local trip, plus 15-501 at its observed peak for edge homes and Durham workers (corridor
+  // homes don't take it), calibrated to the ACS mean; later years follow CH-LUTI's commute for the zone
+  const road = ratio => A.roadT0Min * (1 + A.roadBpr.alpha * Math.pow(ratio, A.roadBpr.beta)), ratio0 = A.roadPeakVolume / A.roadCapacity;
+  const raw = a => (a.work === 'remote' ? 0 : A.agentBaseCommuteMin[a.zone] + ((a.zone === 'edge' || a.work === 'durham') ? road(ratio0) : 0) + (a.work === 'durham' ? A.agentDurhamExtraMin : 0));
+  const commuters0 = agents.filter(a => a.work !== 'remote'), calib = baselines.meanCommuteMin.value / (commuters0.reduce((s, a) => s + raw(a), 0) / commuters0.length);
+  const years = [];
   for (let t = 0; t <= 10; t++) {
     const added = inputs?.homes[t] ?? NO_HOMES, units = {};
-    for (const z in A.agentUnits) units[z] = A.agentUnits[z] + Math.round(added[z] / A.agentScale);
+    for (const z in A.agentUnits) units[z] = A.agentUnits[z] + added[z] / A.agentScale; // fractional, so a few homes still count
     const live = () => agents.filter(a => a.left === null);
+    const rentOf = a => a.rentBase * index('rent', t, a.zone), incomeOf = a => a.income * growth ** t;
     if (t > 0) {
-      // arrivals: newcomers bring the town up to CH-LUTI's household count, which also replaces households that left
-      let pop = live().length;
-      const total = Object.values(units).reduce((s, n) => s + n, 0);
-      const gap = Math.max(0, pop0 + (inputs?.households[t] ?? 0) / A.agentScale - pop);
+      // arrivals: newcomers bring the town up to CH-LUTI's household count, which also replaces households that left.
+      // Each moves where the most homes stand empty; everyone CH-LUTI counts lives somewhere, so a zone can run over.
+      const gap = Math.max(0, pop0 + (inputs?.households[t] ?? 0) / A.agentScale - live().length);
       const want = Math.floor(gap) + (r() < gap % 1 ? 1 : 0);
-      unmet = 0;
       for (let i = 0; i < want; i++) {
         const occ = Object.fromEntries(Object.keys(units).map(z => [z, 0]));
         live().forEach(a => { occ[a.zone]++; });
-        let best = null, bv = 0;
-        for (const z in units) { const v = units[z] - occ[z]; if (v > bv) { bv = v; best = z; } }
-        if (!best) { unmet++; continue; }
-        const a = makeAgent(id++, best, t, rentIndex);
-        a.rentBase = a.rentBase * k / rentIndex;
+        const zone = Object.keys(units).reduce((best, z) => (units[z] - occ[z] > units[best] - occ[best] ? z : best));
+        const a = makeAgent(id++, zone, t);
+        a.rentBase *= k; // at this year's market rent, through rentOf
         agents.push(a);
       }
-      // rent responds to effective vacancy (nonlinear, steep near zero)
-      pop = live().length;
-      const v = (total - pop - unmet) / total;
-      const g = Math.max(C.min, Math.min(C.max, A.agentRentAmp * (A.agentTargetVacancy - v) / (Math.max(v, C.floor) + C.offset)));
-      rentIndex *= 1 + g;
-      // displacement: each year a renter leaves with chance 1 - e^(-agentLeaveRate x points of burden above agentBurdenLine),
-      // counted once the burden has risen since arrival (fully after agentBurdenRiseSinceArrival). The draw that decides
-      // when is made on arrival, so a scenario and the no-policy run compare the same households, not fresh dice.
+      // displacement: each year a renter leaves with chance 1 - e^(-agentLeaveRate x points of burden), counting only the
+      // burden above 30% (agentBurdenLine) that has built up since arrival. The draw that decides when is made on arrival,
+      // so a scenario and the no-policy run compare the same households, not fresh dice.
       for (const a of live()) {
         if (!a.renter || a.burden0 === null) continue;
-        const b = a.rentBase * rentIndex * 12 / a.income, risen = Math.min(1, Math.max(0, b - a.burden0) / A.agentBurdenRiseSinceArrival);
-        a.hazard += A.agentLeaveRate * 100 * Math.max(0, b - A.agentBurdenLine) * risen;
+        const b = rentOf(a) * 12 / incomeOf(a);
+        a.hazard += A.agentLeaveRate * 100 * Math.max(0, b - Math.max(A.agentBurdenLine, a.burden0));
         if (a.hazard >= a.leaveAt) a.left = t;
       }
     }
-    // commute: 15-501 load via BPR, time = t0 * (1 + alpha * (V/C)^beta)
-    const L = live();
-    const roadUsers = L.filter(a => a.work !== 'remote' && (a.zone === 'edge' || a.work === 'durham')).length; // corridor: no 15-501 trip
-    const V = roadUsers * A.agentScale * A.roadCarShare;
-    if (roadK === null) roadK = A.roadPeakVolume / V; // calibrate year 0 to the observed peak-hour, peak-direction volume
-    const ratio = V * roadK / A.roadCapacity;
-    const roadTime = A.roadT0Min * (1 + A.roadBpr.alpha * Math.pow(ratio, A.roadBpr.beta));
-    const raw = a => (a.work === 'remote' ? 0 : A.agentBaseCommuteMin[a.zone] + ((a.zone === 'edge' || a.work === 'durham') ? roadTime : 0) + (a.work === 'durham' ? A.agentDurhamExtraMin : 0));
-    const commuters = L.filter(a => a.work !== 'remote');
-    const meanRaw = commuters.reduce((s, a) => s + raw(a), 0) / commuters.length;
-    if (calib === null) calib = baselines.meanCommuteMin.value / meanRaw; // calibrate to the ACS mean commute
+    const L = live(), commuters = L.filter(a => a.work !== 'remote');
+    const commute = a => raw(a) * calib * index('commute', t, a.zone);
     for (const a of agents) {
       if (a.left !== null && a.left < t) continue;
-      const rent = a.renter ? Math.round(a.rentBase * rentIndex) : null;
-      const burden = a.renter ? rent * 12 / a.income : null;
-      if (a.burden0 === null && burden !== null) a.burden0 = burden;
-      a.hist[t] = { rent, burden, commute: Math.round(raw(a) * calib * 10) / 10, here: a.left === null };
+      const rent = a.renter ? Math.round(rentOf(a)) : null, income = Math.round(incomeOf(a));
+      const burden = a.renter ? rent * 12 / income : null;
+      if (a.burden0 === null && a.renter) a.burden0 = rentOf(a) * 12 / incomeOf(a); // unrounded, as the leaving rule compares it
+      a.hist[t] = { rent, income, burden, commute: Math.round(commute(a) * 10) / 10, here: a.left === null };
     }
-    const renters = L.filter(a => a.renter).map(a => a.rentBase * rentIndex).sort((x, y) => x - y);
+    const renters = L.filter(a => a.renter).map(rentOf).sort((x, y) => x - y), ratio = ratio0 * (inputs?.traffic?.[t] ?? 1);
     years.push({
-      t, units, pop: L.length, unmet, rentIndex,
+      t, units, pop: L.length,
       medianRent: Math.round(renters[Math.floor(renters.length / 2)]),
-      commute: Math.round(commuters.reduce((s, a) => s + raw(a) * calib, 0) / commuters.length * 10) / 10,
-      displaced: agents.filter(a => a.left !== null).length, roadRatio: ratio, roadTime: roadTime * calib,
+      commute: Math.round(commuters.reduce((s, a) => s + commute(a), 0) / commuters.length * 10) / 10,
+      displaced: agents.filter(a => a.joined === 0 && a.left !== null).length, roadRatio: ratio, roadTime: road(ratio) * calib,
     });
   }
   return { agents, years };

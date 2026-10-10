@@ -122,7 +122,8 @@ export function validateSimResult(r) {
   });
   if (list(r.deltas, 'deltas')) r.deltas.forEach((d, i) => {
     const path = `deltas[${i}]`;
-    if (!obj(d, path, ['metric', 'baseline', 'final', 'changePct'], ['comparedWith'])) return;
+    if (!obj(d, path, ['metric', 'baseline', 'final', 'changePct'], ['comparedWith', 'changePts'])) return;
+    if ('changePts' in d) ok(isNum(d.changePts), `${path}.changePts`, 'must be a number');
     ok([...METRICS, ...OPTIONAL_METRICS].includes(d.metric), `${path}.metric`, `must be one of ${[...METRICS, ...OPTIONAL_METRICS].join(', ')}`);
     if ('comparedWith' in d) ok(['year 0', 'no new policy'].includes(d.comparedWith), `${path}.comparedWith`, 'must be "year 0" or "no new policy"');
     for (const k of ['baseline', 'final', 'changePct']) ok(isNum(d[k]), `${path}.${k}`, 'must be a number');

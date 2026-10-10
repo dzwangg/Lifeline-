@@ -21,6 +21,8 @@
 .sim-card h3 { margin: 0 0 4px; font-size: 14px; }
 .sim-card__summary { margin: 0 0 6px; color: var(--muted); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* one line; the policy panel shows it whole */
 .sim-card__decider { margin-top: 6px; }
+.sim-card__hint { margin: 2px 0 0; font-size: 12px; color: var(--sodium); }
+.sim-card__hint[hidden] { display: none; }
 .sim-card__decider summary { color: var(--muted); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sim-card__decider ol, .sim-card__decider ul { margin: 4px 0 0; padding-left: 18px; line-height: 1.4; }
 .sim-card__tradeoffs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }

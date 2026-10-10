@@ -73,7 +73,7 @@ test('hash is stable across key order and extra fields, and changes with the con
 test('template recap is deterministic, short, covers every delta and both sides, and passes the number check', () => {
   const text = templateRecap(input);
   assert.equal(text, templateRecap(structuredClone(input)));
-  for (const s of ['10-year simulation', 'homes rise 2.2% to about 24,200', 'tree cover falls from 46.9% to 43%', 'households rise 0.78% to about 23,900',
+  for (const s of ['10-year simulation', 'homes rise 2.2% to about 24,200', 'tree cover falls from 46.9% to 43%',
     'Compared with no new policy, median rent is $1,668 a month instead of $1,714', 'households priced out are about 4,060 instead of about 4,400', 'STUB pro', 'STUB con'])
     assert.ok(text.includes(s), s);
   const words = text.split(/\s+/).length;

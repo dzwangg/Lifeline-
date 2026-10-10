@@ -32,7 +32,7 @@
 <body>
 <main>
 <h1>Sources</h1>
-<p class="lede">Every number the Squidland simulator takes from its data files, with its value, source and links. 78 are marked <span class="flag">PLACEHOLDER</span> or <span class="flag">VERIFY</span>: not yet citable. <a href="./">Back to the simulator</a>.</p>
+<p class="lede">Every number the Squidland simulator takes from its data files, with its value, source and links. 74 are marked <span class="flag">PLACEHOLDER</span> or <span class="flag">VERIFY</span>: not yet citable. <a href="./">Back to the simulator</a>.</p>
 <h2>Observed baselines</h2>
 <p class="note"><code>data/baselines.json</code></p>
 <div class="scroll"><table>
@@ -141,40 +141,16 @@
   <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Simulated homes per zone at year 0. Homes the zone rules build are added by parcel: corridor parcels to corridor, other map_edge parcels to edge, the rest to downtown. CH-LUTI's other new homes are added by its zone: downtown and north to downtown, campus to campus, east and south (which commute over 15-501) to edge. From the household-model prototype.</p></td>
   <td></td>
 </tr>
-<tr class="flagged">
-  <th scope="row"><code>agentRentAmp</code></th>
-  <td>0.028</td>
-  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Strength of the rent response to vacancy. From the household-model prototype.</p></td>
-  <td></td>
-</tr>
-<tr class="flagged">
-  <th scope="row"><code>agentTargetVacancy</code></th>
-  <td>0.05</td>
-  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Vacancy at which rent holds steady. From the household-model prototype.</p></td>
-  <td></td>
-</tr>
-<tr class="flagged">
-  <th scope="row"><code>agentRentCurve</code></th>
-  <td>floor -0.012 · offset 0.022 · min -0.06 · max 0.11</td>
-  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Shape and yearly limits of the rent-vs-vacancy curve. From the household-model prototype.</p></td>
-  <td></td>
-</tr>
 <tr>
   <th scope="row"><code>agentBurdenLine</code></th>
   <td>0.3</td>
-  <td>U.S. Census Bureau ACS 2020-2024 5-year, B25070 &quot;Gross Rent as a Percentage of Household Income&quot;, Chapel Hill town, which reports renters paying 30% or more; HUD counts households paying more than 30% of income for housing as cost-burdened.<p class="note">Rent share of income above which a renter's chance of leaving starts to grow (see agentLeaveRate). The 30% line is the standard; using it in a leaving rule is our modelling choice.</p></td>
+  <td>U.S. Census Bureau ACS 2020-2024 5-year, B25070 &quot;Gross Rent as a Percentage of Household Income&quot;, Chapel Hill town, which reports renters paying 30% or more; HUD counts households paying more than 30% of income for housing as cost-burdened.<p class="note">Rent share of income above which burden that builds up after arrival counts toward leaving (see agentLeaveRate). The 30% line is the standard; using it in a leaving rule is our modelling choice.</p></td>
   <td><a href="https://data.census.gov/table/ACSDT5Y2024.B25070?g=160XX00US3711800">data.census.gov</a></td>
 </tr>
 <tr class="flagged">
-  <th scope="row"><code>agentBurdenRiseSinceArrival</code></th>
-  <td>0.002</td>
-  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Only burden that has risen since arrival counts toward leaving: the leaving chance phases in as the burden rises this far above its level on arrival (0.002 = 0.2 points). From the household-model prototype, where it was a 5-point cutoff; a wide phase-in makes priced out follow rent growth, not rent, and swing several times more than rent.</p></td>
-  <td></td>
-</tr>
-<tr class="flagged">
   <th scope="row"><code>agentLeaveRate</code></th>
-  <td>0.003 <span class="unit">per point of burden above agentBurdenLine, per year</span></td>
-  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Each year a renter leaves with chance 1 - e^(-rate x points above the line): at 50% of income, about 6% a year. Replaces the prototype's leave-with-50%-chance after two years over 50%, which made priced out swing far more than rent. Chosen so a 1% rent change moves priced out about 2% (tests/agents.test.js).</p></td>
+  <td>0.003 <span class="unit">per point of burden, per year</span></td>
+  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Each year a renter leaves with chance 1 - e^(-rate x points), counting only burden above 30% (agentBurdenLine) that has built up since they arrived: points above the higher of 30% and their burden on arrival. Rents follow CH-LUTI and incomes grow as CH-LUTI's do, so this is rent rising faster than income. Priced out counts year-0 households only; about 1 in 100 renters per 1% rent rise above no policy (tests/agents.test.js).</p></td>
   <td></td>
 </tr>
 <tr class="flagged">
@@ -258,14 +234,8 @@
 <tr>
   <th scope="row"><code>roadPeakVolume</code></th>
   <td>1,960 <span class="unit">vehicles/hour per direction</span></td>
-  <td>NCDOT 2025 AADT, station 0680000193 &quot;US 15 WEST OF Morgan Creek Rd&quot;: 41,500 vehicles/day, segment K = 0.08 and D = 0.591.<p class="note">Our calculation: peak-hour, peak-direction demand. The household model's year 0 is calibrated to it, so 15-501 starts at 98% of capacity.</p></td>
+  <td>NCDOT 2025 AADT, station 0680000193 &quot;US 15 WEST OF Morgan Creek Rd&quot;: 41,500 vehicles/day, segment K = 0.08 and D = 0.591.<p class="note">Our calculation: peak-hour, peak-direction demand. 15-501 starts at 98% of capacity, and its load then follows CH-LUTI's car traffic.</p></td>
   <td><a href="https://services.arcgis.com/NuWFvHYDMVmmxMeM/ArcGIS/rest/services/NCDOT_2025_AADTandTrafficSegments_gdb/FeatureServer/1">services.arcgis.com</a></td>
-</tr>
-<tr>
-  <th scope="row"><code>roadCarShare</code></th>
-  <td>0.74</td>
-  <td>ACS 2020-2024 5-year, B08301, Chapel Hill town: car, truck or van is 15,393 of the 20,865 workers who did not work from home.<p class="note">The model counts road users after taking out remote workers, so the share of workers who travel applies (0.53 of all workers).</p></td>
-  <td><a href="https://data.census.gov/table/ACSDT5Y2024.B08301?g=160XX00US3711800">data.census.gov</a></td>
 </tr>
 <tr class="flagged">
   <th scope="row"><code>roadBpr</code></th>

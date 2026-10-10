@@ -10,7 +10,7 @@ import { cards, assumptions, baselines } from './data.js';
 
 const model = createModel(assumptions, baselines), p = model.midParams();
 const base = model.simulate(p, []), B = base.series;
-const policies = cardPolicies(cards), card = id => policies.find(x => x.id === id);
+const policies = cardPolicies(cards, { 'property-tax-adjustment': { cents_per_100: -4 } }), card = id => policies.find(x => x.id === id); // a cut: the tax card defaults to no change
 const at = (run, k, q = QUARTERS - 1) => run.series[q][k];
 const rel = (run, k, q = QUARTERS - 1) => (at(run, k, q) - B[q][k]) / Math.abs(B[q][k]);
 const near = (got, want, tol, what) => assert.ok(Math.abs(got / want - 1) < tol, `${what}: ${got} vs ${want}`);
@@ -87,7 +87,7 @@ test('each card moves its own lever\'s outcome the expected way (10 years, centr
 
 test('a card param sets its lever, clamped to the slider range', () => {
   const tax = id => cardPolicies(cards.filter(c => c.id === 'property-tax-adjustment'), id)[0].levers[0].value;
-  assert.equal(tax({}), -4);
+  assert.equal(tax({}), 0);
   assert.equal(tax({ 'property-tax-adjustment': { cents_per_100: 3 } }), 3);
   assert.equal(tax({ 'property-tax-adjustment': { cents_per_100: -40 } }), -10);
   assert.deepEqual(card('transit-upzoning').levers, [
@@ -115,4 +115,14 @@ test('homes from the land-use sim join the stock each quarter, and move jobs, tr
   for (const k of ['jobs', 'trafficIndex', 'netFiscal']) assert.notEqual(run.series[39][k], B[39][k], k);
   assert.equal(run.series[39].treeCoverPct, 45);
   assert.equal(B[39].treeCoverPct, baselines.treeCoverPct.value);
+});
+
+test('the construction subsidy card has no dead range: at the default yearly limit, its per-home slider stops just below where the limit binds', () => {
+  const card = cards.find(c => c.id === 'housing-construction-subsidy'), max = card.params.find(p => p.key === 'dollars_per_home').max;
+  const binds = perHome => model.simulate(p, cardPolicies([card], { [card.id]: { dollars_per_home: perHome } }), { seedEvents: false })
+    .series.slice(card.timing.delayQuarters).some(r => r.subsidyPerHome < Math.min(perHome, max) - 1e-6);
+  const raw = perHome => model.simulate(p, [{ id: 'x', timing: card.timing, levers: [{ lever: 'housing.subsidyPerUnit', value: perHome }, { lever: 'housing.subsidyCap', value: 3e6 }] }], { seedEvents: false })
+    .series.slice(card.timing.delayQuarters).some(r => r.subsidyPerHome < perHome - 1e-6);
+  assert.ok(!binds(max), 'the limit does not bind at the slider max');
+  assert.ok(raw(max * 1.05), 'a little more per home and it would');
 });

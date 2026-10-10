@@ -144,13 +144,16 @@ Only the `SimResult` returned directly by `runScenario` carries the aggregate re
 | Model | Metrics |
 |---|---|
 | Land-use sim (`shared/sim.js`) | tree cover, and the homes your zone rules build |
-| CH-LUTI (`shared/luti/`) | homes, property tax revenue, jobs, storefront businesses, downtown storefront vacancy, median home value, town budget (net), bus trips, car traffic |
-| Household model (`shared/agents.js`) | median rent, commute, households, priced out |
+| CH-LUTI (`shared/luti/`) | homes, median rent, commute, property tax revenue, jobs, storefront businesses, downtown storefront vacancy, median home value, town budget (net), bus trips, car traffic |
+| Household model (`shared/agents.js`) | households, priced out, and the households on the map |
 
 - **One growth path.** With no policy, CH-LUTI grows the town: homes from construction calibrated to the 2015-2025 Census Building Permits Survey (about 334 a year), households from the 2010-2020 Census household growth (`lutiRegionalGrowth`) and job growth. The household model gets the same homes and fills the town to CH-LUTI's household count, so both models grow alike.
+- **Rent and commute** are CH-LUTI's (rents include regional rent inflation). Each simulated household's rent and commute follow CH-LUTI's path for its zone, and incomes grow as CH-LUTI's do (`lutiIncomeGrowth`).
+- **Priced out** counts households living in town in year 0 that have left by the shown year. Each year a renter may leave, with a chance that grows with how far their rent burden has risen above 30% since they arrived (`agentLeaveRate`), so it follows rent rising faster than income. Newcomers can leave too (they fade out on the map) but aren't counted.
 - **Homes** are today's 23,713, plus that growth, plus the homes your zone rules build (each parcel feeds the CH-LUTI zone it lies in, a quarter of each year's homes per quarter), plus homes lever cards add. New homes can crowd out a little other building, so the total can rise less than a card's own homes.
 - **Property tax revenue** is homes × `medianHomeValue` × (`propertyTaxRate` + the tax card's change), in today's dollars. The town budget line uses the same number.
-- **The household model** places your rules' homes by parcel: corridor parcels in a corridor zone (no extra trip on 15-501), other `map_edge` parcels at the edge (they commute over 15-501), the rest downtown. CH-LUTI's other new homes go by its zone: east and south to the edge, the rest in town.
+- **The household model** places your rules' homes by parcel: corridor parcels in a corridor zone (no extra trip on 15-501), other `map_edge` parcels at the edge (they commute over 15-501), the rest downtown. CH-LUTI's other new homes go by its zone: east and south to the edge, the rest in town. For CH-LUTI, `map_edge` and corridor parcels feed its east or south zone (the 15-501 side), the others the zone they lie in.
+- **Changes in points.** Tree cover, storefront vacancy and car traffic deltas also carry `changePts`, the change in percentage points, as the panel shows them.
 - **Every change** is against the same three models run with no new policy, in the same year.
 
 ## How CH-LUTI runs levers

@@ -4,6 +4,7 @@
 import { h } from '../policy/components.js';
 import { scenario, dataReady, devMode, stubOn, stubAuto, shownYear } from './scenario.js';
 import { VARIABLES, explain } from '../../shared/luti/run.js';
+import { LEVERS } from '../../shared/luti/levers.js';
 
 // The sources popups, CH-LUTI's P10-P90 ranges, its "why" traces and the cards' timing and evidence, left off so the
 // panel stays simple. true brings them back.
@@ -17,13 +18,13 @@ const int = n => fixed(n, 0), dollarsM = n => `$${fixed(n / 1e6, 1)}M`, points =
 // Each metric comes from one model (see shared/combined.js). dfmt formats a change (default: fmt); pct adds the change in
 // percent. For DETAILS: inputs are the baselines.json / assumptions.json entries behind a metric, luti its CH-LUTI variable.
 const ESTIMATES = 'The household behaviour settings behind this (who rents, incomes, how rent follows vacancy, when renters leave) are estimates, not sourced values.';
-const RENT_INPUTS = ['medianGrossRent', 'agentRentAmp', 'agentTargetVacancy', 'agentRentCurve', 'agentUnits', 'unitsPerAcre', 'agentScale', 'lutiRegionalGrowth'];
+const RENT_INPUTS = ['medianGrossRent', 'lutiRegionalGrowth', 'lutiStartShare', 'unitsPerAcre'];
 const HEADLINE = [
   { key: 'medianRent', label: 'Median rent', fmt: n => `$${int(n)}`, pct: true, caveat: ESTIMATES, inputs: RENT_INPUTS },
-  { key: 'pricedOut', label: 'Priced out (est.)', fmt: int, caveat: ESTIMATES, inputs: ['agentScale', 'agentBurdenLine', 'agentBurdenRiseSinceArrival', 'agentLeaveRate', 'agentRentAmp', 'agentTargetVacancy'] },
+  { key: 'pricedOut', label: 'Priced out (est.)', title: 'Households living here in year 0 that have moved away because their rent rose faster than their income. An estimate.', fmt: int, caveat: ESTIMATES, inputs: ['agentScale', 'agentBurdenLine', 'agentLeaveRate', 'lutiIncomeGrowth'] },
   { key: 'housingUnits', label: 'Homes', fmt: int, pct: true, luti: 'housingUnits', inputs: ['housingUnits', 'unitsPerAcre', 'lutiStartShare', 'lutiRegionalGrowth'] },
   { key: 'treeCoverPct', label: 'Tree cover', fmt: n => `${fixed(n, 1)}%`, dfmt: n => `${fixed(n, 2)} pts`, inputs: ['treeCoverPct', 'mapAreaAcres', 'canopyMinPct'] },
-  { key: 'avgCommuteMin', label: 'Commute', fmt: n => `${fixed(n, 1)} min`, inputs: ['meanCommuteMin', 'roadT0Min', 'roadCapacity', 'roadPeakVolume', 'roadBpr', 'roadCarShare', 'agentRemoteShare', 'agentDurhamShare', 'agentBaseCommuteMin', 'agentDurhamExtraMin'] },
+  { key: 'avgCommuteMin', label: 'Commute', fmt: n => `${fixed(n, 1)} min`, inputs: ['meanCommuteMin', 'lutiSpeedKmh', 'lutiHeadwayMin', 'lutiPeakVC', 'roadBpr'] },
   { key: 'netFiscal', label: 'Town budget, net', fmt: dollarsM, luti: 'netFiscal' }, // dollars a year
 ];
 const MORE = [
@@ -185,10 +186,12 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
 
   function Card(card) {
     const values = scenario.get().params[card.id] ?? {};
+    const hint = h('p', { class: 'sim-card__hint', hidden: !changesNothing(card, values) }, 'At this setting the card changes nothing. Move the slider to try it.');
     return h('section', { class: 'sim-card' },
       h('h3', {}, card.title),
       h('p', { class: 'sim-card__summary', title: card.summary }, card.summary),
-      card.params.map(p => Slider(card, p, values[p.key] ?? p.default)),
+      card.params.map(p => Slider(card, p, values[p.key] ?? p.default, now => { hint.hidden = !changesNothing(card, now); })),
+      hint,
       h('details', { class: 'sim-card__decider' },
         h('summary', {}, 'Who decides: ', card.decider.body),
         card.decider.how.length > 0 && h('ol', {}, card.decider.how.map(s => h('li', {}, s)))),
@@ -201,7 +204,7 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
         h('div', {}, h('h4', {}, 'Cons'), h('ul', {}, card.tradeoffs.cons.map(s => h('li', {}, s))))));
   }
 
-  function Slider(card, p, value) {
+  function Slider(card, p, value, onChange) {
     const show = v => `${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}${p.unit ? ` ${p.unit}` : ''}`;
     const out = h('output', { class: 'sim__val' }, show(value));
     const allInts = [p.min, p.max, p.default].every(Number.isInteger);
@@ -211,6 +214,7 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
         const v = +e.target.value, params = scenario.get().params;
         out.textContent = show(v);
         scenario.set({ params: { ...params, [card.id]: { ...params[card.id], [p.key]: v } } });
+        onChange(scenario.get().params[card.id]);
       } }));
   }
 
@@ -224,7 +228,7 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
       m.caveat && h('p', { class: 'sim-why__caveat' }, m.caveat),
       h('ul', {}, m.inputs.filter(k => sources[k]).map(k => Source(k, sources[k])))));
     const el = h('div', { class: 'sim-metric', ...(popup ? { tabindex: 0, 'aria-describedby': why.id } : {}) },
-      h('span', { class: 'sim-metric__label' }, m.label), value, delta, DETAILS && m.luti && range, popup);
+      h('span', { class: 'sim-metric__label', title: m.title }, m.label), value, delta, DETAILS && m.luti && range, popup);
     return { m, value, delta, range, why, el };
   }
 
@@ -237,6 +241,14 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
       e.note && h('span', { class: 'sim-why__note' }, e.note),
       e.alternate && h('span', { class: 'sim-why__note' }, `Alternate: ${showValue(e.alternate.value)}. ${e.alternate.source}`));
   }
+}
+
+// Whether a card at these slider values changes nothing: every lever at its no-change value (0, or x1) and every capped
+// zone rule capped at 0, as a neutral default like a 0¢ tax change. Cap levers (e.g. parking) count as a change.
+function changesNothing(card, values) {
+  const value = key => values?.[key] ?? card.params.find(p => p.key === key).default;
+  const lever = l => { const v = l.param ? value(l.param) : l.value, kind = LEVERS[l.lever].kind; return (kind === 'amount' && v === 0) || (kind === 'multiplier' && v === 1); };
+  return (card.levers ?? []).every(lever) && (card.zoneRules ?? []).every(r => r.capParam && value(r.capParam) === 0);
 }
 
 // A step of the CH-LUTI "why" trace, with its three biggest causes. Variables the page shows from another model are left out.

@@ -13,7 +13,7 @@
     ]
   },
   "params": [
-    { "key": "cents_per_100", "label": "Change to the rate", "min": -10, "max": 10, "default": -4, "unit": "¢ per $100" }
+    { "key": "cents_per_100", "label": "Change to the rate", "min": -10, "max": 10, "default": 0, "unit": "¢ per $100" }
   ],
   "levers": [
     { "lever": "tax.rateDelta", "param": "cents_per_100" }

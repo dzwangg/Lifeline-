@@ -49,7 +49,7 @@ export interface Metrics {
   housingUnits: number; medianRent: number; treeCoverPct: number; avgCommuteMin: number; taxRevenue: number;
   // In the full SimResult (shared/combined.js) every metric comes from one model: homes and property tax from CH-LUTI (with
   // the zone rules' homes and our tax formula), tree cover from the land-use sim, the rest as noted.
-  households?: number; pricedOut?: number; // household model, like medianRent and avgCommuteMin
+  households?: number; pricedOut?: number; // household model; pricedOut counts year-0 households that have left
   // CH-LUTI: jobs in town, storefront businesses, downtown storefront vacancy (share), median home value ($),
   // town budget net of policy and service costs ($/yr), bus trips a year, car traffic (1 = year 0)
   jobs?: number; businesses?: number; storefrontVacancy?: number; homeValue?: number; netFiscal?: number; transitRidership?: number; trafficIndex?: number;
@@ -60,7 +60,8 @@ export interface SimResult {
   policies: { id: string; title: string; params: Record<string, number> }[];
   years: number;
   timeline: { year: number; zoneStates: Record<string, ZoneState>; metrics: Metrics }[];
-  deltas: { metric: string; baseline: number; final: number; changePct: number; comparedWith?: 'year 0' | 'no new policy' }[];
+  // changePts: the change in percentage points, for treeCoverPct, storefrontVacancy and trafficIndex (shared/combined.js)
+  deltas: { metric: string; baseline: number; final: number; changePct: number; changePts?: number; comparedWith?: 'year 0' | 'no new policy' }[];
   tradeoffs: { pros: string[]; cons: string[] };
   assumptions: { key: string; value: number; source: string }[];
 }

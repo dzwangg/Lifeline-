@@ -204,7 +204,7 @@ export function createModel(assumptions, baselines) {
       taxRate: TAX_CENTS, propertyTax: propertyTaxAt(sum(s.units), 0), salesTax: TOWN.salesTax,
     };
     start.netFiscal = start.propertyTax + start.salesTax;
-    start.zones = ZONES.map(z => ({ units: z.units }));
+    start.zones = ZONES.map((z, i) => ({ units: z.units, households: z.households, rent: rent0[i], commute: cal.travel0.zones[i].time * cal.timeScale }));
 
     for (let q = 0; q < QUARTERS; q++) {
       const L = schedule(q), year = BASE_YEAR + q / 4;
@@ -359,7 +359,7 @@ export function createModel(assumptions, baselines) {
         townRevenue: revenue, programCost, serviceCost, netFiscal: revenue - programCost - serviceCost,
       });
       zoneSeries.push(ZONES.map((z, i) => ({
-        households: s.households[i], units: s.units[i], rent: s.rent[i], starts: dev[i].starts * 4, margin: dev[i].margin,
+        households: s.households[i], units: s.units[i], rent: s.rent[i], commute: tr.zones[i].time * cal.timeScale, starts: dev[i].starts * 4, margin: dev[i].margin,
         businesses: s.biz[i], storefrontVacancy: 1 - Math.min(1, s.biz[i] / s.spaces[i]), access: tr.zones[i].access / access0[i],
         busShare: tr.zones[i].share.bus,
       })));

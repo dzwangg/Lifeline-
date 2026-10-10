@@ -8,10 +8,10 @@ const { input } = parseInput(fixture);
 // A distinct input per handler test, so the handler's in-memory cache never leaks between tests.
 const variant = tag => ({ ...input, tradeoffs: { ...input.tradeoffs, pros: [`More homes are built, case ${tag}.`] } });
 
-const GOOD = 'Over 10 years, the simulated policy adds homes, from 23,713 to about 24,200, a 2.15% rise. Median rent dips to about $1,480. '
-  + 'Tree cover falls from 13.7% to 9.75%, a drop of nearly 29%. Commutes stay near 20 minutes, and yearly tax revenue grows to $69.8 million. '
-  + 'Supporters note that more homes are built; critics note that forest is cleared.';
-const BAD = 'Homes rise by 509 and rent falls $3 by 2035.';
+const GOOD = 'Over 10 years, the simulated policy adds homes, from 23,713 to about 24,200, a 2.15% rise. Compared with no new policy, median rent is '
+  + 'about $1,670 instead of $1,714, and about 4,060 households are priced out instead of about 4,400. Tree cover falls from 46.9% to about 43%, '
+  + 'and yearly tax revenue grows to $69.8 million. Supporters note that more homes are built; critics note that forest is cleared.';
+const BAD = 'Homes rise by 509 and rent falls $46 by 2035.';
 const KEYS = { GEMINI_API_KEY: 'gem-secret', GEMINI_MODEL: 'gemini-test', ELEVENLABS_API_KEY: 'el-secret', ELEVENLABS_VOICE_ID: 'voice', ELEVENLABS_MODEL: '', GEMINI_THINKING_LEVEL: '', DEMO_MODE: '' };
 
 /** Runs fn with these env vars and a fake fetch that answers Gemini with `drafts` in turn; returns the calls it saw. */
@@ -41,18 +41,18 @@ const post = async body => {
 
 test('number check: rounding, signs, %, $, commas and scale words pass', () => {
   assert.deepEqual(badNumbers(GOOD, input), []);
-  assert.deepEqual(badNumbers('Rent changes -0.22%, homes reach 24,222 (about 24,000), revenue about $70 million, over 10 years, on 130 acres.', input), []);
+  assert.deepEqual(badNumbers('Rent changes -2.68%, homes reach 24,222 (about 24,000), revenue about $70 million, over 10 years, on 130 acres.', input), []);
 });
 
 test('number check: anchor-style rounded figures pass, wrong roundings do not', () => {
-  const anchor = 'Homes rise to about 24,200, rent dips to about $1,480 a month, and tree cover falls to nearly 10%. '
-    + 'Tax revenue climbs to about $70 million, or $69.8 million, and commutes stay near 20 minutes.';
+  const anchor = 'Homes rise to about 24,200, rent is about $1,670 a month, about 4,100 households are priced out, and tree cover falls to about 43%. '
+    + 'Tax revenue climbs to about $70 million, or $69.8 million, and commutes are near 20 minutes.';
   assert.deepEqual(badNumbers(anchor, input), []);
   assert.deepEqual(badNumbers('Tax revenue reaches about $75 million, or $69.9 million, and homes about 24,100.', input), ['75 million', '69.9 million', '24,100']);
 });
 
 test('number check: names numbers that are not in the input, even derived ones', () => {
-  assert.deepEqual(badNumbers(BAD, input), ['509', '3', '2035']);
+  assert.deepEqual(badNumbers(BAD, input), ['509', '46', '2035']);
   assert.deepEqual(badNumbers('Tree cover falls 28.9%, homes reach 24,300.', input), ['28.9', '24,300']);
 });
 
@@ -66,10 +66,19 @@ test('hash is stable across key order and extra fields, and changes with the con
 test('template recap is deterministic, short, covers every delta and both sides, and passes the number check', () => {
   const text = templateRecap(input);
   assert.equal(text, templateRecap(structuredClone(input)));
-  for (const s of ['10 years', 'rises 2.2%, to about 24,200', '$1,480 a month', 'from 13.7% to 9.8%', '$69.8 million', 'STUB pro', 'STUB con']) assert.ok(text.includes(s), s);
+  for (const s of ['10-year simulation', 'homes rise 2.2% to about 24,200', 'tree cover falls from 46.9% to 43%', 'households rise 0.78% to about 23,900',
+    'Compared with no new policy, median rent is $1,668 a month instead of $1,714', 'households priced out are about 4,060 instead of about 4,400', 'STUB pro', 'STUB con'])
+    assert.ok(text.includes(s), s);
   const words = text.split(/\s+/).length;
   assert.ok(words >= 60 && words <= 90, `${words} words`);
   assert.deepEqual(badNumbers(text, input), []);
+});
+
+test('deltas without comparedWith (runScenario output) read as changes since year 0', () => {
+  const { input: plain } = parseInput({ ...fixture, deltas: fixture.deltas.map(({ comparedWith, ...d }) => d) });
+  assert.ok(plain.deltas.every(d => d.comparedWith === 'year 0'));
+  assert.ok(!templateRecap(plain).includes('no new policy'));
+  assert.ok(templateRecap(plain).includes('median rent falls 2.7% to $1,668 a month'));
 });
 
 test('handler: Gemini text read aloud, then served from cache', async () => {
@@ -92,7 +101,7 @@ test('handler: one retry listing the bad numbers, then the template', async () =
     const r = await post(variant('b'));
     assert.equal(r.text, GOOD);
     assert.equal(r.fallback, false);
-    assert.match(JSON.parse(calls[1].init.body).contents.at(-1).parts[0].text, /509, 3, 2035/);
+    assert.match(JSON.parse(calls[1].init.body).contents.at(-1).parts[0].text, /509, 46, 2035/);
   });
   await withMocks(KEYS, [BAD, BAD], async calls => {
     const r = await post(variant('c'));
@@ -171,6 +180,7 @@ test('handler: a committed demo clip is served first', async () => {
 test('handler: rejects bad input with 400', async () => {
   assert.equal((await post('not json')).status, 400);
   const r = await post({ ...input, years: 0, deltas: [{ metric: 'vibes', baseline: 1, final: 2, changePct: 100 }] });
+  assert.equal((await post({ ...input, deltas: [{ ...input.deltas[0], comparedWith: 'last year' }] })).status, 400);
   assert.equal(r.status, 400);
   assert.match(r.error, /years/);
   assert.match(r.error, /deltas/);

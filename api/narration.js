@@ -8,15 +8,20 @@ import { readFile } from 'node:fs/promises';
 
 /** @typedef {import('../shared/types').SimResult} SimResult @typedef {Pick<SimResult, 'policies' | 'years' | 'deltas' | 'tradeoffs'>} NarrationInput */
 
-// fmt says a value the way a news anchor would; pct metrics are already percentages, so the template gives from/to, not a % change.
+// fmt says a value the way a news anchor would (unit follows it once); pct metrics are already percentages, so the template
+// gives from/to rather than a % change. households and pricedOut come from the household model (shared/agents.js).
+const about = n => `about ${fmtNum(n, { maximumSignificantDigits: 3 })}`;
 const METRICS = {
-  housingUnits: { meaning: 'number of homes', label: 'The number of homes', fmt: n => `about ${fmtNum(n, { maximumSignificantDigits: 3 })}` },
-  medianRent: { meaning: 'median monthly rent in dollars', label: 'Median rent', fmt: n => `$${fmtNum(n, { maximumFractionDigits: 0 })} a month` },
-  treeCoverPct: { meaning: 'share of land covered by trees, in percent', label: 'Tree cover', fmt: n => `${fmtNum(n, { maximumFractionDigits: 1 })}%`, pct: true },
-  avgCommuteMin: { meaning: 'average commute in minutes', label: 'The average commute', fmt: n => `${fmtNum(n, { maximumFractionDigits: 1 })} minutes` },
-  taxRevenue: { meaning: 'yearly property tax revenue in dollars', label: 'Yearly tax revenue', fmt: n => `$${fmtNum(n / 1e6, { maximumFractionDigits: 1 })} million` },
+  housingUnits: { meaning: 'number of homes', label: 'homes', plural: true, fmt: about },
+  households: { meaning: 'number of households living in town', label: 'households', plural: true, fmt: about },
+  medianRent: { meaning: 'median monthly rent in dollars', label: 'median rent', fmt: n => `$${fmtNum(n, { maximumFractionDigits: 0 })}`, unit: ' a month' },
+  avgCommuteMin: { meaning: 'average commute in minutes', label: 'the average commute', fmt: n => fmtNum(n, { maximumFractionDigits: 1 }), unit: ' minutes' },
+  pricedOut: { meaning: 'estimated number of households that moved away because rent got too high for them', label: 'households priced out', plural: true, fmt: about },
+  treeCoverPct: { meaning: 'share of land covered by trees, in percent', label: 'tree cover', fmt: n => `${fmtNum(n, { maximumFractionDigits: 1 })}%`, pct: true },
+  taxRevenue: { meaning: 'yearly property tax revenue in dollars', label: 'tax revenue', fmt: n => `$${fmtNum(n / 1e6, { maximumFractionDigits: 1 })} million` },
 };
 const fmtNum = (n, opts) => n.toLocaleString('en-US', opts); // Intl rounds the decimal value: 2.15 -> 2.2, where toPrecision gives 2.1
+const NO_POLICY = 'no new policy';
 
 const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
@@ -32,15 +37,16 @@ export function parseInput(b) {
     && Object.keys(p.params).length <= 20 && Object.entries(p.params).every(([k, v]) => k.length <= 50 && isNum(v))),
     'policies must be 1-10 of { id, title, params: { key: number } }');
   ok(Number.isInteger(b.years) && b.years >= 1 && b.years <= 100, 'years must be a whole number from 1 to 100');
-  ok(isList(b.deltas, 10, d => isObj(d) && Object.hasOwn(METRICS, d.metric) && [d.baseline, d.final, d.changePct].every(isNum)),
-    `deltas must be 1-10 of { metric: ${Object.keys(METRICS).join('|')}, baseline, final, changePct }`);
+  ok(isList(b.deltas, 10, d => isObj(d) && Object.hasOwn(METRICS, d.metric) && [d.baseline, d.final, d.changePct].every(isNum)
+    && [undefined, 'year 0', NO_POLICY].includes(d.comparedWith)),
+    `deltas must be 1-10 of { metric: ${Object.keys(METRICS).join('|')}, baseline, final, changePct, comparedWith?: "year 0"|"${NO_POLICY}" }`);
   ok(isObj(b.tradeoffs) && ['pros', 'cons'].every(k => isList(b.tradeoffs[k], 10, s => isStr(s, 300))),
     'tradeoffs.pros and tradeoffs.cons must each be 1-10 non-empty strings');
   if (errors.length) return { errors };
   return { errors, input: {
     policies: b.policies.map(({ id, title, params }) => ({ id, title, params })),
     years: b.years,
-    deltas: b.deltas.map(({ metric, baseline, final, changePct }) => ({ metric, baseline, final, changePct })),
+    deltas: b.deltas.map(({ metric, baseline, final, changePct, comparedWith = 'year 0' }) => ({ metric, baseline, final, changePct, comparedWith })),
     tradeoffs: { pros: b.tradeoffs.pros, cons: b.tradeoffs.cons },
   } };
 }
@@ -70,16 +76,24 @@ export function badNumbers(text, input) {
 
 /** The deterministic recap used whenever Gemini is off, failing, or keeps citing numbers that are not in the input. */
 export function templateRecap(input) {
-  const changes = input.deltas.map(({ metric, baseline, final, changePct }) => {
-    const { label, fmt, pct } = METRICS[metric];
-    const verb = changePct > 0 ? 'rises' : 'falls';
-    return changePct === 0 ? `${label} stays at ${fmt(final)}.`
-      : pct ? `${label} ${verb} from ${fmt(baseline)} to ${fmt(final)}.`
-      : `${label} ${verb} ${fmtNum(Math.abs(changePct), { maximumSignificantDigits: 2 })}%, to ${fmt(final)}.`;
-  });
-  const titles = input.policies.map(p => `“${p.title}”`).join(' and ');
-  return [`Here is what the simulation shows for ${titles} over ${input.years} years.`, ...changes,
-    `On the plus side: ${input.tradeoffs.pros.join(' ')}`, `On the downside: ${input.tradeoffs.cons.join(' ')}`].join(' ');
+  const list = items => new Intl.ListFormat('en', { type: 'conjunction' }).format(items);
+  const clause = ({ metric, baseline, final, changePct, comparedWith }) => {
+    const { label, fmt, unit = '', plural, pct } = METRICS[metric];
+    const [is, rises, falls] = plural ? ['are', 'rise', 'fall'] : ['is', 'rises', 'falls'];
+    if (comparedWith === NO_POLICY) return `${label} ${is} ${fmt(final)}${unit}${changePct === 0 ? ', the same' : ` instead of ${fmt(baseline)}`}`;
+    if (changePct === 0) return `${label} ${is} unchanged at ${fmt(final)}${unit}`;
+    const verb = changePct > 0 ? rises : falls;
+    return pct ? `${label} ${verb} from ${fmt(baseline)} to ${fmt(final)}`
+      : `${label} ${verb} ${fmtNum(Math.abs(changePct), { maximumSignificantDigits: 2 })}% to ${fmt(final)}${unit}`;
+  };
+  const overTime = input.deltas.filter(d => d.comparedWith !== NO_POLICY).map(clause);
+  const vsNoPolicy = input.deltas.filter(d => d.comparedWith === NO_POLICY).map(clause);
+  // ponytail: first pro and first con only, so real cards (3 of each) stay near 90 words; list them all if length stops mattering.
+  return [
+    `In a ${input.years}-year simulation of ${list(input.policies.map(p => `“${p.title}”`))}${overTime.length ? `, ${list(overTime)}` : ''}.`,
+    vsNoPolicy.length ? `Compared with ${NO_POLICY}, ${list(vsNoPolicy)}.` : '',
+    `On the plus side: ${input.tradeoffs.pros[0]}`, `On the downside: ${input.tradeoffs.cons[0]}`,
+  ].filter(Boolean).join(' ');
 }
 
 const SYSTEM_PROMPT = `You write short news-style recaps of a city policy simulation for residents with no policy background. The recap is read aloud.
@@ -87,12 +101,15 @@ Rules:
 - Between 60 and 90 words (about 30 seconds spoken), one paragraph, plain everyday language, no jargon, no headings or lists.
 - Use ONLY numbers that appear in the input, and only the few that matter most to residents. Never calculate new numbers such as differences, sums or ratios. Write every number as digits.
 - Say numbers the way a local news anchor would: commas in large numbers, $ for money, % for percentages, rounded figures (for example "about 12,400" for 12408), and big dollar amounts in millions (for example "about $4.5 million" for 4518230).
+- When a delta is compared with no new policy, say so (for example "lower than with no new policy"); don't describe it as a change over time.
 - State both the benefits (pros) and the drawbacks (cons) from the input.
 - Never recommend, endorse or oppose the policy and never take a side. Report what the simulation shows, as a simulation.`;
 
 const userPrompt = input => `Simulation results (JSON):\n${JSON.stringify(input)}\n\nWhat the metrics mean: ${
   Object.entries(METRICS).map(([k, m]) => `${k} = ${m.meaning}`).join('; ')
-}. In each delta, baseline is the starting value, final is the value after the simulated years, and changePct is the percent change between them.`;
+}. In each delta, final is the value after the simulated years with this policy, and baseline is what it is compared with: `
+  + `the starting value when comparedWith is "year 0", or the value after the same years with no new policy when comparedWith is "${NO_POLICY}". `
+  + 'changePct is the percent change from baseline to final.';
 
 // Thinking makes Gemini 3 slow here (12-19s at its default level, 1.5s at "minimal"), but each model accepts different
 // levels (gemini-3.8-flash rejects "minimal"), so a 400 about the level retries once with the model's default.

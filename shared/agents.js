@@ -4,6 +4,8 @@
 // BPR curve. Coefficients are the agent* and road* entries in data/assumptions.json. Year 0 is calibrated to the ACS
 // median gross rent and mean commute in data/baselines.json, and to the observed 15-501 peak volume.
 
+import { runScenario } from './sim.js';
+
 /** @typedef {import('./types').Assumptions} Assumptions @typedef {import('./types').Baselines} Baselines
  *  @typedef {import('./types').SimResult} SimResult @typedef {import('./types').Zone} Zone */
 /** @typedef {'downtown' | 'campus' | 'edge'} AgentZone */
@@ -44,6 +46,8 @@ function lognorm(r, median, sd) { // Box-Muller
 }
 
 const NO_HOMES = { downtown: 0, campus: 0, edge: 0 };
+export const SEEDS = 20; // reported numbers average this many runs; the map draws households from one of them
+const round1 = v => Math.round(v * 10) / 10, round2 = v => Math.round(v * 100) / 100;
 
 // Which household zone a sim parcel's homes belong to: map_edge parcels (edge and corridor cards) are on the town's
 // edge and commute over 15-501; the others (core infill) are near downtown.
@@ -154,4 +158,48 @@ export function simulate(homes, assumptions, baselines, seed = 7) {
     });
   }
   return { agents, years };
+}
+
+/**
+ * Year-by-year averages over `seeds` runs (seeds 1..n), in real households. A single run is too coarse to report:
+ * each simulated household stands for agentScale real ones.
+ * @param {Record<AgentZone, number>[] | null} homes @param {Assumptions} assumptions @param {Baselines} baselines
+ */
+export function averageRuns(homes, assumptions, baselines, seeds = SEEDS) {
+  const scale = assumptions.agentScale.value;
+  const runs = Array.from({ length: seeds }, (_, i) => simulate(homes, assumptions, baselines, i + 1).years);
+  const mean = (t, f) => runs.reduce((s, years) => s + f(years[t]), 0) / seeds;
+  return runs[0].map((_, t) => ({
+    medianRent: Math.round(mean(t, y => y.medianRent)),
+    avgCommuteMin: round1(mean(t, y => y.commute)),
+    households: Math.round(mean(t, y => y.pop) * scale),
+    pricedOut: Math.round(mean(t, y => y.displaced) * scale),
+    roadRatio: mean(t, y => y.roadRatio),
+    roadTime: round1(mean(t, y => y.roadTime)),
+  }));
+}
+
+const FROM_HOUSEHOLDS = ['medianRent', 'avgCommuteMin', 'households', 'pricedOut'];
+const VS_NO_POLICY = new Set(['medianRent', 'avgCommuteMin', 'pricedOut']); // so growth-driven change isn't put down to the policy
+
+/**
+ * The SimResult with median rent, commute, households and priced out taken from the household model (averaged runs),
+ * and deltas as the sim panel shows them: rent, commute and priced out against no new policy, the rest against year 0.
+ * @param {SimResult} result from runScenario @param {ReturnType<typeof averageRuns>} avg @param {ReturnType<typeof averageRuns>} noPolicy
+ * @returns {SimResult}
+ */
+export function withHouseholds(result, avg, noPolicy) {
+  const timeline = result.timeline.map((t, i) => ({ ...t, metrics: { ...t.metrics, ...Object.fromEntries(FROM_HOUSEHOLDS.map(k => [k, avg[i][k]])) } }));
+  const first = timeline[0].metrics, last = timeline.at(-1).metrics, none = noPolicy.at(-1);
+  const deltas = Object.keys(last).map(metric => {
+    const vs = VS_NO_POLICY.has(metric), baseline = vs ? none[metric] : first[metric];
+    return { metric, baseline, final: last[metric], changePct: baseline ? round2((last[metric] - baseline) / baseline * 100) : 0, comparedWith: vs ? 'no new policy' : 'year 0' };
+  });
+  return { ...result, timeline, deltas };
+}
+
+/** runScenario plus the household model: the full SimResult the panel and the narration pipeline both use. */
+export function runWithHouseholds(cards, params, zones, assumptions, baselines, noPolicy = averageRuns(null, assumptions, baselines)) {
+  const result = runScenario(cards, params, zones, assumptions, baselines);
+  return withHouseholds(result, averageRuns(homesByYear(result, zones, assumptions), assumptions, baselines), noPolicy);
 }

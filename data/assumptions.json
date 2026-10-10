@@ -39,12 +39,12 @@
   "agentHouseholds": {
     "value": { "downtown": 105, "campus": 98, "edge": 97 },
     "source": "PLACEHOLDER - needs citation",
-    "note": "Simulated households per zone at year 0. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "note": "Simulated households per zone at year 0. From the household-model prototype."
   },
   "agentUnits": {
     "value": { "downtown": 108, "campus": 101, "edge": 100 },
     "source": "PLACEHOLDER - needs citation",
-    "note": "Simulated homes per zone at year 0. New homes from policies are added to edge. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "note": "Simulated homes per zone at year 0. Homes the policy sim builds are added by parcel: map_edge parcels to edge, others to downtown. From the household-model prototype."
   },
   "agentGrowth": {
     "value": 0.0073,
@@ -54,62 +54,62 @@
   "agentInducedShare": {
     "value": 0.6,
     "source": "PLACEHOLDER - needs citation",
-    "note": "Share of surplus vacancy that newcomers fill. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "note": "Share of surplus vacancy that newcomers fill. From the household-model prototype."
   },
   "agentInducedVacancy": {
     "value": 0.04,
     "source": "PLACEHOLDER - needs citation",
-    "note": "Vacancy above which extra newcomers are drawn in. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "note": "Vacancy above which extra newcomers are drawn in. From the household-model prototype."
   },
   "agentRentAmp": {
     "value": 0.028,
     "source": "PLACEHOLDER - needs citation",
-    "note": "Strength of the rent response to vacancy. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "note": "Strength of the rent response to vacancy. From the household-model prototype."
   },
   "agentTargetVacancy": {
     "value": 0.05,
     "source": "PLACEHOLDER - needs citation",
-    "note": "Vacancy at which rent holds steady. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "note": "Vacancy at which rent holds steady. From the household-model prototype."
   },
   "agentRentCurve": {
     "value": { "floor": -0.012, "offset": 0.022, "min": -0.06, "max": 0.11 },
     "source": "PLACEHOLDER - needs citation",
-    "note": "Shape and yearly limits of the rent-vs-vacancy curve. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "note": "Shape and yearly limits of the rent-vs-vacancy curve. From the household-model prototype."
   },
   "agentBurdenLine": {
     "value": 0.5,
     "source": "PLACEHOLDER - needs citation",
-    "note": "Rent share of income above which a renter may leave. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "note": "Rent share of income above which a renter may leave. From the household-model prototype."
   },
   "agentBurdenRise": {
     "value": 0.05,
     "source": "PLACEHOLDER - needs citation",
-    "note": "Yearly rise in that share that counts toward leaving. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "note": "Yearly rise in that share that counts toward leaving. From the household-model prototype."
   },
   "agentLeaveProb": {
     "value": 0.5,
     "source": "PLACEHOLDER - needs citation",
-    "note": "Chance of leaving after two such years in a row. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "note": "Chance of leaving after two such years in a row. From the household-model prototype."
   },
   "agentRenterShare": {
     "value": { "downtown": 0.6, "campus": 0.8, "edge": 0.35 },
     "source": "PLACEHOLDER - needs citation",
-    "note": "From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "note": "From the household-model prototype."
   },
   "agentStudentShare": {
     "value": 0.4,
     "source": "PLACEHOLDER - needs citation",
-    "note": "Share of renters who are students. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "note": "Share of renters who are students. From the household-model prototype."
   },
   "agentIncomeMedian": {
     "value": { "student": 40000, "renter": 64000, "owner": 115000 },
     "source": "PLACEHOLDER - needs citation",
-    "note": "Median household income by type (log-normal). From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "note": "Median household income by type (log-normal). From the household-model prototype."
   },
   "agentIncomeSpread": {
     "value": { "student": 0.35, "renter": 0.45, "owner": 0.4 },
     "source": "PLACEHOLDER - needs citation",
-    "note": "Log-normal spread of income by type. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "note": "Log-normal spread of income by type. From the household-model prototype."
   },
   "agentRemoteShare": {
     "value": 0.28,
@@ -128,33 +128,33 @@
   "agentCampusWorkShare": {
     "value": 0.5,
     "source": "PLACEHOLDER - needs citation",
-    "note": "Of the rest, non-students working on campus (others work downtown). From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "note": "Of the rest, non-students working on campus (others work downtown). From the household-model prototype."
   },
   "agentZoneRent": {
     "value": { "downtown": 1.1, "campus": 1.0, "edge": 0.92 },
     "source": "PLACEHOLDER - needs citation",
-    "note": "Rent level by zone, before calibration to the ACS median gross rent. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "note": "Rent level by zone, before calibration to the ACS median gross rent. From the household-model prototype."
   },
   "agentRentSpread": {
     "value": { "min": 0.82, "range": 0.4 },
     "source": "PLACEHOLDER - needs citation",
-    "note": "Each home's rent varies from min to min + range of its zone level. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "note": "Each home's rent varies from min to min + range of its zone level. From the household-model prototype."
   },
   "agentBaseCommuteMin": {
     "value": { "downtown": 7, "campus": 5, "edge": 6 },
     "source": "PLACEHOLDER - needs citation",
-    "note": "Local commute by zone, before calibration to the ACS mean commute. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "note": "Local commute by zone, before calibration to the ACS mean commute. From the household-model prototype."
   },
   "agentDurhamExtraMin": {
     "value": 9,
     "source": "PLACEHOLDER - needs citation",
-    "note": "From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "note": "From the household-model prototype."
   },
   "roadT0Min": {
     "value": 14,
     "unit": "minutes",
     "source": "PLACEHOLDER - needs citation",
-    "note": "Free-flow 15-501 travel time. From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "note": "Free-flow 15-501 travel time. From the household-model prototype."
   },
   "roadCapacity": {
     "value": 2000,
@@ -176,6 +176,6 @@
   "roadBpr": {
     "value": { "alpha": 0.15, "beta": 4 },
     "source": "PLACEHOLDER - needs citation",
-    "note": "BPR delay curve: time = t0 x (1 + alpha x (volume/capacity)^beta). From the Chapel Hill Household Sim prototype (agents-prototype.js)."
+    "note": "BPR delay curve: time = t0 x (1 + alpha x (volume/capacity)^beta). From the household-model prototype."
   }
 }

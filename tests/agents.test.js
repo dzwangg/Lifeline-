@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { homesByYear, simulate } from '../shared/agents.js';
+import { homesByYear, runWithHouseholds, simulate } from '../shared/agents.js';
+import { validateSimResult } from '../shared/schema.js';
 import { runScenario } from '../shared/sim.js';
 import { stub, zones, assumptions, baselines } from './data.js';
 
@@ -27,4 +28,13 @@ test('the homes fed to the model follow the SimResult timeline', () => {
     assert.ok(Math.abs(added - (t.metrics.housingUnits - result.timeline[0].metrics.housingUnits)) <= 1, `year ${i}`);
   });
   assert.equal(homes[10].downtown, 0); // the stub only builds in map_edge parcels
+});
+
+test('the full SimResult carries the averaged household numbers, compared as the panel shows them', () => {
+  const r = runWithHouseholds([stub], {}, zones, assumptions, baselines), y0 = r.timeline[0].metrics;
+  assert.deepEqual(validateSimResult(r), []);
+  assert.equal(y0.medianRent, baselines.medianGrossRent.value);
+  assert.equal(y0.avgCommuteMin, baselines.meanCommuteMin.value);
+  const vs = Object.fromEntries(r.deltas.map(d => [d.metric, d.comparedWith]));
+  assert.deepEqual(vs, { housingUnits: 'year 0', medianRent: 'no new policy', treeCoverPct: 'year 0', avgCommuteMin: 'no new policy', taxRevenue: 'year 0', households: 'year 0', pricedOut: 'no new policy' });
 });

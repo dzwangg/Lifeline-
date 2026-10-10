@@ -8,18 +8,20 @@ const PLAY_ICON = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3.5 2v8
 
 const sign = d => (d > 0 ? '+' : '−');
 const fixed = (n, digits) => n.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
-// inputs: the baselines.json / assumptions.json entries each metric is computed from (see shared/sim.js and shared/agents.js).
-// Homes, tree cover and tax come from the SimResult; the rest from the household model (agents), the one source for rent
-// and commute. scaled: simulated households x agentScale. vsNoPolicy: compared with the household model run without new
-// homes in the same year, so growth-driven changes aren't put down to the policy; the others compare with year 0.
+// Every value comes from the SimResult (shared/agents.js withHouseholds): homes, tree cover and tax from the land-use sim,
+// rent, commute, households and priced out from the household model averaged over its runs.
+// inputs: the baselines.json / assumptions.json entries each metric is computed from. vsNoPolicy: compared with the
+// household model without new homes in the same year, so growth-driven change isn't put down to the policy; the
+// others compare with year 0.
+const ESTIMATES = 'The household behaviour settings behind this (who rents, incomes, how rent follows vacancy, when renters leave) are estimates, not sourced values.';
 const METRICS = [
   { key: 'housingUnits', label: 'Homes', fmt: n => fixed(n, 0), inputs: ['housingUnits', 'unitsPerAcre'] },
-  { key: 'medianRent', label: 'Median rent', agents: y => y.medianRent, vsNoPolicy: true, fmt: n => `$${fixed(n, 0)}`, inputs: ['medianGrossRent', 'agentRentAmp', 'agentTargetVacancy', 'agentRentCurve', 'agentGrowth', 'agentInducedShare', 'agentUnits', 'unitsPerAcre', 'agentScale'] },
+  { key: 'medianRent', label: 'Median rent', vsNoPolicy: true, caveat: ESTIMATES, fmt: n => `$${fixed(n, 0)}`, inputs: ['medianGrossRent', 'agentRentAmp', 'agentTargetVacancy', 'agentRentCurve', 'agentGrowth', 'agentInducedShare', 'agentUnits', 'unitsPerAcre', 'agentScale'] },
   { key: 'treeCoverPct', label: 'Tree cover', fmt: n => `${fixed(n, 2)}%`, dfmt: n => `${fixed(n, 2)} pts`, inputs: ['treeCoverPct', 'mapAreaAcres', 'canopyMinPct'] },
-  { key: 'avgCommuteMin', label: 'Mean commute', agents: y => y.commute, vsNoPolicy: true, fmt: n => `${fixed(n, 1)} min`, inputs: ['meanCommuteMin', 'roadT0Min', 'roadCapacity', 'roadPeakVolume', 'roadBpr', 'roadCarShare', 'agentRemoteShare', 'agentDurhamShare', 'agentBaseCommuteMin', 'agentDurhamExtraMin'] },
+  { key: 'avgCommuteMin', label: 'Mean commute', vsNoPolicy: true, fmt: n => `${fixed(n, 1)} min`, inputs: ['meanCommuteMin', 'roadT0Min', 'roadCapacity', 'roadPeakVolume', 'roadBpr', 'roadCarShare', 'agentRemoteShare', 'agentDurhamShare', 'agentBaseCommuteMin', 'agentDurhamExtraMin'] },
   { key: 'taxRevenue', label: 'Property tax revenue', fmt: n => `$${fixed(n, 0)}`, inputs: ['housingUnits', 'unitsPerAcre', 'medianHomeValue', 'propertyTaxRate'] },
-  { key: 'households', label: 'Households (est.)', agents: y => y.pop, scaled: true, fmt: n => fixed(n, 0), inputs: ['agentScale', 'agentHouseholds', 'agentUnits', 'agentGrowth', 'agentInducedShare'] },
-  { key: 'pricedOut', label: 'Priced out (est.)', agents: y => y.displaced, scaled: true, fmt: n => fixed(n, 0), inputs: ['agentScale', 'agentBurdenLine', 'agentBurdenRise', 'agentLeaveProb', 'agentRentAmp', 'agentTargetVacancy'] },
+  { key: 'households', label: 'Households (est.)', fmt: n => fixed(n, 0), inputs: ['agentScale', 'agentHouseholds', 'agentUnits', 'agentGrowth', 'agentInducedShare'] },
+  { key: 'pricedOut', label: 'Priced out (est.)', vsNoPolicy: true, caveat: ESTIMATES, fmt: n => fixed(n, 0), inputs: ['agentScale', 'agentBurdenLine', 'agentBurdenRise', 'agentLeaveProb', 'agentRentAmp', 'agentTargetVacancy'] },
 ];
 const WORK = { remote: 'Works from home', durham: 'Works in Durham', campus: 'Works at UNC', downtown: 'Works downtown' };
 const WHERE = { downtown: 'near Franklin St', campus: 'near campus', edge: 'at the edge of town' };
@@ -52,12 +54,15 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
     playBtn.innerHTML = PLAY_ICON;
     playBtn.setAttribute('aria-label', 'Play years');
   }
+  const roadBtn = h('button', { class: 'sim__road', type: 'button', 'aria-pressed': 'false', onclick: () => scenario.set({ roadView: !scenario.get().roadView }) }, 'View 15-501');
   const rows = METRICS.map(Metric);
   const body = h('div', { class: 'sim__body', id: 'sim-body' },
     h('div', { class: 'sim__cards' }, residentEl, cardsEl),
     h('div', { class: 'sim__time' },
       h('div', { class: 'sim__year' }, playBtn, h('label', { class: 'sim__slider' }, h('span', {}, 'Year ', yearOut), yearIn)),
-      h('label', { class: 'sim__check' }, beforeIn, 'Show before (year 0)')),
+      h('div', { class: 'sim__row' },
+        h('label', { class: 'sim__check' }, beforeIn, 'Show before (year 0)'),
+        roadBtn)),
     h('div', { class: 'sim__metrics', role: 'group', 'aria-label': 'Metrics compared with year 0, or with no new policy' }, rows.map(r => r.el)),
     devMode && !stubAuto && h('label', { class: 'sim__check sim__dev' }, h('input', { type: 'checkbox', checked: stubOn, onchange: e => toggleStub(e.target.checked) }), 'Load stub card (dev)'));
   const toggle = h('button', { class: 'sim__toggle', type: 'button', 'aria-expanded': 'true', 'aria-controls': 'sim-body', onclick: () => {
@@ -89,11 +94,12 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
   scenario.subscribe(s => {
     yearOut.textContent = s.before ? '0 (before)' : s.year;
     yearIn.value = s.year;
+    roadBtn.textContent = s.roadView ? 'Back' : 'View 15-501';
+    roadBtn.setAttribute('aria-pressed', String(!!s.roadView));
     if (!s.result) return;
-    const y = shownYear(s), scale = sources.agentScale.value;
-    const get = (m, run, yr) => (m.agents ? run && m.agents(run.years[yr]) * (m.scaled ? scale : 1) : s.result.timeline[yr].metrics[m.key]);
+    const y = shownYear(s);
     for (const { m, value, delta } of rows) {
-      const now = get(m, s.households, y), base = m.vsNoPolicy ? get(m, s.noPolicy, y) : get(m, s.households, 0), d = now - base;
+      const now = s.result.timeline[y].metrics[m.key], base = m.vsNoPolicy ? s.noPolicy?.[y][m.key] : s.result.timeline[0].metrics[m.key], d = now - base;
       const change = `${sign(d)}${(m.dfmt ?? m.fmt)(Math.abs(d))}${base ? ` (${sign(d)}${fixed(Math.abs(d / base * 100), 2)}%)` : ''}`;
       value.textContent = now == null ? '…' : m.fmt(now);
       delta.textContent = now == null || base == null ? '' : m.vsNoPolicy ? (d ? `${change} vs. no new policy` : 'same as no new policy') : (d ? change : 'no change');
@@ -156,6 +162,7 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
       h('span', { class: 'sim-metric__label' }, m.label), value, delta,
       h('div', { class: 'sim-why', id: tip, role: 'tooltip' },
         h('strong', {}, 'Assumptions and sources'),
+        m.caveat && h('p', { class: 'sim-why__caveat' }, m.caveat),
         h('ul', {}, m.inputs.filter(k => sources[k]).map(k => Source(k, sources[k])))));
     return { m, value, delta, el };
   }

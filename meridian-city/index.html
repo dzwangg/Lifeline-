@@ -509,7 +509,6 @@ const GREENS = ['#4f7a3a', '#5d8a44', '#3f6b35', '#6e8f4a', '#557d3e', '#7a8f46'
 instanced(trunkGeo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .95 }), trees);
 instanced(canopyGeo, new THREE.MeshStandardMaterial({ map: leafTex, roughness: .9 }), trees, trees.map(() => pick(GREENS).clone().multiplyScalar(rr(.8, 1.1))));
 mountZoneLayer({ scene, zones: ZONES, at, inside, bounds, trunkGeo, canopyGeo, leafTex, greens: GREENS });
-mountAgentLayer({ scene, camera, dom: renderer.domElement, osm: OSM, zones: ZONES, at, inside, bounds });
 
 const lampGeo = geoFrom([
   [new THREE.CylinderGeometry(.09, .14, 8, 8), T(0, 4, 0), '#3b3f44'],
@@ -563,6 +562,7 @@ controls.addEventListener('change', () => {
   const t = controls.target;
   t.set(THREE.MathUtils.clamp(t.x, -EXT, EXT), THREE.MathUtils.clamp(t.y, 0, 400), THREE.MathUtils.clamp(t.z, -EXT, EXT));
 });
+mountAgentLayer({ scene, camera, controls, dom: renderer.domElement, osm: OSM, zones: ZONES, at, inside, bounds });
 
 function fitShadow() { // shrink the shadow frustum as you zoom in, so close-ups get crisp shadows
   const d = THREE.MathUtils.clamp(camera.position.distanceTo(controls.target) * 1.1, 120, 1300), c = sun.shadow.camera;

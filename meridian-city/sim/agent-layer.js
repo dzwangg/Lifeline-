@@ -1,7 +1,8 @@
 // Households from the agent model (shared/agents.js) on the city. Each simulated household is a floating marker,
 // coloured by rent burden in the shown year; newcomers wear a ring, and households that leave fade out in the year
 // they leave. The trunk roads (15-501) are tinted by the model's road load, with travel time on hover.
-// Clicking a marker opens that household in the sim panel.
+// Clicking a marker opens that household in the sim panel. "View 15-501" in the panel flies the camera to the corridor
+// and back, since the default camera faces away from it.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
 import { scenario, shownYear } from './scenario.js';
 import { modelZone } from '../../shared/agents.js';
@@ -16,9 +17,9 @@ const GREEN = new THREE.Color('#21c45d'), AMBER = new THREE.Color('#ffae00'), RE
 const BURDEN = [[.3, GREEN], [.5, AMBER], [Infinity, RED]]; // rent share of income: under 30%, 30-50%, over 50%
 const LOAD = [[.8, GREEN], [1, AMBER], [Infinity, RED]]; // road volume / capacity
 const band = (bands, v) => bands.find(([max]) => v < max)[1];
-const FADE_MS = 900, CAPACITY = 800; // markers; the model makes ~350-450 households
+const FADE_MS = 900, FLY_MS = 1400, CAPACITY = 800; // markers; the model makes ~350-450 households
 
-export function mountAgentLayer({ scene, camera, dom, osm, zones, at, inside, bounds }) {
+export function mountAgentLayer({ scene, camera, controls, dom, osm, zones, at, inside, bounds }) {
   // Spots fixed for the session; a household picks one from its own stable x/y draws.
   const inBox = (box, x, z) => x >= box[0] && x <= box[2] && z >= box[1] && z <= box[3];
   const beside = keep => { // open ground around the matching buildings
@@ -92,12 +93,38 @@ export function mountAgentLayer({ scene, camera, dom, osm, zones, at, inside, bo
     }
     for (const m of [markers, rings, leaving]) { m.instanceMatrix.needsUpdate = true; m.computeBoundingSphere(); }
     markers.instanceColor.needsUpdate = leaving.instanceColor.needsUpdate = true;
-    const y = s.households.years[t];
+    const y = s.averages[t]; // the road shows the averaged runs, like the panel; the markers show one run
     road.material.color.copy(band(LOAD, y.roadRatio));
     road.visible = true;
     road.userData = y;
     if (key !== shown) { shown = key; fadeStart = performance.now(); requestAnimationFrame(fade); } // fade leavers once per year shown
   });
+  // Fly to 15-501, looking south from above the town, then back to wherever the camera was. The view centres on
+  // Fordham Blvd: the trunk road inside the map east of S Columbia St (x > -270 m; see docs/sources.md), shifted west
+  // so the road sits left of the sim panel (looking south, east is on the left).
+  let len = 0, cx = 0, cz = 0;
+  for (const [cls, , r] of osm.r) if (cls === 'trunk' || cls === 'trunk_link') for (let i = 0; i + 3 < r.length; i += 2) {
+    const mx = (r[i] + r[i + 2]) / 2, mz = (r[i + 1] + r[i + 3]) / 2, l = Math.hypot(r[i + 2] - r[i], r[i + 3] - r[i + 1]);
+    if (mx > -270 && Math.max(Math.abs(mx), Math.abs(mz)) < osm.ext) { len += l; cx += mx * l; cz += mz * l; }
+  }
+  const corridorTarget = new THREE.Vector3(cx / len - 150, 0, cz / len);
+  const corridor = { target: corridorTarget, position: corridorTarget.clone().add(new THREE.Vector3(0, 650, -900)) };
+  let saved = null, flight = null;
+  scenario.subscribe(s => {
+    if (!!s.roadView === !!saved) return;
+    const to = saved ?? corridor;
+    saved = saved ? null : { target: controls.target.clone(), position: camera.position.clone() };
+    flight = { from: { target: controls.target.clone(), position: camera.position.clone() }, to, t0: performance.now() };
+    requestAnimationFrame(fly);
+  });
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function fly(now) {
+    const p = still ? 1 : Math.min(1, (now - flight.t0) / FLY_MS), e = p < .5 ? 2 * p * p : 1 - (2 - 2 * p) ** 2 / 2;
+    camera.position.lerpVectors(flight.from.position, flight.to.position, e);
+    controls.target.lerpVectors(flight.from.target, flight.to.target, e);
+    if (p < 1) requestAnimationFrame(fly);
+  }
+
   function fade(now) {
     const p = Math.min(1, (now - fadeStart) / FADE_MS);
     fadeMat.opacity = 1 - p;

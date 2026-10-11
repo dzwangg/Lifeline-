@@ -89,7 +89,7 @@ export function parseInput(b, cards) {
   const ok = (pass, problem) => pass || errors.push(problem);
   ok(validPolicies(b.policies, cards), policiesError(cards));
   ok(Number.isInteger(b.years) && b.years >= 1 && b.years <= 100, 'years must be a whole number from 1 to 100');
-  const decade = b.decade, maxDeltas = 2 * Object.keys(METRICS).length; // a decade recap compares each metric twice
+  const decade = b.decade, maxDeltas = (decade ? 2 : 1) * Object.keys(METRICS).length; // a decade recap compares each metric twice
   ok(decade === undefined || (isObj(decade) && [decade.from, decade.to].every(y => Number.isInteger(y) && y >= 2000 && y <= 2200) && decade.to > decade.from),
     'decade, if sent, must be { from, to }: calendar years, from before to');
   ok(isList(b.deltas, maxDeltas, d => isObj(d) && Object.hasOwn(METRICS, d.metric) && [d.baseline, d.final, d.changePct].every(isNum)
@@ -147,7 +147,8 @@ const NUMBER = /(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?(?:\s*(thousand|million|billion)
 const SCALE = { thousand: 1e3, million: 1e6, billion: 1e9 };
 const numbersIn = text => [...String(text).matchAll(NUMBER)].map(([raw, int, dec = '', scale]) => {
   const digits = int.replace(/,/g, ''), mult = SCALE[scale?.toLowerCase()] ?? 1;
-  const unit = dec ? 10 ** -(dec.length - 1) : +digits === 0 ? 1 : 10 ** digits.match(/0*$/)[0].length;
+  // a year (2040) is exact, so a recap can't pin a figure on a round year inside a decade it was given
+  const unit = dec ? 10 ** -(dec.length - 1) : +digits === 0 || (!scale && /^(19|20|21)\d\d$/.test(int)) ? 1 : 10 ** digits.match(/0*$/)[0].length;
   return { raw, value: parseFloat(digits + dec) * mult, tolerance: unit * mult / 2 };
 });
 const inputNumbers = v => typeof v === 'number' ? [v] : typeof v === 'string' ? numbersIn(v).map(n => n.value)
@@ -390,7 +391,7 @@ export async function narrate(input, env = process.env) {
   const fallback = !text;
   text ??= templateRecap(input);
   let audio = null;
-  if (env.ELEVENLABS_API_KEY && env.ELEVENLABS_VOICE_ID) {
+  if (env.ELEVENLABS_API_KEY && env.ELEVENLABS_VOICE_ID && !(fallback && input.decade)) { // a game recap's pop-up doesn't play the template
     try {
       audio = await speak(env, text);
     } catch (err) {

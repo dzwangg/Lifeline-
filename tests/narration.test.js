@@ -390,3 +390,19 @@ test('decade recap: the page\'s own fallback names the decade and its headline n
   assert.match(fallbackText(decadeBody), /^From 2036 to 2041, with 1 policy in force, median rent went from \$[\d,]+ to \$[\d,]+, homes went from [\d,]+ to [\d,]+/);
   assert.match(fallbackText({ ...decadeBody, policies: [] }), /^From 2036 to 2041, with no new policy, /);
 });
+
+test('decade recap: years must be exact (no round year inside the decade), and only a decade body may compare each metric twice', () => {
+  const { input: decade } = parseInput(decadeBody, cards);
+  assert.deepEqual(badNumbers('From 2036 to 2041, homes grew.', decade), []);
+  assert.deepEqual(badNumbers('By 2040, homes grew; by 2050 more.', decade), ['2040', '2050']);
+  const { decade: _, ...plain } = decadeBody;
+  assert.match(parseInput({ ...plain, deltas: plain.deltas.filter(d => d.comparedWith === 'no new policy').flatMap(d => [d, d]) }, cards).errors.join(), /deltas must be 1-20 /);
+});
+
+test('handler: a decade recap that falls back to the template is not read aloud (the pop-up would not play it)', async () => {
+  await withMocks(KEYS, [BAD, BAD], async calls => {
+    const r = await post({ ...decadeBody, decade: { from: 2036, to: 2042 } });
+    assert.deepEqual([r.fallback, r.audio], [true, null]);
+    assert.ok(calls.every(c => !c.url.includes('elevenlabs')));
+  });
+});

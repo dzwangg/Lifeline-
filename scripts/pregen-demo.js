@@ -104,8 +104,9 @@ async function main() {
   }
 
   // 2. The audio budget: every character ElevenLabs will be sent, before any call.
-  const clips = all.filter(j => j.audio).map(j => ({ j, ...audioOf(j, JSON.parse(readFileSync(new URL(j.json, OUT), 'utf8')).text) }))
-    .filter(c => !existsSync(new URL(c.mp3, OUT)));
+  const textOf = j => JSON.parse(readFileSync(new URL(j.json, OUT), 'utf8'));
+  const clips = all.filter(j => j.audio && !(j.kind === 'decade' && textOf(j).fallback)) // the pop-up never plays a template
+    .map(j => ({ j, ...audioOf(j, textOf(j).text) })).filter(c => !existsSync(new URL(c.mp3, OUT)));
   const chars = clips.reduce((n, c) => n + c.speech.length, 0);
   console.log(`ElevenLabs: ${chars.toLocaleString('en-US')} characters for ${clips.length} clips (MAX_TTS_CHARS ${maxChars.toLocaleString('en-US')})`);
   if (chars > maxChars) throw new Error(`${chars} characters is over MAX_TTS_CHARS (${maxChars}): no audio made. Raise it or shorten the texts.`);

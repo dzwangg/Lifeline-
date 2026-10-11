@@ -87,6 +87,7 @@ export function mountTurnRecap({ clock, game, host = document.body }) {
     const send = cards.length ? { ...body, cards } : body, key = JSON.stringify(send);
     if (!fetched.has(key)) fetched.set(key, fetch('/api/narration', { method: 'POST', headers: { 'content-type': 'application/json' }, body: key })
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then(r => { if (r.fallback) fetched.delete(key); return r; }) // the template (Gemini failed): a reopen asks again
       .catch(err => { console.error('recap:', err); fetched.delete(key); return { text: fallbackText(body), audio: null, fallback: true }; }));
     return fetched.get(key);
   }
@@ -116,6 +117,7 @@ export function mountTurnRecap({ clock, game, host = document.body }) {
   }
   function hide() {
     if (box.hidden) return;
+    if (box.contains(document.activeElement)) reopen.focus(); // keyboard focus stays near, not lost to <body>
     opened++; box.hidden = true; stop();
   }
   addEventListener('keydown', e => { if (e.key === 'Escape' && !box.hidden) { e.preventDefault(); hide(); } });

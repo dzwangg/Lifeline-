@@ -72,6 +72,8 @@ body.city-loading .mr-launch { visibility: hidden; }
 .mr-select { max-width: 340px; }
 .mr-year { grid-template-columns: auto 160px 3ch !important; align-items: center; }
 .mr-year output { font: 600 14px var(--ae-pixel); color: var(--ae-navy); }
+.mr-span { margin: 0; padding: 4px 10px 3px; font: 600 12.5px var(--ae-pixel); color: var(--ae-navy); background: #fff6d6; border: 2px solid var(--ae-gold); border-radius: 8px; }
+.mr-span[hidden] { display: none; }
 .mr-range { accent-color: var(--ae-aqua-dark); }
 .mr-you { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end; margin-top: 14px; padding: 12px; background: #fff; border: 2px solid #c8eef9; border-radius: 10px; }
 .mr-you[hidden] { display: none; }

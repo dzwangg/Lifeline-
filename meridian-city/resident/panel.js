@@ -4,7 +4,7 @@
 // policy and with the policies on the map, and lets the player talk to them (/api/resident). Opens from the Residents
 // button, the R key, a showcase resident's card on the map (the 'prosperia:meet' event) or ?meet=<id> in the address.
 import { h } from '../policy/components.js';
-import { scenario, simClock, cardsReady } from '../sim/scenario.js';
+import { scenario, simClock, cardsReady, DECADE, START_YEAR } from '../sim/scenario.js';
 import { residentsReady, residentState, statusOf, STATUS } from '../sim/residents.js';
 
 const TYPES = [['all', 'Everyone'], ['student', 'Students'], ['family', 'Families'], ['owner', 'Homeowners'], ['commuter', 'Durham commuters']];
@@ -61,7 +61,9 @@ export async function mountResidentPanel({ launch }) {
       h('div', { class: 'mr-main' }, head, youForm,
         h('div', { class: 'mr-controls' },
           h('label', {}, 'Compare with', compareSel),
-          h('label', { class: 'mr-year' }, 'Year', yearIn, ref('yearOut', h('output', {}, year)))),
+          h('label', { class: 'mr-year' }, 'Year', yearIn, ref('yearOut', h('output', {}, year))),
+          // the budgets run the first decade only; said once the map has moved past it
+          ref('span', h('p', { class: 'mr-span', hidden: true }, `Resident budgets cover ${START_YEAR}–${START_YEAR + DECADE}.`))),
         tabs, status, Object.values(panes))));
   const scrim = h('div', { class: 'mr-scrim', hidden: true, onclick: e => { if (e.target === scrim) hide(); } }, win);
   document.body.append(scrim);
@@ -320,6 +322,7 @@ export async function mountResidentPanel({ launch }) {
   simClock.subscribe(({ shown, before }) => {
     if (!shown?.data) return;
     run = shown.data.run?.households ?? null; shownYear = before ? 0 : shown.step;
+    $.span.hidden = shownYear <= DECADE;
     if (open) drawRoster();
   });
   scenario.subscribe(() => { if (open) fillCompare(); });

@@ -200,11 +200,11 @@ test('no tree crown reaches a wall: planted trees keep clear of homes, and lots 
 });
 
 // ---------- demand mapping and unmet demand ----------
-test('the sim\'s homes map to whole homes per site by largest remainder', () => {
+test('the sim\'s homes map to whole homes by largest remainder', () => {
   const ps = [0.1, 0.1, 0.1, 0.35].map((a, i) => ({ id: `u-${i}`, tags: ['wood-77'], state: 'forest', areaAcres: a }));
   const req = requestedUnits(ps, Object.fromEntries(ps.map(p => [p.id, 'low_res'])), UPA);
   const total = [...req.values()].reduce((a, b) => a + b, 0);
-  assert.equal(total, Math.round(4 * .65), 'the site total is the sim total rounded');
+  assert.equal(total, Math.round(4 * .65), 'the total is the sim total rounded');
   assert.equal(req.get('u-3'), 1, 'the biggest share keeps its whole home');
   assert.equal(requestedUnits(ps, { 'u-0': 'mid_res' }, UPA).get('u-0'), 2, 'mid_res 15 per acre');
   assert.equal(requestedUnits(ps, {}, UPA).size, 0, 'no conversion, no demand');
@@ -227,8 +227,9 @@ test('parcels converting together are planned as one block, so a building may sp
   const ctx = siteContext({ id: 'wood-90', parcels: [a, b], roads: site.roads, junctions: [], buildings: [] });
   const alone = [a, b].map(p => planParcel({ parcel: p, state: 'mixed_use', units: 20, ctx, streets: [], occ: w.occ }));
   const together = planBlock({ parcels: [a, b], state: 'mixed_use', units: 40, ctx, streets: [], occ: w.occ });
-  assert.equal(alone.reduce((n, p) => n + p.buildings.length, 0), 0, 'neither parcel fits one alone');
-  assert.ok(together.buildings.length >= 1 && together.occupied > 0, 'together they do');
+  const mixed = p => p.buildings.filter(b => b.type === 'mixed').length;
+  assert.equal(alone.reduce((n, p) => n + mixed(p), 0), 0, 'neither parcel fits one alone');
+  assert.ok(mixed(together) >= 1 && together.occupied > 0, 'together they do');
   assert.deepEqual(together.parcels, ['b-1', 'b-2']);
   assert.equal(summarize([together]).parcels, 2, 'the ledger still counts both parcels');
 });

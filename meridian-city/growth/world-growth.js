@@ -1,18 +1,15 @@
-// Planned development on the live map: turns the forecast's parcel conversions into plans (plan.js) and meshes (art.js),
-// caches both so every year, seek and wipe shows the same layout, and keeps the ledger of homes requested, placed and
-// unmet. Planning a whole forecast can take a second or two, so parcels the shown year needs are planned at once and the
-// rest in the background, a few milliseconds at a time.
+// Planned development on the live map: turns the forecast's parcel conversions into plans (develop.js, plan.js) and
+// meshes (art.js), caches both so every year, seek and wipe shows the same layout, and keeps the ledger of homes
+// requested, completed, under construction, still to come and unmet. Plans are made year by year, so room for every
+// home is reserved before anything is drawn; the years the shown one needs are planned at once and the rest in the
+// background, a block at a time.
 import { siteContext, findJunctions } from './context.js';
-import { planSiteStreets } from './site-streets.js';
-import { planBlock } from './plan.js';
-import { requestedUnits, siteOf, summarize } from './units.js';
-import { MIXES } from './catalog.js';
+import { createDevelopment, isBuilt } from './develop.js';
+import { summarize } from './units.js';
 import { createGrowthArt } from './art.js';
 import { groundTextures } from '../world/textures.js';
-import { matchesWhere } from '../../shared/schema.js';
 
-/** True for zone states drawn as planned buildings. */
-export const isBuilt = state => !!MIXES[state];
+export { isBuilt };
 
 /**
  * @param {object} o
@@ -26,35 +23,16 @@ export function createGrowth({ world, zones, upa, onDispose = () => {} }) {
   const occ = (x, z) => world.grid.at(x, z);
   const roads = world.streets.roads, junctions = findJunctions(roads);
   const art = createGrowthArt({ world, ground: groundTextures() });
-  const sites = new Map();
-  for (const z of zones) { const s = siteOf(z); if (!sites.has(s)) sites.set(s, { id: s, parcels: [], ctx: null }); sites.get(s).parcels.push(z); }
-  const siteOfZone = new Map(zones.map(z => [z.id, sites.get(siteOf(z))]));
+  const contexts = new Map();
+  const ctxOf = site => {
+    if (!contexts.has(site.id)) contexts.set(site.id, siteContext({ id: site.id, parcels: site.parcels, roads, junctions, buildings: world.buildings.meta.filter(m => !m.growth && !m.removed) }));
+    return contexts.get(site.id);
+  };
+  const dev = createDevelopment({ zones, upa, ctxOf, occ });
+  const { sites, siteOfZone } = dev;
+  const parcelArt = new Map(), streetArt = new Map(); // plan -> art; a site's streets array -> Map(index -> art)
+  let stale = new Set(), hosted = new Map(); // art an earlier forecast made; site id -> blocks whose homes stand there
 
-  let blocked = new Set(), blockedKey = '', requested = new Map(), blockOf = new Map();
-  const streetCache = new Map(), planCache = new Map(), parcelArt = new Map(), streetArt = new Map();
-
-  const ctxOf = site => (site.ctx ??= siteContext({ id: site.id, parcels: site.parcels, roads, junctions, buildings: world.buildings.meta.filter(m => !m.growth && !m.removed) }));
-  /** The site's local streets, for the current set of protected parcels. */
-  function streetsOf(site) {
-    const key = `${site.id}|${blockedKey}`;
-    if (!streetCache.has(key)) streetCache.set(key, planSiteStreets({ ctx: ctxOf(site), parcels: site.parcels, occ, blocked }).streets);
-    return streetCache.get(key);
-  }
-  // A plan's cache key: its block, state, homes and the protected parcels its streets avoid.
-  function keyOf(zone, state) {
-    const block = blockOf.get(zone.id)?.state === state ? blockOf.get(zone.id) : { parcels: [zone], state };
-    const units = block.parcels.reduce((n, z) => n + (requested.get(z.id) ?? 0), 0);
-    return { block, units, key: `${block.parcels.map(z => z.id).join('+')}|${state}|${units}|${blockedKey}` };
-  }
-  /** The plan for a parcel in a built state: its block's (the parcels of its site converting with it), made on first use. */
-  function planOf(zone, state) {
-    const { block, units, key } = keyOf(zone, state);
-    if (!planCache.has(key)) {
-      const site = siteOfZone.get(zone.id);
-      planCache.set(key, planBlock({ parcels: block.parcels, state, units, ctx: ctxOf(site), streets: streetsOf(site), occ }));
-    }
-    return planCache.get(key);
-  }
   /** A plan's meshes, made on first use; its buildings join the city's info cards. */
   function artOf(plan) {
     if (!parcelArt.has(plan)) {
@@ -67,71 +45,96 @@ export function createGrowth({ world, zones, upa, onDispose = () => {} }) {
       for (const m of a.metas) Object.assign(meta[m.idx], { height: m.top, wall: m.H, area: m.area });
       parcelArt.set(plan, a);
     }
+    stale.delete(parcelArt.get(plan));
     return parcelArt.get(plan);
   }
   function streetArtOf(site, i) {
-    const S = streetsOf(site)[i], key = `${site.id}|${blockedKey}|${i}`;
-    if (!streetArt.has(key)) streetArt.set(key, art.street(S));
-    return streetArt.get(key);
+    const S = dev.streets(site);
+    if (!streetArt.has(S)) streetArt.set(S, new Map());
+    const byIndex = streetArt.get(S);
+    if (!byIndex.has(i)) byIndex.set(i, art.street(S[i]));
+    stale.delete(byIndex.get(i));
+    return byIndex.get(i);
   }
+  function dispose(a) {
+    if (a.metas) for (const m of a.metas) world.buildings.meta[m.idx] = { i: -1, removed: true }; // entries keep their index (meshes name owners by it)
+    a.dispose(); onDispose(a);
+  }
+  /** Notes where a planned block's homes stand beyond its own site (develop.js shares them out). */
+  function noteHosts(b) {
+    for (const a of b.plan?.annexes ?? []) {
+      if (!hosted.has(a.site)) hosted.set(a.site, new Set());
+      hosted.get(a.site).add(b);
+    }
+  }
+  const planThrough = year => { const before = dev.pendingYears().length; dev.planThrough(year); if (dev.pendingYears().length !== before) for (const b of dev.blocks()) if (b.done) noteHosts(b); };
 
-  // Background planning: parcels the forecast converts later, so their year never waits on the planner.
-  let queue = [], timer = null;
+  // Background planning: the forecast's later years, a block at a time, each block's meshes made as soon as it's
+  // planned, so their year never waits on the planner. Once it's all done, art an earlier forecast made that this one
+  // doesn't reuse is thrown away.
+  let timer = null;
   function pump() {
     timer = null;
     const t0 = performance.now();
-    while (queue.length && performance.now() - t0 < 6) { const [z, s] = queue.shift(); artOf(planOf(z, s)); }
-    if (queue.length) timer = setTimeout(pump, 16);
+    let more = true;
+    while (performance.now() - t0 < 8) {
+      const b = dev.blocks().find(o => o.done && !parcelArt.has(o.plan));
+      if (b) artOf(b.plan);
+      else if (!(more = dev.step())) break;
+    }
+    for (const b of dev.blocks()) if (b.done) noteHosts(b);
+    if (more || dev.blocks().some(b => !parcelArt.has(b.plan))) { timer = setTimeout(pump, 4); return; }
+    for (const a of stale) {
+      dispose(a);
+      for (const [plan, x] of parcelArt) if (x === a) parcelArt.delete(plan);
+      for (const [S, byIndex] of streetArt) for (const [i, x] of byIndex) if (x === a) { byIndex.delete(i); if (!byIndex.size) streetArt.delete(S); }
+    }
+    stale = new Set();
   }
+
+  /** The plan a parcel stands in for some built state: its block's, or (between conversions) its own. */
+  const planOf = (zone, state) => {
+    const b = dev.blockOf(zone);
+    if (b && b.state === state) { if (!b.done) planThrough(b.year); return b.plan; }
+    return dev.planAlone(zone, state);
+  };
 
   return {
     sites, siteOfZone,
-    /**
-     * A new forecast: timeline its years' { zoneStates }, cards the applied policy cards (for protected parcels).
-     * The parcels of a site converting to the same state in the same year form a block, planned as one. Plans are queued.
-     */
+    /** A new forecast: timeline its years' { zoneStates }, cards the applied policy cards (for protected parcels). */
     setForecast(timeline, cards) {
-      const final = timeline.at(-1).zoneStates;
-      const protects = cards.flatMap(c => (c.zoneRules ?? []).filter(r => 'protect' in r));
-      blocked = new Set(zones.filter(z => protects.some(p => final[z.id] === p.protect && matchesWhere(p.where, z))).map(z => z.id));
-      blockedKey = [...blocked].sort().join(',');
-      requested = requestedUnits(zones, final, upa);
-      blockOf = new Map();
-      const blocks = new Map();
-      for (const z of zones) {
-        const state = final[z.id];
-        if (state === z.state || !isBuilt(state)) continue;
-        const year = timeline.findIndex(t => t.zoneStates[z.id] !== z.state), key = `${siteOfZone.get(z.id).id}|${year}|${state}`;
-        if (!blocks.has(key)) blocks.set(key, { parcels: [], state });
-        blocks.get(key).parcels.push(z);
-        blockOf.set(z.id, blocks.get(key));
-      }
-      queue = zones.filter(z => blockOf.has(z.id)).map(z => [z, final[z.id]]);
-      // Plans this forecast can't show (another scenario's) give their meshes back; streets likewise.
-      const keep = new Set(queue.map(([z, s]) => keyOf(z, s).key));
-      for (const [key, plan] of planCache) {
-        if (keep.has(key)) continue;
-        const a = parcelArt.get(plan);
-        if (a) { // its info-card entries keep their index (meshes name owners by it) but let go of the plan
-          for (const m of a.metas) world.buildings.meta[m.idx] = { i: -1, removed: true };
-          a.dispose(); onDispose(a);
-        }
-        parcelArt.delete(plan); planCache.delete(key);
-      }
-      for (const [key, a] of streetArt) if (key.split('|')[1] !== blockedKey) { a.dispose(); onDispose(a); streetArt.delete(key); }
-      for (const key of streetCache.keys()) if (key.split('|')[1] !== blockedKey) streetCache.delete(key); // streets for other protected parcels
-      if (!timer && queue.length) timer = setTimeout(pump, 50);
+      dev.setForecast(timeline.map(t => t.zoneStates), cards.flatMap(c => (c.zoneRules ?? []).filter(r => 'protect' in r)));
+      hosted = new Map();
+      stale = new Set([...parcelArt.values(), ...[...streetArt.values()].flatMap(m => [...m.values()])]);
+      clearTimeout(timer);
+      timer = setTimeout(pump, 50);
     },
     plan: (zone, state) => (isBuilt(state) ? planOf(zone, state) : null),
     art: plan => artOf(plan),
-    streets: site => streetsOf(site),
+    streets: site => dev.streets(site),
     streetArt: (site, i) => streetArtOf(site, i),
+    /** Blocks of other sites with homes standing on this site (planned so far), each { plan, zone: one of its parcels }. */
+    hosted: site => [...(hosted.get(site.id) ?? [])].map(b => ({ plan: b.plan, zone: b.parcels[0], annexes: b.plan.annexes.filter(a => a.site === site.id) })),
     /** Every street's and parcel's art made so far, to hide what the shown year doesn't use. */
-    allArt: () => [...parcelArt.values(), ...streetArt.values()],
-    /** The ledger for some zone states: the blocks' plans and the totals (units.js summarize). */
-    ledger(states) {
-      const plans = [...new Set(zones.filter(z => states[z.id] !== z.state && isBuilt(states[z.id])).map(z => planOf(z, states[z.id])))];
-      return { plans, totals: summarize(plans) };
+    allArt: () => [...parcelArt.values(), ...[...streetArt.values()].flatMap(m => [...m.values()])],
+    /**
+     * The ledger for some zone states: the blocks' plans and the totals (units.js summarize), and with the states a
+     * year before (from): homes standing since then (completed), placed since (under construction, as the year
+     * animates), the forecast's homes for later years (planned), and the constraint each block's unmet homes run into.
+     * requested is the sim's homes for these states, so completed + building + unmet always equals it.
+     */
+    ledger(states, from = states) {
+      const plansIn = s => [...new Set(zones.filter(z => s[z.id] !== z.state && isBuilt(s[z.id])).map(z => planOf(z, s[z.id])))];
+      const plans = plansIn(states), totals = summarize(plans);
+      const completed = from === states ? totals.occupied : Math.min(totals.occupied, summarize(plansIn(from).filter(p => plans.includes(p))).occupied);
+      const planned = dev.blocks().filter(b => states[b.parcels[0].id] !== b.state).reduce((n, b) => n + b.units, 0);
+      return {
+        plans,
+        totals: {
+          ...totals, completed, building: totals.occupied - completed, planned,
+          constraints: plans.filter(p => p.unmet > 0).map(p => p.constraint ?? `${p.unmet} of ${p.requested} homes have no valid place (${p.reason}).`),
+        },
+      };
     },
   };
 }

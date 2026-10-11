@@ -25,9 +25,11 @@ const STEP = 1.5, LATTICE = 6;
  * @param {{id: string, ring: number[], state: string}[]} o.parcels the site's parcels
  * @param {(x: number, z: number) => number} o.occ occupancy bits (world.grid.at), without anything growth has drawn
  * @param {Set<string>} [o.blocked] ids of protected parcels: no street may cross them
+ * @param {Set<string> | null} [o.targets] ids of the parcels that need serving (those a forecast builds on); null for
+ *   all. Streets may still cross the site's other open parcels to reach them.
  * @returns {{streets: object[], samples: number, unserved: number}}
  */
-export function planSiteStreets({ ctx, parcels, occ, blocked = new Set() }) {
+export function planSiteStreets({ ctx, parcels, occ, blocked = new Set(), targets = null }) {
   const open = parcels.filter(p => !blocked.has(p.id));
   if (!open.length) return { streets: [], samples: 0, unserved: 0 };
   const [x0, z0, x1, z1] = ctx.box, M = 90;
@@ -47,15 +49,16 @@ export function planSiteStreets({ ctx, parcels, occ, blocked = new Set() }) {
   const net = ctx.lines.filter(L => !TRUNK.has(L.cls)).map((L, i) => ({ kind: 'road', index: ctx.lines.indexOf(L), line: L.line, half: L.half, sw: L.sw, k: i }));
   const streets = [], mouths = [];
 
-  // The land to serve: a lattice over the open parcels.
+  // The land to serve: a lattice over the open parcels; need marks the parcels the forecast builds on.
   const samples = [];
   for (const p of open) {
-    const [a, b, c, d] = bounds(p.ring);
+    const [a, b, c, d] = bounds(p.ring), need = !targets || targets.has(p.id);
     for (let x = Math.floor(a / LATTICE) * LATTICE + LATTICE / 2; x < c; x += LATTICE) for (let z = Math.floor(b / LATTICE) * LATTICE + LATTICE / 2; z < d; z += LATTICE) {
       if (!R.in(x, z) || R.bits(x, z) & (hard | OCC.road)) continue;
-      samples.push({ x, z, dist: Infinity, dead: false });
+      samples.push({ x, z, dist: Infinity, dead: false, need });
     }
   }
+  let wanted = () => true; // the samples the current phase serves
   const reach = (s, N) => N.line.project(s.x, s.z).d - N.half;
   for (const s of samples) for (const N of net) s.dist = Math.min(s.dist, reach(s, N));
   const served = s => s.dist <= STREET.serve;
@@ -70,9 +73,19 @@ export function planSiteStreets({ ctx, parcels, occ, blocked = new Set() }) {
   }
   const grain = Math.atan2(2 * sxz, sxx - szz) / 2, D = leftOf(Math.cos(grain), Math.sin(grain)); // across the roads
 
-  for (let guard = 0; streets.length < STREET.maxStreets && guard < 60; guard++) {
-    const todo = samples.filter(s => !served(s) && !s.dead);
-    if (todo.length < 3) break;
+  // The site's streets, then (with targets) more for the land the forecast builds on that those leave unserved, so
+  // giving a forecast's parcels their access never moves a street another parcel already fronts.
+  for (const phase of targets ? [0, 1] : [0]) {
+    if (phase) { wanted = s => s.need; for (const s of samples) s.dead = false; }
+    for (let guard = 0, made = 0; made < STREET.maxStreets && guard < 60; guard++) {
+      const todo = samples.filter(s => !served(s) && !s.dead && wanted(s));
+      if (todo.length < 3) break;
+      if (grow(todo)) made++;
+    }
+  }
+
+  // One street toward the nearest unserved sample of todo, if any can reach it; false if none.
+  function grow(todo) {
     const target = todo.reduce((a, b) => (b.dist < a.dist || (b.dist === a.dist && (b.x < a.x || (b.x === a.x && b.z < a.z))) ? b : a));
     let best = null;
     for (const N of net) {
@@ -93,8 +106,9 @@ export function planSiteStreets({ ctx, parcels, occ, blocked = new Set() }) {
         }
       }
     }
-    if (!best) { target.dead = true; continue; }
+    if (!best) { target.dead = true; return false; }
     accept(best);
+    return true;
   }
 
   function tryStreet(N, s, target, dir) {
@@ -142,7 +156,7 @@ export function planSiteStreets({ ctx, parcels, occ, blocked = new Set() }) {
     if (e - entered < 16 || e < cross + 12) return null;
     const C = [A.x + dx * e, A.z + dz * e];
     let gain = 0;
-    for (const sm of samples) if (!served(sm) && segDist(sm.x, sm.z, A.x, A.z, C[0], C[1]) - STREET.half <= STREET.serve) gain++;
+    for (const sm of samples) if (!served(sm) && wanted(sm) && segDist(sm.x, sm.z, A.x, A.z, C[0], C[1]) - STREET.half <= STREET.serve) gain++;
     if (gain < 3) return null;
     return { N, s, A: [A.x, A.z], C, len: e, gain };
   }

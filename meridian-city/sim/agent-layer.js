@@ -1,8 +1,10 @@
-// Households from the agent model (shared/agents.js) on the city. Each simulated household is a floating marker,
-// coloured by rent burden in the shown year; newcomers wear a ring, and households that leave fade out over the start of
-// the year they leave. Markers keep one size on screen at every zoom and draw over buildings and trees with the world's
-// ink outline, so they read as data, apart from the street-life walkers. The trunk roads (15-501) carry a thin tint in
-// the model's road load colour, with travel time on hover. Clicking a marker opens that household in the sim panel.
+// Households from the agent model (shared/agents.js) on the city. Each simulated household is a person on the street
+// (world/households.js): it walks between home and work through the street's day, newcomers walk in from the map's
+// edge in the year they arrive and leavers walk off it. Over each one's head floats a small dot in its rent burden
+// colour for the shown year (grey for owners), with the world's ink border; zoomed out past where walkers draw, the
+// dots stay, at the households' homes. Dots keep one size on screen at every zoom and draw over buildings and trees.
+// The trunk roads (15-501) carry a thin tint in the model's road load colour, with travel time on hover. Hovering a
+// household (its dot or its walker) shows its name; clicking one opens it in the sim panel.
 // "View 15-501" in the panel (focus.js) flies the camera to the corridor; the tint is then at full strength.
 // Everything follows the shared clock (clock.js): the year it shows, and the run behind that year.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
@@ -10,6 +12,8 @@ import { scenario, simClock, onFrame } from './scenario.js';
 import { modelZone } from '../../shared/agents.js';
 import { inside, bounds } from '../world/geometry.js';
 import { CAMERA, P } from '../world/palette.js';
+import { createHouseholds } from '../world/households.js';
+import { PEOPLE_MIN_PPM } from '../world/traffic.js';
 
 // Where the model's zones sit today. The baked map has no street names, so downtown = open ground beside the
 // shops clustered along Franklin St, campus = beside UNC's university buildings, edge = beside existing houses near
@@ -22,9 +26,9 @@ const GREEN = new THREE.Color('#21c45d'), AMBER = new THREE.Color('#ffae00'), RE
 const BURDEN = [[.3, GREEN], [.5, AMBER], [Infinity, RED]]; // rent share of income: under 30%, 30-50%, over 50%
 const LOAD = [[.8, GREEN], [1, AMBER], [Infinity, RED]]; // road volume / capacity
 const band = (bands, v) => bands.find(([max]) => v < max)[1];
-const CAPACITY = 800; // markers; the model makes ~350-450 households
-const MARKER_PX = 9, LIFT_PX = 6, BORDER_PX = 1.5; // marker width, how far it floats and its ink border, in rendered pixels at every zoom
-const FADE_YEARS = .4; // leavers fade out over this much of their last year's simulated time; paused, they stay faint
+const CAPACITY = 800; // dots; the model makes ~350-450 households
+const DOT_PX = 6, LIFT_PX = 5, BORDER_PX = 1.5; // dot width, how far it floats (over the head, or the home), and its ink border, in rendered pixels
+const WORK_DOORS = { campus: new Set(['campus']), downtown: new Set(['shop', 'office', 'civic']) }; // building families people work in
 // The road tint, mixed into the asphalt colour: subtle by default, strong on hover, and full strength in the 15-501
 // view. Its width is a share of the carriageway, never under 3 rendered pixels so it survives the far zooms; in the
 // 15-501 view it covers the whole carriageway and at least 6 pixels, since that view is zoomed far out.
@@ -65,11 +69,10 @@ export function mountAgentLayer({ world, osm, zones }) {
     return [x + (a.y - .5) * 5, z + ((a.y * 7919) % 1 - .5) * 5];
   };
 
-  // Unit-wide shapes, scaled per zoom. Drawn after the city with no depth test, so buildings and trees never hide them.
-  // Each marker sits on a slightly larger shell in the world's ink colour: a border that keeps the rent colours apart
-  // from the autumn tree canopies, which share their hues.
-  const markerGeo = new THREE.OctahedronGeometry(.5).scale(1, 1.5, 1).translate(0, .75, 0);
-  const ringGeo = new THREE.TorusGeometry(.85, .17, 4, 16).rotateX(Math.PI / 2).translate(0, .75, 0);
+  // A unit dot, scaled per zoom. Drawn after the city with no depth test, so buildings and trees never hide it. Each
+  // dot sits on a slightly larger shell in the world's ink colour: a border that keeps the rent colours apart from the
+  // autumn tree canopies, which share their hues.
+  const dotGeo = new THREE.SphereGeometry(.5, 10, 6);
   // side: the layer the mesh draws on, 2 for the shown year and 1 for the wipe's year 0 (see world/view.js render()).
   const layer = (geo, material, order, side = 2) => {
     const m = new THREE.InstancedMesh(geo, material, CAPACITY);
@@ -81,10 +84,10 @@ export function mountAgentLayer({ world, osm, zones }) {
     return m;
   };
   const overlay = o => new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, ...o }); // transparent: drawn after the zone fills
-  const ringMat = overlay({ color: 0xffffff }), shellMat = overlay({ color: P.ink }), markerMat = overlay({}), fadeMat = overlay({ depthWrite: false });
+  const shellMat = overlay({ color: P.ink }), markerMat = overlay({});
   const markerSet = side => {
-    const set = { rings: layer(ringGeo, ringMat, 1000, side), shells: layer(markerGeo, shellMat, 1001, side), markers: layer(markerGeo, markerMat, 1002, side), leaving: layer(markerGeo, fadeMat, 1002, side) };
-    set.markers.setColorAt(0, OWNER); set.leaving.setColorAt(0, OWNER); // allocate the colour buffers
+    const set = { shells: layer(dotGeo, shellMat, 1001, side), markers: layer(dotGeo, markerMat, 1002, side) };
+    set.markers.setColorAt(0, OWNER); // allocate the colour buffer
     return set;
   };
   const current = markerSet(2);
@@ -107,41 +110,46 @@ export function mountAgentLayer({ world, osm, zones }) {
   }
 
   const _m = new THREE.Matrix4(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), HIDE = new THREE.Matrix4().makeScale(0, 0, 0);
-  let run = null, agents = [], pos = [], t = -1, resident = null, drawnPpm = 0;
-  function draw() { // every marker for the shown year (and year 0 for the wipe), at the current zoom
+  let run = null, agents = [], pos = [], t = -1, resident = null, drawnPpm = 0, households = null;
+  // Walkers draw from PEOPLE_MIN_PPM in: there each dot rides over its household's head, and is hidden while the
+  // walker is (in Durham, between a trip's ends, off screen). Further out, or before street life has loaded, it is
+  // at the household's home.
+  const onHeads = () => households && view.ppm >= PEOPLE_MIN_PPM;
+  function draw() { // every dot for the shown year (and year 0 for the wipe, always at home), at the current zoom
     drawnPpm = view.ppm;
-    drawSet(current, t);
-    if (yearZero) drawSet(yearZero, 0);
+    drawSet(current, t, onHeads() ? world.traffic.householdHeads : null);
+    if (yearZero) drawSet(yearZero, 0, null);
   }
-  function drawSet({ markers, shells, rings, leaving }, t) {
-    const ppm = view.ppm, size = MARKER_PX / ppm, lift = LIFT_PX / (ppm * COS_EL), border = 2 * BORDER_PX / ppm;
+  function drawSet({ markers, shells }, t, heads) {
+    const ppm = view.ppm, size = DOT_PX / ppm, lift = LIFT_PX / (ppm * COS_EL), border = 2 * BORDER_PX / ppm;
     const n = Math.min(agents.length, CAPACITY);
-    markers.count = shells.count = rings.count = leaving.count = n;
+    markers.count = shells.count = n;
     for (let i = 0; i < n; i++) {
-      const a = agents[i], here = a.joined <= t && (a.left === null || a.left > t), gone = a.left === t, h = a.hist[t];
+      const a = agents[i], h = a.hist[t], head = heads?.get(a.id);
+      const here = a.joined <= t && (a.left === null || a.left > t) && (!heads || head);
       const color = h?.burden == null ? OWNER : band(BURDEN, h.burden), s = size * (a.id === resident ? 1.6 : 1);
-      _m.compose(_p.set(pos[i][0], lift, pos[i][1]), _q, _s.set(s, s, s));
+      const [x, y, z] = head ? [head.x, head.y + lift + s / 2, head.z] : [pos[i][0], lift + s / 2, pos[i][1]];
+      _m.compose(_p.set(x, y, z), _q, _s.set(s, s, s));
       markers.setMatrixAt(i, here ? _m : HIDE);
-      rings.setMatrixAt(i, here && a.joined > 0 ? _m : HIDE);
-      _m.compose(_p.set(pos[i][0], lift - .75 * border, pos[i][1]), _q, _s.set(s + border, s + border, s + border)); // centred on the marker
+      _m.compose(_p, _q, _s.set(s + border, s + border, s + border)); // the ink shell, centred on the dot
       shells.setMatrixAt(i, here ? _m : HIDE);
-      leaving.setMatrixAt(i, gone ? _m : HIDE);
       markers.setColorAt(i, color);
-      leaving.setColorAt(i, color);
     }
-    for (const m of [markers, shells, rings, leaving]) { m.instanceMatrix.needsUpdate = true; m.computeBoundingSphere(); }
-    markers.instanceColor.needsUpdate = leaving.instanceColor.needsUpdate = true;
+    for (const m of [markers, shells]) { m.instanceMatrix.needsUpdate = true; m.computeBoundingSphere(); }
+    markers.instanceColor.needsUpdate = true;
   }
 
   let hovered = false, roadFocus = false;
   const tint = () => { roadMat.color.copy(ASPHALT).lerp(road.userData.color, roadFocus ? TINT.view : hovered ? TINT.hover : TINT.rest); };
-  simClock.subscribe(({ shown, before, frac }) => {
+  const syncWalkers = played => households?.sync(agents, pos, t, played, world.traffic.hour());
+  simClock.subscribe(({ shown, before }) => {
     if (!shown?.data) return;
     const r = shown.data.run, y = before ? 0 : shown.step;
-    fadeMat.opacity = .55 * (1 - (shown.tween && !before ? Math.min(1, frac / FADE_YEARS) : 0));
     if (r === run && y === t) return; // the clock emits every frame while playing
+    const played = r === run && shown.tween && !before && y === t + 1; // stepped into by playback: arrivals walk in
     if (r !== run) { run = r; agents = r.households.agents; pos = agents.map(a => place(a, r.result)); }
     t = y;
+    syncWalkers(played);
     draw();
     const load = run.averages[y]; // the road shows the averaged runs, like the panel; the markers show one run
     road.userData = { ...load, color: band(LOAD, load.roadRatio) };
@@ -158,8 +166,19 @@ export function mountAgentLayer({ world, osm, zones }) {
     }
   });
 
+  // Street life loads after the first frame; then the households take to the street.
+  world.trafficReady.then(traffic => {
+    const doors = Object.fromEntries(Object.entries({ campus: CAMPUS, downtown: DOWNTOWN }).map(([kind, box]) =>
+      [kind, traffic.doors.filter(d => d.node && WORK_DOORS[kind].has(d.family) && inBox(box, d.x, d.z))]));
+    const exits = trunks.flatMap(q => [[q.r[0], q.r[1]], [q.r.at(-2), q.r.at(-1)]]).filter(([x, z]) => E - Math.max(Math.abs(x), Math.abs(z)) < 40);
+    households = world.households = createHouseholds({ sim: traffic.sim, doors, exits, ext: E - 4 }); // world.households for tooling
+    traffic.onHousehold(id => { world.selection.select(null); scenario.set({ resident: id }); });
+    if (run) syncWalkers(false);
+  });
+
   onFrame(() => {
-    if (run && view.ppm !== drawnPpm) draw();
+    if (households) households.update(world.traffic.hour());
+    if (run && (view.ppm !== drawnPpm || onHeads())) draw(); // over the heads, the dots move with the walkers
     if (!roadPpm || Math.abs(Math.log(view.ppm / roadPpm)) > .2) shapeRoad(view.ppm); // as the zoom eases, not every frame
   });
 
@@ -180,14 +199,13 @@ export function mountAgentLayer({ world, osm, zones }) {
       const ev = pending;
       pending = null;
       if (ev.buttons || !run) { tip.hidden = true; dom.style.cursor = ''; hover(false); return; }
-      const h = hit(ev);
-      dom.style.cursor = h && h.object !== road ? 'pointer' : '';
-      hover(h?.object === road);
-      if (!h) { tip.hidden = true; return; }
+      const h = hit(ev), walker = !h || h.object === road ? world.traffic?.pickAt(ev.clientX, ev.clientY) : null;
+      const name = h && h.object !== road ? agents[h.instanceId].name : walker?.owner != null ? agents.find(a => a.id === walker.owner)?.name : null;
+      dom.style.cursor = name ? 'pointer' : '';
+      hover(!name && h?.object === road);
+      if (!name && !h) { tip.hidden = true; return; }
       const y = road.userData;
-      tip.textContent = h.object === road
-        ? `15-501: ${y.roadTime.toFixed(1)} min travel time · ${Math.round(y.roadRatio * 100)}% of capacity`
-        : agents[h.instanceId].name;
+      tip.textContent = name ?? `15-501: ${y.roadTime.toFixed(1)} min travel time · ${Math.round(y.roadRatio * 100)}% of capacity`;
       tip.style.left = `${ev.clientX + 14}px`;
       tip.style.top = `${ev.clientY + 14}px`;
       tip.hidden = false;

@@ -82,3 +82,109 @@ test('pausing freezes everything', () => {
   assert.equal(JSON.stringify([sim.vehicles.map(c => [c.x, c.z]), sim.peds.map(p => [p.x, p.z]), sim.signals.map(s => [s.phase, s.t])]), snap);
   assert.equal(STEP, 1 / 20);
 });
+
+// ---------- walkers the caller controls, and the households on them (households.js) ----------
+import { SHOW_M } from '../meridian-city/world/street-sim.js';
+import { createHouseholds, placeAt, hourAt, clockLabel, DAY_S, START_HOUR } from '../meridian-city/world/households.js';
+
+const city = (o = {}) => { const net = buildRoadNet(roads), walk = buildWalkNet(net, footpaths, { onRoad }); return createStreetSim({ net, walk, onRoad, pedDensity: .3, seed: 3, ...o }); };
+const runFor = (sim, seconds, each = () => {}) => { for (let t = 0; t < seconds; t += STEP) { sim.step(STEP); sim.plan(50); each(); } };
+
+test('addPed, sendPed and removePed: a sent walker gets there on the walks, then waits to be sent again', () => {
+  const sim = city(), before = sim.peds.length;
+  const p = sim.addPed({ x: 2, z: 2, look: 7, owner: 'h1' });
+  assert.equal(sim.peds.length, before + 1);
+  assert.ok(sim.idle(p) && p.owner === 'h1');
+  sim.sendPed(p, 125, 5, 'the corner shop'); // one block east
+  assert.equal(sim.idle(p), false);
+  let onRoadSteps = 0;
+  runFor(sim, 240, () => { if (p.state !== 'crossing' && onRoad(p.x, p.z)) onRoadSteps++; });
+  assert.ok(sim.idle(p), `still ${p.state}, ${p.route ? 'routed' : 'unrouted'}`);
+  assert.ok(Math.hypot(p.x - 125, p.z - 5) < 12, `at ${p.x}, ${p.z}`);
+  assert.equal(p.dest.label, 'the corner shop');
+  assert.equal(onRoadSteps, 0, 'never stands in the road');
+  const x = p.x, z = p.z;
+  runFor(sim, 30);
+  assert.deepEqual([p.x, p.z], [x, z], 'sent walkers stand still in between');
+  sim.removePed(p);
+  assert.equal(sim.peds.length, before);
+  assert.ok(!sim.peds.includes(p) && p.removed);
+});
+
+test('a long sent trip shows its two ends only: it steps out of sight past SHOW_M and back in SHOW_M short of the goal', () => {
+  const sim = city();
+  const p = sim.addPed({ x: 0, z: 0, owner: 'h2' });
+  sim.sendPed(p, 360, 360, 'across town'); // three blocks each way, about 720 m on the walks
+  sim.plan(50);
+  assert.ok(p.skip, 'a skip was planned');
+  let hidden = 0, walked = 0, last = [p.x, p.z];
+  runFor(sim, 400, () => { if (p.hidden > 0) hidden++; else { walked += Math.hypot(p.x - last[0], p.z - last[1]); } last = [p.x, p.z]; });
+  assert.ok(sim.idle(p), 'arrived');
+  assert.ok(Math.hypot(p.x - 360, p.z - 360) < 12);
+  assert.ok(hidden > 0, 'out of sight for a moment');
+  assert.ok(walked < 2 * SHOW_M + 80, `walked ${Math.round(walked)} m of the route, not all of it`);
+});
+
+test('the day: a clock that loops every DAY_S seconds, and where each kind of household is', () => {
+  assert.equal(hourAt(0), START_HOUR);
+  assert.ok(Math.abs(hourAt(DAY_S) - START_HOUR) < 1e-9, 'loops');
+  assert.equal(clockLabel(8 + 40 / 60), '8:40 am');
+  assert.equal(clockLabel(0), '12:00 am');
+  assert.equal(clockLabel(17.5), '5:30 pm');
+  const h = (work, student = false) => ({ a: { work, student }, u: [.5, .5, .5, .5] });
+  assert.equal(placeAt(h('campus'), 6), 'home');
+  assert.equal(placeAt(h('campus'), 12), 'work');
+  assert.equal(placeAt(h('downtown'), 21), 'home');
+  assert.equal(placeAt(h('durham'), 12), 'away');
+  assert.equal(placeAt(h('remote'), 12), 'home');
+  assert.equal(placeAt(h('remote'), 11.2), 'stroll');
+  assert.equal(placeAt(h('campus', true), 8), 'home', 'students leave later');
+});
+
+const agent = (id, o = {}) => ({ id, name: `H${id}`, joined: 0, left: null, work: 'campus', student: false, ...o });
+function households(sim) {
+  return createHouseholds({ sim, doors: { campus: [{ x: 240, z: 5, label: 'Campus hall' }], downtown: [{ x: 125, z: 245, label: 'Offices' }] }, exits: [[360, 300]], ext: 380 });
+}
+
+test('households: one walker each, a stable look by id, and they go to work and back through the day', () => {
+  const sim = city(), H = households(sim);
+  const agents = [agent(1), agent(2, { work: 'remote' }), agent(3, { work: 'durham' })], homes = [[5, 120], [120, 120], [240, 125]];
+  H.sync(agents, homes, 0, false, 6);
+  assert.equal(H.size, 3);
+  const looks = []; H.each((a, p) => looks.push(p.look));
+  const again = households(city()); again.sync(agents, homes, 0, false, 6);
+  const looks2 = []; again.each((a, p) => looks2.push(p.look));
+  assert.deepEqual(looks, looks2, 'the same household always looks the same');
+  const ped = id => { let out; H.each((a, p) => { if (a.id === id) out = p; }); return out; };
+  // morning: the campus worker heads for the campus door, the Durham commuter for 15-501
+  H.update(12);
+  assert.equal(ped(1).dest.label, 'Campus hall');
+  assert.equal(ped(3).dest.label, 'Durham, by 15-501');
+  runFor(sim, 400, () => H.update(12));
+  assert.ok(Math.hypot(ped(1).x - 240, ped(1).z - 5) < 20, 'at work');
+  assert.equal(ped(3), null, 'out of sight in Durham');
+  // evening: home again, the Durham commuter coming back from the edge
+  H.update(20);
+  assert.ok(ped(3), 'back from Durham');
+  runFor(sim, 400, () => H.update(20));
+  assert.ok(Math.hypot(ped(1).x - 5, ped(1).z - 120) < 20 && Math.hypot(ped(3).x - 240, ped(3).z - 125) < 20, 'home (the sidewalk nearest it)');
+});
+
+test('households: a year reached by playback walks newcomers in from the map edge and leavers off it; a seek just places them', () => {
+  const sim = city(), H = households(sim), homes = [[120, 120], [240, 240]];
+  const agents = [agent(1, { left: 2 }), agent(2, { joined: 2, work: 'remote' })];
+  H.sync(agents, homes, 1, false, 6);
+  assert.equal(H.size, 1);
+  H.sync(agents, homes, 2, true, 6);
+  let newcomer, leaver;
+  H.each((a, p, h) => { if (a.id === 2) newcomer = { p, h }; if (a.id === 1) leaver = { p, h }; });
+  assert.ok(newcomer.h.entering && newcomer.p.dest.label === 'their new home');
+  assert.ok(Math.max(Math.abs(newcomer.p.x), Math.abs(newcomer.p.z)) > 300, 'starts at the map edge');
+  assert.ok(leaver.h.leaving && leaver.p.dest.label === 'leaving town');
+  runFor(sim, 600, () => H.update(6));
+  assert.equal(H.size, 1, 'the leaver walked off and is gone');
+  assert.ok(Math.hypot(newcomer.p.x - 240, newcomer.p.z - 240) < 20, 'the newcomer is home');
+  const seek = households(city());
+  seek.sync(agents, homes, 2, false, 6);
+  seek.each((a, p, h) => { assert.equal(a.id, 2); assert.ok(!h.entering && Math.hypot(p.x - 240, p.z - 240) < 20, 'placed at home at once'); });
+});

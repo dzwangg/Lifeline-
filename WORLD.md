@@ -35,10 +35,20 @@ leftover fraction is added back in the upscale, so panning is smooth and texture
 square. The camera position is recomputed from `target`, azimuth and zoom every frame. Move the view through
 `view.target`, `view.lookAt()` and `view.zoomTo()`, not by setting `camera.position`.
 
-**Frame loop.** `world.update(dt, simDt)` runs once per frame. `dt` is real seconds, used for the camera and the
-selection pulse, so the map stays usable while the sim is paused. `simDt` is simulated seconds, used for everything
-that moves: traffic, walkers, signals, wind, water and turbines. It defaults to `dt`, so the world runs on real time
-when no clock is attached. In `index.html` the sim clock supplies it (see [The clock](#the-clock)).
+**Frame loop.** `world.update(dt, simDt)` runs once per frame. `dt` is real seconds, used for the camera, the
+selection pulse and street life (cars, walkers, signals and the households' day), so the map stays usable and the
+street keeps moving while the sim is paused. `simDt` is simulated seconds, used for the rest that moves: wind, water
+and turbines. It defaults to `dt`, so the world runs on real time when no clock is attached. In `index.html` the sim
+clock supplies it (see [The clock](#the-clock)).
+
+**Households on the street.** `world/households.js` turns the household model's run into walkers: the street sim adds
+one per household (`sim.addPed`), each with a look seeded from its id, and sends it where its day says
+(`sim.sendPed`): home, a campus or downtown door, 15-501's edge for Durham commuters (who are out of sight until
+evening), or a short walk near home for people who work from home. A day lasts `DAY_S` (150) real seconds and loops;
+`traffic.hour()` gives the hour and the clock bar shows it. A long trip shows only its two ends (`SHOW_M` at each).
+`sim/agent-layer.js` feeds it the shown year (newcomers walk in from the map's edge and leavers walk off it when
+playback steps into their year) and floats a rent-burden dot over each household's head, or at its home when zoomed
+out past the walkers.
 
 ## What `buildWorld()` gives you
 
@@ -162,7 +172,8 @@ and markers that must show through buildings (like the selection outline) use `d
 
 **Clicks.** Building selection listens for `pointerup` on the canvas and skips events that are already handled. Walker
 picking (`traffic.js`) gets in first with a capture-phase `pointerup` on `window`, and claims a hit with
-`preventDefault()`. Do the same for your layer: `addEventListener('pointerup', handler, true)`, and call
+`preventDefault()`: a household's walker opens its resident card (`traffic.onHousehold`), any other walker the
+walker card. The household dots (`sim/agent-layer.js`) listen before that and win over both. Do the same for your layer: `addEventListener('pointerup', handler, true)`, and call
 `e.preventDefault()` on a hit. Don't stop propagation: the pan control needs the release, or it keeps dragging.
 
 ## The clock
@@ -200,10 +211,12 @@ store (the picked resident, the 15-501 view) doesn't bump it.
 
 **Animating on sim time.** `onFrame((dt, simDt) => …)` registers a per-frame callback on the shared loop. `simDt` is 0
 while paused or holding for a prediction. `index.html` runs the world with `onFrame((dt, simDt) => world.update(dt,
-simDt))`. Anything else that should freeze with the sim should use `simDt` the same way.
+simDt))`. Anything else that should freeze with the sim should use `simDt` the same way. Street life deliberately
+doesn't: it runs on `dt`, so the street's day goes on while a year is paused for inspection.
 
 **The clock bar** (`sim/clock-bar.js`, `mountClockBar()`) is a thin view over this. It subscribes and shows `simDate`,
-the speed and a status line (loading, failed, end of forecast). Its buttons call `pause()` and
+the speed and a status line (loading, failed, end of forecast), and faintly beside them the street's time of day once
+street life has loaded (`bar.setHour(traffic.hour)`). Its buttons call `pause()` and
 `play(1|2|4)`. Space calls `toggle()`, and 1, 2 and 4 call `play(n)`, except while typing or with a dialog open.
 `sim-plate.js` uses the same clock for its year slider (`seek`), "show before" checkbox (`setBefore`) and metrics
 (the shown year's, compared with the same year with no new policy, `shown.data.run.noPolicy`). The household layer

@@ -5,9 +5,11 @@
 // zebras and stop lines painted on the road.
 // People: individual walkers drawn from people-art.js: eight facing directions, idle and walking frames, ground
 // shadows, three levels of detail, and only the ones on screen are written to the instance buffers.
-// Click a walker to follow them and see where they are going.
+// Click a walker to follow them and see where they are going. The sim's households walk here too (households.js):
+// the street sim adds them (addPed), they are drawn in the same layers, and clicking one opens its resident card
+// (onHousehold) instead of the walker card. Street life runs in real time, paused or playing (update()).
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
-import { P } from './palette.js';
+import { P, CAMERA } from './palette.js';
 import { Batch, OCC } from './geometry.js';
 import { Pix } from './textures.js';
 import { DRIVE } from './streets.js';
@@ -15,6 +17,7 @@ import { buildRoadNet, buildWalkNet } from './roadnet.js';
 import { createStreetSim } from './street-sim.js';
 import { paintPeopleAtlas, LOOKS } from './people-art.js';
 import { createSpriteSystem } from './sprites.js';
+import { hourAt } from './households.js';
 
 // ---------- vehicle atlas: alpha 255 marks paintable body, 254 keeps the pixel's own colour ----------
 function vehicleAtlas() {
@@ -111,7 +114,10 @@ const TYPES = [ // kind, share, colours, length
 const KIND_COLORS = Object.fromEntries(TYPES.map(([kind, , colors]) => [kind, colors]));
 const DOOR_WEIGHT = { shop: 4, campus: 4, civic: 3, office: 3, apartment: 2, house: 1, industrial: 1, garage: 1 };
 const OBSTACLE_R = { lamp: .3, hydrant: .25, bench: .8, busStop: 1.6, trafficLight: .25, stopSign: .2, streetSign: .2, trash: .3, mailbox: .3, bikeRack: .7, planter: .5, picnic: .9 };
-const PEOPLE_MIN_PPM = 2.4;
+export const PEOPLE_MIN_PPM = 2.4;
+// Ambient walkers, capped so the sim's households (a few hundred, near their homes) outnumber them there.
+// HOUSEHOLD_SLOTS: room in the people layers for the households the street sim adds (the model makes ~350-450).
+const AMBIENT_MAX = 1200, HOUSEHOLD_SLOTS = 640;
 
 // Cells whose centre lies on a drivable carriageway (not service drives, which cars in the sim never use).
 function roadRaster(lanes, ext) {
@@ -185,7 +191,7 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
     ...trees.map(t => ({ x: t.x, z: t.z, r: .45 })),
     ...heads.map(h => ({ x: h.x, z: h.z, r: .25 })),
   ];
-  const sim = createStreetSim({ net, walk, doors, obstacles, onRoad, vehicleDensity: .8 });
+  const sim = createStreetSim({ net, walk, doors, obstacles, onRoad, vehicleDensity: .8, maxPeds: AMBIENT_MAX });
   await pause();
 
   // ---------- vehicles ----------
@@ -206,9 +212,9 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
   tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false; tex.flipY = false; // rows top-down, as painted
   tex.colorSpace = THREE.SRGBColorSpace; tex.needsUpdate = true;
   const sprites = createSpriteSystem({ texture: tex, sprites: art.sprites });
-  const N = sim.peds.length;
-  const people = sprites.dynamicLayer(scene, Math.max(1, N), { minZoom: PEOPLE_MIN_PPM });
-  const shadows = sprites.dynamicLayer(scene, Math.max(1, N), { minZoom: PEOPLE_MIN_PPM, decal: true, transparent: true, opacity: .3, renderOrder: 1 });
+  const N = sim.peds.length + HOUSEHOLD_SLOTS;
+  const people = sprites.dynamicLayer(scene, N, { minZoom: PEOPLE_MIN_PPM });
+  const shadows = sprites.dynamicLayer(scene, N, { minZoom: PEOPLE_MIN_PPM, decal: true, transparent: true, opacity: .3, renderOrder: 1 });
   const signalLayer = sprites.dynamicLayer(scene, Math.max(1, heads.length), { minZoom: 1.2 });
   const ringLayer = sprites.dynamicLayer(scene, 1, { decal: true, transparent: true, opacity: .95, renderOrder: 2 });
   ringLayer.mesh.count = 0;
@@ -251,8 +257,9 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
   const lerpAng = (a, b, t) => { let d = b - a; d = Math.atan2(Math.sin(d), Math.cos(d)); return a + d * t; };
   const q4 = new THREE.Quaternion(), UP = new THREE.Vector3(0, 1, 0), pos = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1), vp = new THREE.Matrix4();
   const MIRROR = [false, false, false, false, false, true, true, true], DIR_OF = [0, 1, 2, 3, 4, 3, 2, 1];
-  const shadowS = art.sprites.shadow, ringS = art.sprites.ring;
+  const shadowS = art.sprites.shadow, ringS = art.sprites.ring, stretch = 1 / Math.cos(THREE.MathUtils.degToRad(CAMERA.elevationDeg));
   let selected = null, focusAt = -1, visible = [];
+  const householdHeads = new Map(); // household id -> { x, y, z } of its walker's head this frame, for the rent dots (agent-layer.js)
 
   function drawVehicles(alpha, ppm) {
     for (const c of sim.vehicles) {
@@ -265,6 +272,7 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
 
   function drawPeople(alpha, ppm, cam, time) {
     visible = [];
+    householdHeads.clear();
     if (ppm < PEOPLE_MIN_PPM) { people.mesh.count = shadows.mesh.count = 0; ringLayer.mesh.count = 0; return; }
     const table = art.table[ppm >= 9 ? 'hi' : ppm >= 4.5 ? 'mid' : 'low'];
     // Camera axes on the ground, for choosing which of the eight facings to show.
@@ -274,6 +282,7 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
     const uvP = people.uv.array, szP = people.size.array, uvS = shadows.uv.array, szS = shadows.size.array;
     let n = 0;
     for (const p of sim.peds) {
+      if (p.hidden > 0 || n >= N) continue; // between a long trip's two ends
       const x = p.px + (p.x - p.px) * alpha, z = p.pz + (p.z - p.pz) * alpha;
       // Visibility culling: skip anyone off screen (with a margin for the sprite's height).
       const w = v[3] * x + v[7] + v[11] * z + v[15], cx = (v[0] * x + v[4] + v[8] * z + v[12]) / w, cy = (v[1] * x + v[5] + v[9] * z + v[13]) / w;
@@ -289,6 +298,7 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
       shadows.mesh.setMatrixAt(n, m4.makeTranslation(x + .12, .085, z - .08));
       uvS.set(shadowS.uv, n * 4); szS[n * 3] = .95; szS[n * 3 + 1] = .5; szS[n * 3 + 2] = 0;
       visible.push(p, (cx + 1) / 2, (1 - cy) / 2);
+      if (p.owner != null) householdHeads.set(p.owner, { x, y: s.h * stretch, z });
       n++;
     }
     people.mesh.count = shadows.mesh.count = n;
@@ -385,20 +395,26 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
   let down = null;
   const canvas = view.renderer.domElement;
   canvas.addEventListener('pointerdown', e => { if (e.button === 0) down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+  /** The walker drawn nearest the pointer, within a few pixels of its body; households win over ambient walkers. */
+  function pickAt(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    let best = null, bd = 16 * 16;
+    for (let i = 0; i < visible.length; i += 3) {
+      const p = visible[i], sx = rect.left + visible[i + 1] * rect.width, sy = rect.top + visible[i + 2] * rect.height;
+      const d = (sx - clientX) ** 2 + (sy - 12 - clientY) ** 2 * (p.owner != null ? .6 : 1); // aim at the body, a little above the feet
+      if (d < bd) { bd = d; best = p; }
+    }
+    return best;
+  }
+  let onHousehold = () => {};
   addEventListener('pointerup', e => {
     // Another layer listening first (the sim's household markers) may have claimed the click: leave it, but forget the
     // press. The event goes on either way, since the map's pan control needs the release.
     if (e.defaultPrevented) { down = null; return; }
     if (!down || e.target !== canvas || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5 || performance.now() - down.t > 450) return;
-    const rect = canvas.getBoundingClientRect();
-    let best = null, bd = 16 * 16;
-    for (let i = 0; i < visible.length; i += 3) {
-      const p = visible[i], sx = rect.left + visible[i + 1] * rect.width, sy = rect.top + visible[i + 2] * rect.height;
-      const d = (sx - e.clientX) ** 2 + (sy - 12 - e.clientY) ** 2; // aim at the body, a little above the feet
-      if (d < bd) { bd = d; best = p; }
-    }
+    const best = pickAt(e.clientX, e.clientY);
     // Claim the click without stopping it: the map's pan control must still see the release, or it keeps dragging.
-    if (best) { e.preventDefault(); down = null; select(best); }
+    if (best) { e.preventDefault(); down = null; if (best.owner != null) { select(null); onHousehold(best.owner); } else select(best); }
     else if (selected) select(null);
   }, true);
   addEventListener('keydown', e => { if (e.key === 'Escape' && selected && !e.target.closest?.('[role="dialog"]')) select(null); });
@@ -408,6 +424,11 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
     signalized: net.intersections.filter(ix => ix.signal).map(ix => [ix.x, ix.z]),
     count: { vehicles: sim.vehicles.length, people: sim.peds.length, signals: sim.signals.length },
     onSelect(fn) { onSelect = fn; },
+    /** fn(household id) when a household's walker is clicked. */
+    onHousehold(fn) { onHousehold = fn; },
+    pickAt, householdHeads, doors,
+    /** The hour of the street's day (households.js DAY_S), which runs in real time. */
+    hour: () => hourAt(sim.time),
     /** Where a walker's body is on screen, in client pixels (for tests and tooling). */
     screenOf(p) {
       const cam = view.renderCam, rect = canvas.getBoundingClientRect();
@@ -416,9 +437,9 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
       const cx = (v[0] * p.x + v[4] + v[8] * p.z + v[12]) / w, cy = (v[1] * p.x + v[5] + v[9] * p.z + v[13]) / w;
       return { x: rect.left + (cx + 1) / 2 * rect.width, y: rect.top + (1 - cy) / 2 * rect.height - 12 };
     },
-    /** simDt (0 while paused or holding) is the only thing that moves the street; real time only redraws it. */
-    update(simDt, time, ppm) {
-      sim.advance(simDt);
+    /** dt real seconds: street life runs in real time, paused or playing (the year comes from the clock). */
+    update(dt, time, ppm) {
+      sim.advance(dt);
       sim.plan(3); // trip planning moves nobody, so it may run while paused
       if (focusAt < 0 || time - focusAt > .4) { focusAt = time; refocus(ppm); }
       const alpha = Math.min(1, sim.alpha);

@@ -89,8 +89,9 @@ export async function buildWorld({ container, osm, names = [], zones = [], progr
     get traffic() { return traffic; },
     sprites, art, // the sprite system and its atlas, for layers added from outside (see WORLD.md)
     gridAt: (x, z) => grid.at(x, z),
-    // dt: real seconds, for the camera and inspection (the selection pulse). simDt: simulated seconds from the shared
-    // clock (0 while paused or holding), for everything that moves: traffic, walkers, signals, wind, water, turbines.
+    // dt: real seconds, for the camera, inspection (the selection pulse) and street life (traffic, walkers, signals and
+    // the households' day, which run paused or playing). simDt: simulated seconds from the shared clock (0 while paused
+    // or holding), for the rest that moves: wind, water, turbines.
     update(dt, simDt = dt) {
       dt = Math.min(Math.max(dt, 0), .05); // animation timestamps can run slightly behind; never step backwards
       simDt = Math.max(simDt, 0);
@@ -98,7 +99,7 @@ export async function buildWorld({ container, osm, names = [], zones = [], progr
       view.update(dt);
       const ppm = view.ppm;
       sprites.update(view.renderCam, simTime, ppm);
-      traffic?.update(simDt, time, ppm);
+      traffic?.update(dt, time, ppm); // street life runs in real time; the clock moves the years
       landMeshes.update(Math.min(simDt, .2));
       aero.update(Math.min(simDt, .2));
       selection.update(time);

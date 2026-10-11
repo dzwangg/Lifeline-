@@ -340,7 +340,9 @@ const queues = new Map(); // checking account -> its last write, so two writes t
 const writing = new Map(); // `${checking account}|${entries hash}` -> that write in flight: a repeat waits for it, writing nothing
 const computeLimit = rateLimiter(30), ledgerLimit = rateLimiter(6), visitorLimit = rateLimiter(3, 600_000);
 
-export async function POST(request, env = process.env) {
+// Vercel calls POST(request, context), so the handler reads process.env itself; tests pass their env to handle().
+export const POST = request => handle(request, process.env);
+export async function handle(request, env) {
   const raw = await request.text();
   if (raw.length > MAX_BODY) return Response.json({ error: `body must be at most ${MAX_BODY} bytes` }, { status: 413 });
   let body;

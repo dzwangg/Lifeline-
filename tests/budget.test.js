@@ -44,7 +44,7 @@ let ips = 0;
 const req = (body, ip = `10.9.0.${++ips}`) => new Request('http://localhost/api', { method: 'POST', headers: { 'x-forwarded-for': ip }, body: JSON.stringify(body) });
 const recap = (acres, ip) => narration(req({ policies: [{ id: 'corridor-midrise', params: { acres_released: acres } }], years: sample.years, deltas: sample.deltas }, ip));
 const draft = (idea, ip) => policies(req({ idea }, ip));
-const ask = (question, ip) => resident(req({ resident: 'uma', policies: [], question }, ip), process.env);
+const ask = (question, ip) => resident(req({ resident: 'uma', policies: [], question }, ip), {}); // {}: Vercel's context, not env
 const cardReply = () => JSON.stringify({ card, unmodeled: [], unsupportedReason: null });
 
 test('production: 5 recaps, 5 questions and 3 drafts per IP per 10 minutes; cache hits are free', async () => {

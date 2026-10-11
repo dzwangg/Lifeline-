@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { POST, checkCard, directionErrors, generateCard, loadContext, tidy } from '../api/policies.js';
 import { POST as narrationPOST, signCard } from '../api/narration.js';
 import { cards } from './data.js';
+import { validateCard } from '../shared/schema.js';
 
 const ctx = await loadContext();
 const sample = JSON.parse(readFileSync(new URL('./fixtures/narration-sample.json', import.meta.url), 'utf8'));
@@ -73,6 +74,28 @@ test('tidy clamps param defaults into range, copies evidence in by its number, a
   assert.deepEqual(out.evidence, [library[1]], 'a known number once; an unknown number, a string or an object never');
   assert.ok(!('levers' in out));
   assert.ok(!('evidence' in tidy({ ...zoneCard, evidence: [999] }, ctx.catalog)));
+});
+
+test('tidy turns the reply\'s all-fields zone rules into card rules', () => {
+  const out = tidy({ ...zoneCard, zoneRules: [{ where: 'tag:corridor', from: 'forest', to: 'mid_res', ratePerYear: 0.15, capParam: 'acres_released', protect: '' },
+    { where: 'tag:map_edge', from: '', to: '', ratePerYear: 0, capParam: '', protect: 'forest' }] }, ctx.catalog);
+  assert.deepEqual(out.zoneRules, [{ where: 'tag:corridor', from: 'forest', to: 'mid_res', ratePerYear: 0.15, capParam: 'acres_released' }, { where: 'tag:map_edge', protect: 'forest' }]);
+  assert.deepEqual(validateCard(out), []);
+});
+
+test('tidy backstops: a conversion rule with no usable ratePerYear gets 0.2; the one acres param caps rules that name none', () => {
+  const warn = console.warn, warned = [];
+  console.warn = line => warned.push(line);
+  try {
+    const rule = { where: 'tag:near_campus', from: 'parking', to: 'mid_res', capParam: '', protect: '' };
+    const out = tidy({ ...zoneCard, zoneRules: [{ ...rule, ratePerYear: 0 }, rule] }, ctx.catalog);
+    assert.deepEqual(out.zoneRules.map(r => [r.ratePerYear, r.capParam]), [[0.2, 'acres_released'], [0.2, 'acres_released']]);
+    assert.equal(warned.length, 3);
+    const two = [...zoneCard.params, { ...zoneCard.params[0], key: 'more_acres' }];
+    assert.ok(!('capParam' in tidy({ ...zoneCard, params: two, zoneRules: [{ ...rule, ratePerYear: 0.1 }] }, ctx.catalog).zoneRules[0]), 'two acres params: no guess');
+  } finally {
+    console.warn = warn;
+  }
 });
 
 test('generate: a valid zone-rule card comes back signed, from one Gemini call with the schema and minimal thinking', async () => {

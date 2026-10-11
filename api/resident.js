@@ -156,7 +156,9 @@ async function demoAnswer(key, type) {
 const cache = new Map(); // ponytail: per instance, capped at 200 by insertion order, as narration's
 const retryAfter = aiLimiter(5, 10); // questions per IP: 5 per 10 minutes in production, else 10 a minute
 
-export async function POST(request, env = process.env) {
+// Vercel calls POST(request, context), so the handler reads process.env itself; tests pass their env to handle().
+export const POST = request => handle(request, process.env);
+export async function handle(request, env) {
   const raw = await request.text();
   if (raw.length > MAX_BODY) return Response.json({ error: `body must be at most ${MAX_BODY} bytes` }, { status: 413 });
   let b;

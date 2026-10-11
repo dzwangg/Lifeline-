@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
 import { runModels } from '../shared/combined.js';
 import { simulate } from '../shared/agents.js';
-import { POST as bankPOST, budget, ledgerEntries, loadData, savingsAt, scenarioCached, seedBank, seedLedgers, spendingAt, statementFor, taxes, writeLedger } from '../api/resident-bank.js';
-import { POST as talkPOST, VOICES, answerKey, clipFiles, facts, namedYears, templateAnswer } from '../api/resident.js';
+import { POST as bankPOST, handle as bankHandle, budget, ledgerEntries, loadData, savingsAt, scenarioCached, seedBank, seedLedgers, spendingAt, statementFor, taxes, writeLedger } from '../api/resident-bank.js';
+import { POST as talkPOST, handle as talkHandle, VOICES, answerKey, clipFiles, facts, namedYears, templateAnswer } from '../api/resident.js';
 import { assignModels, audioOf, jobs } from '../scripts/pregen-demo.js';
 import { badNumbers, loadCards, parseInput, validPolicies } from '../api/narration.js';
 import { zones, assumptions, baselines } from './data.js';
@@ -75,8 +75,8 @@ const call = async (handler, body, env, ip = `10.1.0.${++ips}`) => {
   const res = await handler(new Request('http://localhost/api', { method: 'POST', headers: { 'x-forwarded-for': ip }, body: typeof body === 'string' ? body : JSON.stringify(body) }), env);
   return { status: res.status, ...(await res.json()) };
 };
-const bank = (body, env = { NESSIE_API_KEY: KEY }, ip) => call(bankPOST, body, env, ip);
-const talk = (body, env = {}, ip) => call(talkPOST, body, env, ip);
+const bank = (body, env = { NESSIE_API_KEY: KEY }, ip) => call(bankHandle, body, env, ip);
+const talk = (body, env = {}, ip) => call(talkHandle, body, env, ip);
 
 test('showcase residents are seed-7 year-0 households that still match their labels, covering every type', () => {
   const { agents } = simulate(runModels([], {}, zones, assumptions, baselines).inputs, assumptions, baselines, 7);
@@ -583,4 +583,15 @@ for (const [question, years] of [['What is my rent in 3 years?', [3]], ['Do I st
 test('namedYears: number words one through ten', () => {
   ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'].forEach((w, i) =>
     assert.deepEqual(namedYears(`What is my rent in ${w} years?`), [i + 1], w));
+});
+
+test('POST reads process.env, not its second argument (Vercel passes a context there)', async () => {
+  const saved = process.env.DEMO_MODE;
+  process.env.DEMO_MODE = '1';
+  try {
+    assert.equal((await call(talkPOST, ask('femi', 'Hello', TAX), {})).reason, 'demo mode');
+    assert.match((await call(bankPOST, { resident: 'hao', policies: NONE, ledger: true }, {})).ledger.note, /Demo mode/);
+  } finally {
+    if (saved === undefined) delete process.env.DEMO_MODE; else process.env.DEMO_MODE = saved;
+  }
 });

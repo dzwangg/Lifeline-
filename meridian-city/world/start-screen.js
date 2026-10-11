@@ -88,7 +88,7 @@ function mount(el) {
       el.classList.add('is-ready');
       btn.disabled = false;
       label.textContent = 'Start';
-      status.textContent = 'Chapel Hill is ready.';
+      status.textContent = ''; // nothing to say: Start speaks for itself
       if (skip) leave();
       return started;
     },

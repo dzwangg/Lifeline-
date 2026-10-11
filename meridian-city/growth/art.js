@@ -9,7 +9,7 @@ import { tilingMaterial } from '../world/textures.js';
 import { LOD, pickBy } from '../world/palette.js';
 import { TREE_KINDS, SHRUBS, FLOWERS } from '../world/sprite-art.js';
 import { rectRing } from './geom.js';
-import { PLANT_CROWN } from './plan.js';
+import { PLANT_CROWN, walkRect } from './plan.js';
 
 const WHITE = new THREE.Color(1, 1, 1);
 const SCAFFOLD_W = 8; // metres: the scaffold sprite's drawn width
@@ -62,10 +62,6 @@ export function createGrowthArt({ world, ground }) {
     }
     return b.build();
   }
-  const pathRect = (p, e) => {
-    const [ax, az, bx, bz] = p.r, l = Math.hypot(bx - ax, bz - az);
-    return { cx: (ax + bx) / 2, cz: (az + bz) / 2, ux: e[0], uz: e[1], hw: p.w / 2, hd: l / 2 };
-  };
   const ground2 = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; m.layers.set(2); m.visible = false; scene.add(m); return m; };
   const sprite = (count, names) => {
     const m = sprites.lod(sprites.slots(count, names), { minZoom: LOD.trees ?? LOD.macro });
@@ -117,11 +113,9 @@ export function createGrowthArt({ world, ground }) {
     group.visible = false;
     scene.add(group);
 
-    const e = b => [b.ring[2] - b.ring[0], b.ring[3] - b.ring[1]].map((v, _, a) => v / Math.hypot(...a));
     const pads = ground2(flats(plan.pads), soilMat), lawn = ground2(flats(plan.lawns), lawnMat);
-    // Paths come one per door, building by building, so each runs square to its building's front edge.
-    const pathAxes = plan.buildings.flatMap(b => b.doors.map(() => e(b)));
-    const paths = ground2(flats(plan.paths.map((p, i) => pathRect(p, pathAxes[i]))), pathMat);
+    // Front walks, square to their buildings' fronts, and the courts (shared lanes) some of them leave from.
+    const paths = ground2(flats([...(plan.courts ?? []), ...plan.paths].map(p => walkRect(p, 0))), pathMat);
 
     const scaffold = sprite(n, () => 'scaffold');
     const plants = plan.plantings, names = plants.map(t => t.kind === 'shrub' ? pickBy(SHRUBS, t.r) : t.kind === 'flower' ? pickBy(FLOWERS, t.r) : pickBy(TREE_KINDS[t.kind === 'street' ? 'street' : 'yard'], t.r));
@@ -142,8 +136,11 @@ export function createGrowthArt({ world, ground }) {
         for (const o of [scaffold, planted].filter(Boolean)) { sprites.unlod(o); o.material.dispose(); }
         if (this.gate) this.gate.open = false;
       },
-      /** Front paths for the walker network, and the doors walkers may visit (growth gates them until built). */
-      walks: () => plan.paths.map(p => ({ r: p.r.slice(2).concat(p.r.slice(0, 2)), w: p.w })),
+      /**
+       * Courts and front paths for the walker network (courts first, so the front walks along them can tie on), and the
+       * doors walkers may visit (growth gates them until built).
+       */
+      walks: () => [...(plan.courts ?? []).map(C => ({ r: C.r.slice(), w: C.w })), ...plan.paths.map(p => ({ r: p.r.slice(2).concat(p.r.slice(0, 2)), w: p.w }))],
       doors: () => plan.buildings.flatMap(b => b.doors.map(([x, z]) => ({ x, z, label: b.label, family: b.fam }))),
       /**
        * rise: the buildings' progress (0: none started, 1: all up); down: demolition (1: gone); stage flags for the

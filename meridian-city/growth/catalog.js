@@ -38,12 +38,23 @@ export const MIXES = {
   transit_station: [['mixed']],
 };
 
-/** A building's size and floors for its lot hash h (h(k) -> [0, 1)), shrunk to the small end when tight is set. */
-export function dims(type, h, tight = false) {
-  const T = TYPES[type], pick = ([a, b], k) => (tight ? a : a + (b - a) * h(k));
-  const floors = Math.round(pick(T.floors, 8));
+// Every type a zone state permits, densest first: what a lot may hold once the zone's mixes run out of room (plan.js).
+export const FILL = {
+  low_res: ['duplex', 'detached'],
+  mid_res: ['apartment', 'townhouse', 'duplex'],
+  mixed_use: ['mixed', 'apartment', 'townhouse'],
+  transit_station: ['mixed', 'apartment'],
+};
+
+/**
+ * A building's size and floors for its lot hash h (h(k) -> [0, 1)): shrunk to the small end when tight is set, or at
+ * the large end with the most floors when full is set (the most homes the type may hold on its lot).
+ */
+export function dims(type, h, tight = false, full = false) {
+  const T = TYPES[type], pick = ([a, b], k) => (tight ? a : full ? b : a + (b - a) * h(k));
+  const floors = full ? T.floors[1] : Math.round(pick(T.floors, 8));
   if (type === 'townhouse') {
-    const n = Math.round(pick(T.n, 9)), unitW = pick(T.unitW, 10);
+    const n = Math.round(pick(T.n, 9)), unitW = full ? T.unitW[0] : pick(T.unitW, 10);
     return { n, unitW, w: n * unitW, d: pick(T.d, 11), floors, doors: n };
   }
   return { n: 1, w: pick(T.w, 10), d: pick(T.d, 11), floors, doors: T.doors };
@@ -55,8 +66,8 @@ export function dims(type, h, tight = false) {
  * so a block still fits a narrow or shallow parcel, with fewer homes.
  * @param {number} most homes still wanted (a townhouse row is never longer)
  */
-export function sizes(type, h, most = Infinity) {
-  const T = TYPES[type], first = dims(type, h), out = [first];
+export function sizes(type, h, most = Infinity, full = false) {
+  const T = TYPES[type], first = dims(type, h, false, full), out = [first];
   if (type === 'townhouse') {
     first.n = first.doors = Math.max(3, Math.min(first.n, most)); first.w = first.n * first.unitW;
     for (let n = first.n - 1; n >= 3; n--) out.push({ ...first, n, doors: n, w: n * first.unitW });
@@ -67,7 +78,12 @@ export function sizes(type, h, most = Infinity) {
       out.push({ ...first, w, d });
     }
   } else out.push(dims(type, h, true));
-  return out;
+  if (!full) return out;
+  // At full stretch every size also comes at the type's shallowest depth, for strips of land too shallow for the rest;
+  // most homes first.
+  const shallow = T.min?.[1] ?? T.d[0];
+  for (const b of [...out]) if (b.d > shallow) out.push({ ...b, d: shallow });
+  return out.map((b, i) => [T.units(b), i, b]).sort((a, b) => b[0] - a[0] || a[1] - b[1]).map(x => x[2]);
 }
 
 /** How far a type sits back from the sidewalk, given the neighbours' median setback. */

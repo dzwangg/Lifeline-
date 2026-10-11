@@ -35,9 +35,9 @@ export function mountClockBar({ host = document.body, clock = simClock } = {}) {
     toggle, h('div', { class: 'clock-rates', role: 'group', 'aria-label': 'Playback speed' }, speeds), h('div', { class: 'clock-readout' }, date, h('span', { class: 'clock-sub' }, speed, status)));
   host.append(bar);
 
-  let said = '', unmet = 0, last = null;
-  // Homes the forecast's conversions ask for that the map couldn't place (no room or no way in): said, not forced in.
-  growthReport.subscribe(r => { unmet = r && !r.before ? r.unmet : 0; if (last) update(last); });
+  let said = '', unmet = 0, why = '', last = null;
+  // Homes the forecast's conversions ask for that no valid land could hold: said, with the constraint, not forced in.
+  growthReport.subscribe(r => { unmet = r && !r.before ? r.unmet : 0; why = unmet ? (r.constraints ?? []).join('\n') : ''; if (last) update(last); });
   clock.subscribe(update);
   function update(s) {
     last = s;
@@ -59,7 +59,7 @@ export function mountClockBar({ host = document.body, clock = simClock } = {}) {
     const line = [msg, note].filter(Boolean).join(' · ');
     if (line !== said) {
       said = line; status.textContent = line;
-      status.title = note ? 'The policy asks for more homes on its parcels than fit with a street frontage and room to build. They are counted as unmet, not drawn.' : '';
+      status.title = note ? why || 'The policy asks for more homes than valid land can hold. They are counted as unmet, not drawn.' : '';
     }
     bar.classList.toggle('is-playing', s.playing);
     bar.classList.toggle('is-loading', s.loading);

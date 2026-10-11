@@ -1,17 +1,405 @@
 {
   "note": "Showcase residents for \"meet a resident\": year-0 households of the household model's seed-7 run (shared/agents.js), by agent id. Year-0 households are drawn before any policy input, so the ids are stable across scenarios; tests/resident.test.js checks each still matches. type and filing are our labels (the model has no household size): filing is the tax filing status, joint for families and owners. mode is how they get to work (the model has no mode; remote workers have none).",
   "residents": [
-    { "id": "uma", "agent": 0, "name": "Uma", "type": "student", "filing": "single", "mode": "bus" },
-    { "id": "keisha", "agent": 114, "name": "Keisha", "type": "student", "filing": "single", "mode": "none" },
-    { "id": "ben", "agent": 130, "name": "Ben", "type": "student", "filing": "single", "mode": "bus" },
-    { "id": "hao", "agent": 10, "name": "Hao", "type": "family", "filing": "joint", "mode": "car" },
-    { "id": "quinn", "agent": 107, "name": "Quinn", "type": "family", "filing": "joint", "mode": "bus" },
-    { "id": "diego", "agent": 249, "name": "Diego", "type": "family", "filing": "joint", "mode": "car" },
-    { "id": "femi", "agent": 6, "name": "Femi", "type": "owner", "filing": "joint", "mode": "walk" },
-    { "id": "victor", "agent": 207, "name": "Victor", "type": "owner", "filing": "joint", "mode": "car" },
-    { "id": "jamal", "agent": 110, "name": "Jamal", "type": "owner", "filing": "joint", "mode": "bike" },
-    { "id": "bryce", "agent": 17, "name": "Bryce", "type": "commuter", "filing": "single", "mode": "car" },
-    { "id": "lena", "agent": 203, "name": "Lena", "type": "commuter", "filing": "joint", "mode": "car" },
-    { "id": "maya", "agent": 135, "name": "Maya", "type": "commuter", "filing": "single", "mode": "bus" }
+    {
+      "id": "uma",
+      "agent": 0,
+      "name": "Uma",
+      "type": "student",
+      "filing": "single",
+      "mode": "bus"
+    },
+    {
+      "id": "keisha",
+      "agent": 114,
+      "name": "Keisha",
+      "type": "student",
+      "filing": "single",
+      "mode": "none"
+    },
+    {
+      "id": "ben",
+      "agent": 130,
+      "name": "Ben",
+      "type": "student",
+      "filing": "single",
+      "mode": "bus"
+    },
+    {
+      "id": "hao",
+      "agent": 10,
+      "name": "Hao",
+      "type": "family",
+      "filing": "joint",
+      "mode": "car"
+    },
+    {
+      "id": "quinn",
+      "agent": 107,
+      "name": "Quinn",
+      "type": "family",
+      "filing": "joint",
+      "mode": "bus"
+    },
+    {
+      "id": "diego",
+      "agent": 249,
+      "name": "Diego",
+      "type": "family",
+      "filing": "joint",
+      "mode": "car"
+    },
+    {
+      "id": "femi",
+      "agent": 6,
+      "name": "Femi",
+      "type": "owner",
+      "filing": "joint",
+      "mode": "walk"
+    },
+    {
+      "id": "victor",
+      "agent": 207,
+      "name": "Victor",
+      "type": "owner",
+      "filing": "joint",
+      "mode": "car"
+    },
+    {
+      "id": "jamal",
+      "agent": 110,
+      "name": "Jamal",
+      "type": "owner",
+      "filing": "joint",
+      "mode": "bike"
+    },
+    {
+      "id": "bryce",
+      "agent": 17,
+      "name": "Bryce",
+      "type": "commuter",
+      "filing": "single",
+      "mode": "car"
+    },
+    {
+      "id": "lena",
+      "agent": 203,
+      "name": "Lena",
+      "type": "commuter",
+      "filing": "joint",
+      "mode": "car"
+    },
+    {
+      "id": "maya",
+      "agent": 135,
+      "name": "Maya",
+      "type": "commuter",
+      "filing": "single",
+      "mode": "bus"
+    },
+    {
+      "id": "aditi",
+      "agent": 15,
+      "name": "Aditi",
+      "type": "commuter",
+      "filing": "single",
+      "mode": "car"
+    },
+    {
+      "id": "pablo",
+      "agent": 254,
+      "name": "Pablo",
+      "type": "commuter",
+      "filing": "single",
+      "mode": "car"
+    },
+    {
+      "id": "rhea",
+      "agent": 197,
+      "name": "Rhea",
+      "type": "commuter",
+      "filing": "single",
+      "mode": "bus"
+    },
+    {
+      "id": "sam",
+      "agent": 46,
+      "name": "Sam",
+      "type": "commuter",
+      "filing": "joint",
+      "mode": "car"
+    },
+    {
+      "id": "nia",
+      "agent": 191,
+      "name": "Nia",
+      "type": "commuter",
+      "filing": "joint",
+      "mode": "car"
+    },
+    {
+      "id": "tara",
+      "agent": 275,
+      "name": "Tara",
+      "type": "commuter",
+      "filing": "joint",
+      "mode": "bus"
+    },
+    {
+      "id": "hugo",
+      "agent": 94,
+      "name": "Hugo",
+      "type": "commuter",
+      "filing": "joint",
+      "mode": "car"
+    },
+    {
+      "id": "vik",
+      "agent": 282,
+      "name": "Vik",
+      "type": "commuter",
+      "filing": "joint",
+      "mode": "car"
+    },
+    {
+      "id": "xavier",
+      "agent": 280,
+      "name": "Xavier",
+      "type": "commuter",
+      "filing": "joint",
+      "mode": "bus"
+    },
+    {
+      "id": "kai",
+      "agent": 103,
+      "name": "Kai",
+      "type": "student",
+      "filing": "single",
+      "mode": "none"
+    },
+    {
+      "id": "mateo",
+      "agent": 196,
+      "name": "Mateo",
+      "type": "student",
+      "filing": "single",
+      "mode": "car"
+    },
+    {
+      "id": "soren",
+      "agent": 123,
+      "name": "Soren",
+      "type": "student",
+      "filing": "single",
+      "mode": "none"
+    },
+    {
+      "id": "carmen",
+      "agent": 186,
+      "name": "Carmen",
+      "type": "student",
+      "filing": "single",
+      "mode": "car"
+    },
+    {
+      "id": "isla",
+      "agent": 95,
+      "name": "Isla",
+      "type": "student",
+      "filing": "single",
+      "mode": "none"
+    },
+    {
+      "id": "ava",
+      "agent": 9,
+      "name": "Ava",
+      "type": "student",
+      "filing": "single",
+      "mode": "walk"
+    },
+    {
+      "id": "gia",
+      "agent": 146,
+      "name": "Gia",
+      "type": "student",
+      "filing": "single",
+      "mode": "bus"
+    },
+    {
+      "id": "chloe",
+      "agent": 73,
+      "name": "Chloe",
+      "type": "student",
+      "filing": "single",
+      "mode": "none"
+    },
+    {
+      "id": "olu",
+      "agent": 71,
+      "name": "Olu",
+      "type": "student",
+      "filing": "single",
+      "mode": "car"
+    },
+    {
+      "id": "grace",
+      "agent": 136,
+      "name": "Grace",
+      "type": "family",
+      "filing": "joint",
+      "mode": "none"
+    },
+    {
+      "id": "dev",
+      "agent": 44,
+      "name": "Dev",
+      "type": "family",
+      "filing": "joint",
+      "mode": "none"
+    },
+    {
+      "id": "noah",
+      "agent": 138,
+      "name": "Noah",
+      "type": "family",
+      "filing": "joint",
+      "mode": "bike"
+    },
+    {
+      "id": "yara",
+      "agent": 202,
+      "name": "Yara",
+      "type": "family",
+      "filing": "joint",
+      "mode": "car"
+    },
+    {
+      "id": "yusuf",
+      "agent": 78,
+      "name": "Yusuf",
+      "type": "family",
+      "filing": "joint",
+      "mode": "none"
+    },
+    {
+      "id": "ines",
+      "agent": 33,
+      "name": "Ines",
+      "type": "family",
+      "filing": "joint",
+      "mode": "walk"
+    },
+    {
+      "id": "felix",
+      "agent": 299,
+      "name": "Felix",
+      "type": "family",
+      "filing": "joint",
+      "mode": "none"
+    },
+    {
+      "id": "omar",
+      "agent": 2,
+      "name": "Omar",
+      "type": "family",
+      "filing": "joint",
+      "mode": "none"
+    },
+    {
+      "id": "ulla",
+      "agent": 168,
+      "name": "Ulla",
+      "type": "family",
+      "filing": "joint",
+      "mode": "car"
+    },
+    {
+      "id": "elena",
+      "agent": 176,
+      "name": "Elena",
+      "type": "family",
+      "filing": "joint",
+      "mode": "none"
+    },
+    {
+      "id": "zara",
+      "agent": 293,
+      "name": "Zara",
+      "type": "owner",
+      "filing": "joint",
+      "mode": "car"
+    },
+    {
+      "id": "tess",
+      "agent": 262,
+      "name": "Tess",
+      "type": "owner",
+      "filing": "joint",
+      "mode": "none"
+    },
+    {
+      "id": "will",
+      "agent": 214,
+      "name": "Will",
+      "type": "owner",
+      "filing": "joint",
+      "mode": "car"
+    },
+    {
+      "id": "zoe",
+      "agent": 277,
+      "name": "Zoe",
+      "type": "owner",
+      "filing": "joint",
+      "mode": "bike"
+    },
+    {
+      "id": "jonah",
+      "agent": 48,
+      "name": "Jonah",
+      "type": "owner",
+      "filing": "joint",
+      "mode": "walk"
+    },
+    {
+      "id": "wren",
+      "agent": 60,
+      "name": "Wren",
+      "type": "owner",
+      "filing": "joint",
+      "mode": "walk"
+    },
+    {
+      "id": "ximena",
+      "agent": 51,
+      "name": "Ximena",
+      "type": "owner",
+      "filing": "joint",
+      "mode": "bus"
+    },
+    {
+      "id": "jamal-v",
+      "agent": 212,
+      "name": "Jamal V.",
+      "type": "owner",
+      "filing": "joint",
+      "mode": "none"
+    },
+    {
+      "id": "chloe-d",
+      "agent": 242,
+      "name": "Chloe D.",
+      "type": "owner",
+      "filing": "joint",
+      "mode": "none"
+    },
+    {
+      "id": "yusuf-d",
+      "agent": 98,
+      "name": "Yusuf D.",
+      "type": "owner",
+      "filing": "joint",
+      "mode": "none"
+    }
   ]
 }

@@ -80,18 +80,19 @@ const talk = (body, env = {}, ip) => call(talkHandle, body, env, ip);
 
 test('showcase residents are seed-7 year-0 households that still match their labels, covering every type', () => {
   const { agents } = simulate(runModels([], {}, zones, assumptions, baselines).inputs, assumptions, baselines, 7);
-  assert.equal(residents.length, 12);
-  assert.equal(new Set(residents.map(r => r.id)).size, 12);
+  assert.equal(residents.length, 50);
+  assert.equal(new Set(residents.map(r => r.id)).size, 50);
+  assert.equal(new Set(residents.map(r => r.agent)).size, 50, 'fifty different households');
   for (const r of residents) {
     const a = agents[r.agent];
     assert.equal(a.joined, 0, r.id);
-    assert.equal(a.first, r.name, `${r.id}: the household at agent ${r.agent} changed; re-pick the showcase`); // names carry a last initial now ("Uma K.")
+    assert.ok(r.name === a.first || r.name === a.name, `${r.id}: the household at agent ${r.agent} changed; re-pick the showcase`); // a first name, or with its last initial ("Wren B.") where two share one
     assert.equal(r.mode === 'none', a.work === 'remote', `${r.id}: only remote workers have no commute`);
     assert.equal(r.type === 'student', a.student, r.id);
     if (r.type === 'commuter') assert.equal(a.work, 'durham', r.id);
     if (r.type === 'owner' || r.type === 'family') assert.equal(a.renter, r.type === 'family', r.id);
   }
-  for (const type of ['student', 'family', 'owner', 'commuter']) assert.equal(residents.filter(r => r.type === type).length, 3, type);
+  for (const [type, n] of Object.entries({ student: 12, family: 13, owner: 13, commuter: 12 })) assert.equal(residents.filter(r => r.type === type).length, n, type);
 });
 
 test('take-home pay: federal and NC income tax and payroll tax at 2026 law, worked by hand', () => {
@@ -166,7 +167,7 @@ test('calibration: with no policy, households paying under 30% of income in rent
     if (burden < 0.3) assert.equal(s.noPolicy.savingsOut, null, `${r.id}: burden ${burden.toFixed(2)}`);
     else assert.ok(a.renter, `${r.id}: only renters are strained`);
   }
-  assert.ok(solvent >= 7, `${solvent} of 12 solvent`);
+  assert.ok(solvent >= residents.length / 2, `${solvent} of ${residents.length} solvent`);
 });
 
 test('students, and renters paying over 30% of income in rent, cover the gap by borrowing; nobody else does', async () => {
@@ -233,15 +234,15 @@ test('seeding is idempotent: merchants, then a customer with checking and saving
   await withFetch({}, async calls => {
     const saved = [];
     const b = await seedBank({ NESSIE_API_KEY: KEY }, { merchants: {}, residents: {} }, residents, async x => saved.push(structuredClone(x)));
-    assert.equal(calls.length, 2 + 4 * 12);
+    assert.equal(calls.length, 2 + 4 * residents.length);
     assert.deepEqual(Object.keys(b.residents), residents.map(r => r.id));
     assert.ok(Object.values(b.residents).every(r => r.customer && r.checking && r.savings && r.loan));
-    assert.equal(saved.length, 2 + 4 * 12, 'saved after every id Nessie returns');
+    assert.equal(saved.length, 2 + 4 * residents.length, 'saved after every id Nessie returns');
     await seedBank({ NESSIE_API_KEY: KEY }, b, residents);
-    assert.equal(calls.length, 2 + 4 * 12);
+    assert.equal(calls.length, 2 + 4 * residents.length);
     delete b.residents.uma.loan; // an older entry without a loan account gets just that
     await seedBank({ NESSIE_API_KEY: KEY }, b, residents);
-    assert.equal(calls.length, 2 + 4 * 12 + 1);
+    assert.equal(calls.length, 2 + 4 * residents.length + 1);
   });
 });
 

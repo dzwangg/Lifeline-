@@ -1,5 +1,5 @@
 // Households from the agent model (shared/agents.js) on the city. Each simulated household is a person on the street
-// (world/households.js): it walks between home and work through the street's day, newcomers walk in from the map's
+// (world/households.js): it stands at its home; newcomers walk in from the map's
 // edge in the year they arrive and leavers walk off it. Over each one's head floats a small dot in its rent burden
 // colour for the shown year (grey for owners), with the world's ink border; zoomed out past where walkers draw, the
 // dots stay, at the households' homes. Dots keep one size on screen at every zoom and draw over buildings and trees.
@@ -28,7 +28,6 @@ const LOAD = [[.8, GREEN], [1, AMBER], [Infinity, RED]]; // road volume / capaci
 const band = (bands, v) => bands.find(([max]) => v < max)[1];
 const CAPACITY = 800; // dots; the model makes ~350-450 households
 const DOT_PX = 6, LIFT_PX = 5, BORDER_PX = 1.5; // dot width, how far it floats (over the head, or the home), and its ink border, in rendered pixels
-const WORK_DOORS = { campus: new Set(['campus']), downtown: new Set(['shop', 'office', 'civic']) }; // building families people work in
 // The road tint, mixed into the asphalt colour: subtle by default, strong on hover, and full strength in the 15-501
 // view. Its width is a share of the carriageway, never under 3 rendered pixels so it survives the far zooms; in the
 // 15-501 view it covers the whole carriageway and at least 6 pixels, since that view is zoomed far out.
@@ -141,7 +140,7 @@ export function mountAgentLayer({ world, osm, zones }) {
 
   let hovered = false, roadFocus = false;
   const tint = () => { roadMat.color.copy(ASPHALT).lerp(road.userData.color, roadFocus ? TINT.view : hovered ? TINT.hover : TINT.rest); };
-  const syncWalkers = played => households?.sync(agents, pos, t, played, world.traffic.hour());
+  const syncWalkers = played => households?.sync(agents, pos, t, played);
   simClock.subscribe(({ shown, before }) => {
     if (!shown?.data) return;
     const r = shown.data.run, y = before ? 0 : shown.step;
@@ -168,16 +167,13 @@ export function mountAgentLayer({ world, osm, zones }) {
 
   // Street life loads after the first frame; then the households take to the street.
   world.trafficReady.then(traffic => {
-    const doors = Object.fromEntries(Object.entries({ campus: CAMPUS, downtown: DOWNTOWN }).map(([kind, box]) =>
-      [kind, traffic.doors.filter(d => d.node && WORK_DOORS[kind].has(d.family) && inBox(box, d.x, d.z))]));
-    const exits = trunks.flatMap(q => [[q.r[0], q.r[1]], [q.r.at(-2), q.r.at(-1)]]).filter(([x, z]) => E - Math.max(Math.abs(x), Math.abs(z)) < 40);
-    households = world.households = createHouseholds({ sim: traffic.sim, doors, exits, ext: E - 4 }); // world.households for tooling
+    households = world.households = createHouseholds({ sim: traffic.sim, ext: E - 4 }); // world.households for tooling
     traffic.onHousehold(id => { world.selection.select(null); scenario.set({ resident: id }); });
     if (run) syncWalkers(false);
   });
 
   onFrame(() => {
-    if (households) households.update(world.traffic.hour());
+    if (households) households.update();
     if (run && (view.ppm !== drawnPpm || onHeads())) draw(); // over the heads, the dots move with the walkers
     if (!roadPpm || Math.abs(Math.log(view.ppm / roadPpm)) > .2) shapeRoad(view.ppm); // as the zoom eases, not every frame
   });

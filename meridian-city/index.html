@@ -174,7 +174,6 @@ progress('Placing households…', .88); await frame();
 let t = performance.now();
 mountZoneLayer({ world, zones: ZONES });
 mountAgentLayer({ world, osm: OSM, zones: ZONES });
-world.trafficReady.then(traffic => $('clock').setHour(traffic.hour)); // the street's time of day, under the date (clock-bar.js)
 mountFocus({ world, osm: OSM, zones: ZONES });
 mountWipe({ world });
 timings.simLayers = Math.round(performance.now() - t);

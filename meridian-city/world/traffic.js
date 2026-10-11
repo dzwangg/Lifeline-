@@ -17,7 +17,7 @@ import { buildRoadNet, buildWalkNet } from './roadnet.js';
 import { createStreetSim } from './street-sim.js';
 import { paintPeopleAtlas, LOOKS } from './people-art.js';
 import { createSpriteSystem } from './sprites.js';
-import { hourAt, pickWalker } from './households.js';
+import { pickWalker } from './households.js';
 
 // ---------- vehicle atlas: alpha 255 marks paintable body, 254 keeps the pixel's own colour ----------
 function vehicleAtlas() {
@@ -415,7 +415,8 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
     if (!down || e.target !== canvas || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5 || performance.now() - down.t > 450) return;
     const best = pickAt(e.clientX, e.clientY);
     // Claim the click without stopping it: the map's pan control must still see the release, or it keeps dragging.
-    if (best) { e.preventDefault(); down = null; if (best.owner != null) { select(null); onHousehold(best.owner); } else select(best); }
+    // Only households (the walkers with a dot) open a card; ambient walkers open nothing.
+    if (best?.owner != null) { e.preventDefault(); down = null; select(null); onHousehold(best.owner); }
     else if (selected) select(null);
   }, true);
   addEventListener('keydown', e => { if (e.key === 'Escape' && selected && !e.target.closest?.('[role="dialog"]')) select(null); });
@@ -428,8 +429,6 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
     /** fn(household id) when a household's walker is clicked. */
     onHousehold(fn) { onHousehold = fn; },
     pickAt, householdHeads, doors,
-    /** The hour of the street's day (households.js DAY_S), which runs in real time. */
-    hour: () => hourAt(sim.time),
     /** Where a walker's body is on screen, in client pixels (for tests and tooling). */
     screenOf(p) {
       const cam = view.renderCam, rect = canvas.getBoundingClientRect();

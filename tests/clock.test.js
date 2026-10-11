@@ -61,6 +61,28 @@ test('pausing freezes time and the shown state; resuming continues from there', 
   assert.equal(r.clock.get().step, 2);
 });
 
+test('the speed is picked apart from play and pause, starts at 1x and holds through repeated toggling', async () => {
+  const r = rig();
+  await r.settle();
+  assert.equal(r.clock.get().speed, 1);
+  r.clock.setSpeed(4); // paused: picks the speed, doesn't play
+  assert.deepEqual([r.clock.get().playing, r.clock.get().speed, r.clock.tick(1 / 60)], [false, 4, 0]);
+  for (let i = 0; i < 7; i++) r.clock.toggle(); // an odd number of presses: playing
+  assert.deepEqual([r.clock.get().playing, r.clock.get().speed], [true, 4]);
+  const t0 = r.clock.get().years;
+  r.clock.tick(.1); // one tick moves the clock once, at 4x: no second loop or doubled speed
+  assert.ok(Math.abs(r.clock.get().years - t0 - .4) < 1e-9);
+  r.clock.setSpeed(2); // playing: changes the speed, keeps playing
+  assert.deepEqual([r.clock.get().playing, r.clock.get().speed], [true, 2]);
+  r.clock.toggle(); r.clock.toggle(); // pause and resume
+  assert.deepEqual([r.clock.get().playing, r.clock.get().speed], [true, 2]);
+  let emits = 0; const off = r.clock.subscribe(() => emits++); emits = 0;
+  r.clock.setSpeed(2); // already the speed: nothing changes
+  assert.equal(emits, 0);
+  off();
+  assert.throws(() => r.clock.setSpeed(3), RangeError);
+});
+
 test('every speed shows the same state at the same simulated date, and no year is skipped', async () => {
   const at = {};
   for (const [speed, dt] of [[1, 1 / 60], [2, 1 / 30], [4, 1 / 60], [4, .1], [4, 3]]) { // dt 3 s: a background tab

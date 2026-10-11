@@ -79,8 +79,9 @@ h1, h2, h3, .pp-title, .pp-col__title, .building-card__title { font-family: var(
 .clock-sub { font: 12px var(--ae-pixel) !important; color: var(--ae-ink-soft) !important; }
 .clock-speed { color: var(--ae-aqua-dark); }
 .clock-btn { transition: filter .15s, box-shadow .15s; }
+.clock-btn-text { font: 600 13px var(--ae-pixel); line-height: 1; }
 .clock-btn:hover:not([aria-pressed="true"]) { box-shadow: inset 0 2px 0 #ffffff, inset 0 -3px 0 #4fb8e0, 0 2px 0 var(--ae-navy), 0 0 10px rgba(47, 198, 232, .55) !important; }
-/* The running speed (or Pause) is lit: the policy chips' pressed gloss plus a soft aqua halo. */
+/* The selected speed is lit, paused or playing: the policy chips' pressed gloss plus a soft aqua halo. */
 .clock-btn[aria-pressed="true"] {
   color: #ffffff !important;
   background: linear-gradient(180deg, #9ee8ff 0 46%, var(--ae-aqua) 46% 100%) !important;
@@ -164,6 +165,8 @@ h1, h2, h3, .pp-title, .pp-col__title, .building-card__title { font-family: var(
   .tool-btn svg { width: 16px; height: 16px; }
   .tool-btn.clock-btn { width: auto; min-width: 30px; padding: 0 5px; }
   .tool-btn.clock-btn svg { width: auto; height: 16px; }
+  .tool-btn.clock-toggle { min-width: 66px; }
+  .clock-rates { gap: 4px; }
   /* The building card takes the info plate's place at the bottom while it is open. */
   .building-card { left: 16px; right: 16px; top: auto; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: auto; z-index: 36; }
 }

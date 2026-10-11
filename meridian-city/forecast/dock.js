@@ -125,7 +125,7 @@ export async function mountForecastDock({ policyStore, host = document.body, onR
     const back = btn('Step back one year', '<svg viewBox="0 0 9 9" aria-hidden="true"><path fill="currentColor" d="M2 4h1v1H2zM3 3h1v3H3zM4 2h1v5H4zM5 1h1v7H5z"/></svg>', () => simClock.seek(simClock.get().step - 1), ',');
     const play = btn('Play', '', () => simClock.toggle(), 'Space');
     const fwd = btn('Step forward one year', '<svg viewBox="0 0 9 9" aria-hidden="true"><path fill="currentColor" d="M3 1h1v7H3zM4 2h1v5H4zM5 3h1v3H5zM6 4h1v1H6z"/></svg>', () => simClock.seek(simClock.get().step + 1), '.');
-    const speed = h('select', { class: 'fc-speed', 'aria-label': 'Playback speed', onchange: e => { if (simClock.get().playing) simClock.play(+e.target.value); } },
+    const speed = h('select', { class: 'fc-speed', 'aria-label': 'Playback speed', onchange: e => simClock.setSpeed(+e.target.value) },
       SPEEDS.map(v => h('option', { value: v }, `${v}×`)));
     const scrub = h('input', { type: 'range', class: 'fc-scrub', min: 0, max: simClock.get().steps, step: 1, value: 0, 'aria-label': 'Forecast year',
       oninput: e => simClock.seek(+e.target.value) });

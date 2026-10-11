@@ -57,16 +57,14 @@ square. The camera position is recomputed from `target`, azimuth and zoom every 
 `view.target`, `view.lookAt()` and `view.zoomTo()`, not by setting `camera.position`.
 
 **Frame loop.** `world.update(dt, simDt)` runs once per frame. `dt` is real seconds, used for the camera, the
-selection pulse and street life (cars, walkers, signals and the households' day), so the map stays usable and the
+selection pulse and street life (cars, walkers and signals), so the map stays usable and the
 street keeps moving while the sim is paused. `simDt` is simulated seconds, used for the rest that moves: wind, water
 and turbines. It defaults to `dt`, so the world runs on real time when no clock is attached. In `index.html` the sim
 clock supplies it (see [The clock](#the-clock)).
 
 **Households on the street.** `world/households.js` turns the household model's run into walkers: the street sim adds
-one per household (`sim.addPed`), each with a look seeded from its id, and sends it where its day says
-(`sim.sendPed`): home, a campus or downtown door, 15-501's edge for Durham commuters (who are out of sight until
-evening), or a short walk near home for people who work from home. A day lasts `DAY_S` (150) real seconds and loops;
-`traffic.hour()` gives the hour and the clock bar shows it. A long trip shows only its two ends (`SHOW_M` at each).
+one per household (`sim.addPed`), each with a look seeded from its id, standing at its home. The street has no time
+of day: households move only when the forecast's year changes. A long trip shows only its two ends (`SHOW_M` at each).
 `sim/agent-layer.js` feeds it the shown year (newcomers walk in from the map's edge and leavers walk off it when
 playback steps into their year) and floats a rent-burden dot over each household's head, or at its home when zoomed
 out past the walkers.
@@ -292,11 +290,11 @@ store (the picked resident, the 15-501 view) doesn't bump it.
 **Animating on sim time.** `onFrame((dt, simDt) => …)` registers a per-frame callback on the shared loop. `simDt` is 0
 while paused or holding for a prediction. `index.html` runs the world with `onFrame((dt, simDt) => world.update(dt,
 simDt))`. Anything else that should freeze with the sim should use `simDt` the same way. Street life deliberately
-doesn't: it runs on `dt`, so the street's day goes on while a year is paused for inspection.
+doesn't: it runs on `dt`, so cars and walkers keep moving while a year is paused for inspection.
 
 **The clock bar** (`sim/clock-bar.js`, `mountClockBar()`) is a thin view over this. It subscribes and shows `simDate`,
-the speed and a status line (loading, failed, end of forecast, and how many new homes didn't fit), and faintly beside them
-the street's time of day once street life has loaded (`bar.setHour(traffic.hour)`). Its buttons call `pause()` and
+the speed and a status line (loading, failed, end of forecast, and how many new homes didn't fit). The date is the only
+time it shows: it advances with the forecast and holds while paused; there is no time-of-day clock. Its buttons call `pause()` and
 `play(1|2|4)`. Space calls `toggle()`, and 1, 2 and 4 call `play(n)`, except while typing or with a dialog open.
 `sim-plate.js` uses the same clock for its year slider (`seek`), "show before" checkbox (`setBefore`) and metrics
 (the shown year's, compared with the same year with no new policy, `shown.data.run.noPolicy`). The household layer

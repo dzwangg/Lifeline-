@@ -113,6 +113,12 @@ export function createClock({ steps, predict, yearMs = 1000 }) {
     },
     pause() { if (!playing) return; stop(); emit(); },
     toggle() { if (playing) clock.pause(); else clock.play(); },
+    /** Picks the speed without playing or pausing: it applies now if playing, and on the next Play if not. */
+    setSpeed(s) {
+      if (!SPEEDS.includes(s)) throw new RangeError(`speed ${s}`);
+      if (s === speed) return;
+      speed = s; emit();
+    },
 
     /** Jumps to a step and shows it as soon as it is predicted. Pauses: scrubbing is inspection, not playback. */
     seek(s) {

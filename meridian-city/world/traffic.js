@@ -5,9 +5,9 @@
 // zebras and stop lines painted on the road.
 // People: individual walkers drawn from people-art.js: eight facing directions, idle and walking frames, ground
 // shadows, three levels of detail, and only the ones on screen are written to the instance buffers.
-// Every walker is a resident (shared/residents.js): the street sim's own walkers are street residents, and the sim's
-// households walk here too (households.js, added with addPed), drawn in the same layers. Clicking any walker opens its
-// resident card (onResident); residentHeads places each one's status dot (agent-layer.js). Street life runs in real time
+// The sim's households walk here too (households.js, added with addPed), drawn in the same layers as the street's own
+// walkers. Only a household's walker carries a status dot (residentHeads, agent-layer.js) and opens a resident card
+// when clicked (onResident), with its income and bank; the other walkers are street life, with no dot and no card. Street life runs in real time
 // while the clock plays and holds still while it is paused (update()); picking and the cards work either way.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
 import { P, CAMERA, RENDER } from './palette.js';
@@ -309,7 +309,7 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
       shadows.mesh.setMatrixAt(n, m4.makeTranslation(x + .12, .085, z - .08));
       uvS.set(shadowS.uv, n * 4); szS[n * 3] = .95; szS[n * 3 + 1] = .5; szS[n * 3 + 2] = 0;
       visible.push(p, (cx + 1) / 2, (1 - cy) / 2);
-      if (p.resident != null) residentHeads.set(p.resident, { x, y: s.h * stretch, z });
+      if (p.owner != null && p.resident != null) residentHeads.set(p.resident, { x, y: s.h * stretch, z }); // households only
       if (followed !== null && p.resident === followed) selected = p;
       n++;
     }
@@ -362,7 +362,8 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
     if (!down || e.target !== canvas || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5 || performance.now() - down.t > 450) return;
     const best = pickAt(e.clientX, e.clientY);
     // Claim the click without stopping it: the map's pan control must still see the release, or it keeps dragging.
-    if (best?.resident != null) { e.preventDefault(); down = null; onSelect(best); onResident(best.resident); }
+    // Only households (the walkers with a dot) open a card; the other walkers open nothing.
+    if (best?.owner != null && best.resident != null) { e.preventDefault(); down = null; onSelect(best); onResident(best.resident); }
   }, true);
 
   return {

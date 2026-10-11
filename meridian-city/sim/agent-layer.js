@@ -1,8 +1,8 @@
 // Residents on the city. Each household of the agent model (shared/agents.js) is a person on the street
 // (world/households.js): it stands at its home; newcomers walk in from the map's edge in the year they arrive and
-// leavers walk off it. Street life's other walkers are street residents (shared/agents.js streetAgent). Every walker
-// on screen has a status dot over its head, riding with it: its rent burden colour for the shown year (grey for
-// owners, residents.js statusOf), with the world's ink border. Zoomed out past where walkers draw, the households'
+// leavers walk off it. Each household's walker has a status dot over its head, riding with it: its rent burden colour
+// for the shown year (grey for owners, residents.js statusOf), with the world's ink border; street life's other walkers
+// have none. Zoomed out past where walkers draw, the households'
 // dots stay, at their homes. Dots keep one size on screen at every zoom and draw over buildings and trees.
 // The trunk roads (15-501) carry a thin tint in the model's road load colour, with travel time on hover. Hovering a
 // resident (its dot or its walker) shows its name; clicking one opens its resident card in the sim panel.
@@ -112,7 +112,7 @@ export function mountAgentLayer({ world, osm, zones }) {
 
   const _m = new THREE.Matrix4(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
   let run = null, agents = [], pos = [], t = -1, resident = null, drawnPpm = 0, households = null;
-  // Walkers draw from PEOPLE_FAR_PPM in: there every walker on screen has its dot over its head (traffic.js
+  // Walkers draw from PEOPLE_FAR_PPM in: there every household's walker on screen has its dot over its head (traffic.js
   // residentHeads), and a household's dot is hidden while its walker is (in Durham, between a trip's ends, off screen).
   // Further out, or before street life has loaded, the households' dots are at their homes.
   const onHeads = () => households && view.ppm >= PEOPLE_FAR_PPM;

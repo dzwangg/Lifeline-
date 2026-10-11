@@ -271,7 +271,7 @@
 .sim__resident:empty { display: none; }
 
 /* Resident card: the household picked on the map. */
-.resident { padding: 10px 12px; border-radius: 8px; background: linear-gradient(180deg, #ffffff 0 45%, #e3f6fc 45% 100%); border: 2px solid var(--ae-navy, #1c2c5e); box-shadow: 0 3px 0 rgba(28, 44, 94, .35); }
+.resident { padding: 10px 12px; border-radius: 8px; background: #ffffff; border: 2px solid var(--ae-navy, #1c2c5e); box-shadow: 0 3px 0 rgba(28, 44, 94, .35); }
 .resident__head { display: flex; align-items: center; justify-content: space-between; }
 .resident__head h3 { margin: 0; font-size: 15px; }
 .resident__close {

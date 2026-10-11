@@ -27,6 +27,7 @@
 }
 .plate { padding: 12px 15px !important; }
 #hud, #alt { z-index: 10; } /* above the drifting bubbles */
+#hud { background: var(--ae-glass-top) !important; } /* one white pane: no blue lower half behind the stats and hints */
 body { background: #7fd6f5 !important; font-family: var(--ae-body); }
 h1, h2, h3, .pp-title, .pp-col__title, .building-card__title { font-family: var(--ae-pixel) !important; letter-spacing: .01em; }
 

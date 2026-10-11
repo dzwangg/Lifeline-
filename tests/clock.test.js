@@ -66,7 +66,7 @@ test('every speed shows the same state at the same simulated date, and no year i
   for (const [speed, dt] of [[1, 1 / 60], [2, 1 / 30], [4, 1 / 60], [4, .1], [4, 3]]) { // dt 3 s: a background tab
     const r = rig();
     await r.settle();
-    const seen = await playTo(r, speed, dt, YEARS);
+    const seen = await playTo(r, speed, dt, YEARS + 1); // through the last year, until it stops
     const steps = [...new Set(seen.map(s => s.step))];
     assert.deepEqual(steps, Array.from({ length: YEARS + 1 }, (_, i) => i), `speed ${speed}, dt ${dt}`);
     for (const s of seen) { // the state on screen is a function of the date alone
@@ -176,3 +176,44 @@ test('seek shows a year at once while paused; Play at the end starts over', asyn
   assert.equal(r.clock.get().step, 0);
   assert.equal(r.clock.get().playing, true);
 });
+
+test('the last year plays its transition out before playback stops, so its conversions are drawn', async () => {
+  const r = rig();
+  await r.settle();
+  r.clock.play(4);
+  let atLast = null;
+  for (let i = 0; i < 10000 && r.clock.get().playing; i++) {
+    await r.settle();
+    r.clock.tick(1 / 60);
+    const s = r.clock.get();
+    if (s.step === YEARS && !atLast) atLast = s;
+  }
+  assert.ok(atLast, 'reached the last year');
+  assert.equal(atLast.playing, true, 'still playing when the last year is committed');
+  assert.equal(atLast.shown.tween, true, 'played into, so the zone layer animates it');
+  const end = r.clock.get();
+  assert.equal(end.playing, false);
+  assert.equal(end.shown.step, YEARS);
+  assert.equal(end.frac, 1, 'the transition (driven by frac) ran to the end');
+  assert.equal(end.loading, false);
+});
+
+for (const [how, stop] of [['pausing', c => c.pause()], ['showing year 0', c => c.setBefore(true)]]) {
+  test(`${how} while a changed forecast is on its way shows it once it lands`, async () => {
+    const r = rig();
+    await r.settle();
+    await playTo(r, 1, 1 / 60, 2.5);
+    r.runs[1] = runScenario([], {}, zones, assumptions, baselines, YEARS);
+    r.clock.invalidate(1);
+    stop(r.clock);
+    assert.equal(r.clock.get().playing, false);
+    assert.equal(r.clock.get().shown.version, 0, 'the old forecast stays until the new one lands');
+    await r.settle();
+    for (let i = 0; i < 5; i++) r.clock.tick(1 / 60); // paused: ticks do nothing
+    const s = r.clock.get();
+    assert.equal(s.shown.version, 1, 'the new forecast is shown');
+    assert.equal(s.stale, false);
+    assert.equal(s.loading, false);
+    assert.deepEqual(s.shown.data, r.runs[1].timeline[2]);
+  });
+}

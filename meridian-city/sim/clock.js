@@ -67,6 +67,13 @@ export function createClock({ steps, predict, yearMs = 1000 }) {
     };
   }
 
+  // Playback stops. A changed scenario that was waiting to be picked up on the next tick is shown as soon as it lands
+  // instead, as it would be had the change come while paused.
+  function stop() {
+    playing = false;
+    if (needCommit === 'resume') { needCommit = 'show'; if (ready(step)) commit(step, false); }
+  }
+
   const clock = {
     get,
     subscribe(fn) { listeners.add(fn); fn(get()); return () => listeners.delete(fn); },
@@ -84,8 +91,8 @@ export function createClock({ steps, predict, yearMs = 1000 }) {
         if (step < steps && ready(step + 1)) {
           step++; frac = Math.min(frac - 1, .999); // one year per tick at most, so none is skipped
           commit(step, true);
-          if (step === steps) { frac = 0; playing = false; } // the end of the forecast
-        } else frac = 1; // hold at the last complete step until the next prediction is in
+        } else if (step === steps) { frac = 1; playing = false; } // the end of the forecast, once its last year has played out
+        else frac = 1; // hold at the last complete step until the next prediction is in
       }
       emit();
       return (step + frac - t0) * yearMs / 1000;
@@ -101,7 +108,7 @@ export function createClock({ steps, predict, yearMs = 1000 }) {
       if (needCommit && ready(step)) commit(step, false);
       emit();
     },
-    pause() { if (!playing) return; playing = false; emit(); },
+    pause() { if (!playing) return; stop(); emit(); },
     toggle() { if (playing) clock.pause(); else clock.play(); },
 
     /** Jumps to a step and shows it as soon as it is predicted. Pauses: scrubbing is inspection, not playback. */
@@ -112,7 +119,7 @@ export function createClock({ steps, predict, yearMs = 1000 }) {
       if (ready(s)) commit(s, false);
       emit();
     },
-    setBefore(b) { before = !!b; if (before) playing = false; emit(); },
+    setBefore(b) { before = !!b; if (before && playing) stop(); emit(); },
 
     /** The scenario's inputs changed, so earlier predictions are stale. Playback holds until the new ones arrive;
      *  paused, the new forecast for the shown year replaces the old one as soon as it lands. */

@@ -129,9 +129,16 @@ export function createView(container, { ext }) {
     ray.setFromCamera(ndcOf(sx, sy), camera);
     return ray.ray.intersectPlane(ground, new THREE.Vector3());
   }
-  ray.layers.enable(2); // the current side of the before/after wipe (render(), below)
+  // The before/after wipe's side under screen x (render(), below): 1, year 0, left of the split; 2, the shown year,
+  // right of it or with no split. Raycasts hit the city (layer 0) and that side's layer.
+  function sideAt(sx) {
+    if (split == null) return 2;
+    const r = renderer.domElement.getBoundingClientRect();
+    return (sx - r.left) / r.width < split ? 1 : 2;
+  }
   function raycastScreen(sx, sy, objects) {
     setFrustum(camera); camera.updateMatrixWorld();
+    ray.layers.set(0); ray.layers.enable(sideAt(sx));
     ray.setFromCamera(ndcOf(sx, sy), camera);
     return ray.intersectObjects(objects, false);
   }
@@ -151,10 +158,15 @@ export function createView(container, { ext }) {
     zoomTo(level + (wheelAcc < 0 ? 1 : -1), e.clientX, e.clientY);
     wheelAcc = 0;
   }, { capture: true, passive: false });
+  // A pinch changes camera.zoom, which update() folds into ppm every frame, so whether the gesture zoomed is tracked
+  // (pinched) rather than read from camera.zoom at the end.
+  let pinched = false;
+  controls.addEventListener('start', () => { pinched = false; });
   controls.addEventListener('end', () => { // after a pinch, settle on the nearest zoom level
-    if (camera.zoom === 1) return;
-    const want = ppm * camera.zoom;
-    camera.zoom = 1; ppm = want;
+    if (camera.zoom !== 1) { ppm *= camera.zoom; camera.zoom = 1; pinched = true; }
+    if (!pinched) return;
+    pinched = false;
+    const want = ppm;
     let best = 0;
     ZOOMS.forEach((z, i) => { if (Math.abs(Math.log(z / want)) < Math.abs(Math.log(ZOOMS[best] / want))) best = i; });
     zoomTo(best);
@@ -184,7 +196,7 @@ export function createView(container, { ext }) {
   const right = new THREE.Vector3(), up = new THREE.Vector3();
   function update(dt) {
     // Zoom and rotation ease toward their goals.
-    if (camera.zoom !== 1 && !anchor) { ppm *= camera.zoom; camera.zoom = 1; ppmGoal = ppm; }
+    if (camera.zoom !== 1 && !anchor) { ppm *= camera.zoom; camera.zoom = 1; ppmGoal = ppm; pinched = true; }
     const k = 1 - Math.exp(-dt * 12);
     if (Math.abs(ppmGoal - ppm) > 1e-4) ppm = Math.abs(ppmGoal - ppm) < ppmGoal * .002 ? ppmGoal : Math.exp(Math.log(ppm) + (Math.log(ppmGoal) - Math.log(ppm)) * k);
     if (Math.abs(azimuthGoal - azimuth) > 1e-4) { azimuth += (azimuthGoal - azimuth) * k; if (Math.abs(azimuthGoal - azimuth) < 1e-3) azimuth = azimuthGoal; placeCamera(); }
@@ -246,7 +258,7 @@ export function createView(container, { ext }) {
   return {
     renderer, scene, camera, renderCam, controls, target, sun,
     get ppm() { return ppm; }, get level() { return level; }, get azimuth() { return azimuth; },
-    update, render, rotate, zoomTo, zoomBy: d => zoomTo(level + d), screenToGround, raycastScreen,
+    update, render, rotate, zoomTo, zoomBy: d => zoomTo(level + d), screenToGround, raycastScreen, sideAt,
     get split() { return split; }, set split(v) { split = v == null ? null : THREE.MathUtils.clamp(v, 0, 1); }, // the wipe, 0..1 from the left
     onChange(f) { listeners.add(f); f({ level, ppm: ppmGoal, azimuth: azimuthGoal }); return () => listeners.delete(f); },
     lookAt(x, z) { const d = new THREE.Vector3(x - target.x, 0, z - target.z); target.add(d); camera.position.add(d); },

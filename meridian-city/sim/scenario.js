@@ -77,9 +77,14 @@ export const highlight = {
 // ?latency=ms delays each answer, to see the clock hold and the loading indicator.
 export const YEARS = 10;
 const latency = +query.get('latency') || 0;
-const runs = new Map(); // version -> { promise, resolve, reject }
+const runs = new Map(); // version -> { promise, resolve, reject, failed }
 const runFor = version => {
-  if (!runs.has(version)) { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); promise.catch(() => {}); runs.set(version, { promise, resolve, reject }); }
+  if (!runs.has(version)) {
+    let resolve, reject;
+    const run = { promise: new Promise((a, b) => { resolve = a; reject = b; }) };
+    run.promise.catch(() => { run.failed = true; }); // a later request for this version sends a new job (predict)
+    runs.set(version, Object.assign(run, { resolve, reject }));
+  }
   return runs.get(version);
 };
 let timer;
@@ -87,11 +92,15 @@ function rerun() {
   clearTimeout(timer);
   const version = state.version;
   timer = setTimeout(async () => {
-    const [zones, assumptions, baselines] = await dataReady;
+    await dataReady;
     if (version !== state.version) return;
     for (const [v, run] of runs) if (v < version) { run.reject(new Error('stale scenario')); runs.delete(v); }
-    runSim({ version, cards: state.cards, params: state.params, zones, assumptions, baselines });
+    send(version);
   }, 120);
+}
+async function send(version) { // the worker job for the current inputs
+  const [zones, assumptions, baselines] = await dataReady;
+  if (version === state.version) runSim({ version, cards: state.cards, params: state.params, zones, assumptions, baselines });
 }
 // One run at a time in the worker; while it is busy only the newest request waits, and older answers are dropped.
 const simWorker = new Worker(new URL('./sim-worker.js', import.meta.url), { type: 'module' });
@@ -120,6 +129,8 @@ simWorker.onerror = e => {
 // One step of a version's run: that year's { zoneStates, metrics }, plus the whole run for the layers that need more
 // (the no-policy comparison, the household model's averages and households). Every step of a version shares one run.
 export const predict = async (version, step) => {
+  // A run that failed is retried when the clock asks again (Play retries): a fresh run, and a new job for the worker.
+  if (runs.get(version)?.failed && version === state.version) { runs.delete(version); send(version); }
   const run = await runFor(version).promise;
   if (latency) await new Promise(r => setTimeout(r, latency * (.5 + Math.random())));
   return { ...run.result.timeline[step], run };

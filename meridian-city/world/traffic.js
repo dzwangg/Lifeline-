@@ -386,6 +386,9 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
   const canvas = view.renderer.domElement;
   canvas.addEventListener('pointerdown', e => { if (e.button === 0) down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
   addEventListener('pointerup', e => {
+    // Another layer listening first (the sim's household markers) may have claimed the click: leave it, but forget the
+    // press. The event goes on either way, since the map's pan control needs the release.
+    if (e.defaultPrevented) { down = null; return; }
     if (!down || e.target !== canvas || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5 || performance.now() - down.t > 450) return;
     const rect = canvas.getBoundingClientRect();
     let best = null, bd = 16 * 16;

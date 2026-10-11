@@ -1,6 +1,7 @@
 // The before/after wipe: a divider over the map with year 0 on its left and the shown year on its right. world/view.js
 // draws the two sides; the zone and household layers keep a year-0 copy for the left. scenario.wipe turns it on (the
-// panel's "Before / after" button). Drag the handle, or focus it and use the arrow keys.
+// panel's "Before / after" button), which turns "Show before" off; turning that on turns the wipe off. Drag the handle,
+// or focus it and use the arrow keys.
 import { scenario, simClock } from './scenario.js';
 import { simDate } from './clock-bar.js';
 
@@ -36,5 +37,8 @@ export function mountWipe({ world, host = document.body }) {
     if (wipe) simClock.setBefore(false); // the right side is the shown year
     place();
   });
-  simClock.subscribe(({ shown, years }) => { if (shown) after.textContent = `Year ${shown.step} · ${simDate(years)}`; });
+  simClock.subscribe(({ shown, years, before }) => {
+    if (shown) after.textContent = `Year ${shown.step} · ${simDate(years)}`;
+    if (before && scenario.get().wipe) scenario.set({ wipe: false }); // "Show before" would draw year 0 on both sides
+  });
 }

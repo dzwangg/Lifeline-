@@ -87,7 +87,7 @@ export function mountAgentLayer({ world, osm, zones }) {
     set.markers.setColorAt(0, OWNER); set.leaving.setColorAt(0, OWNER); // allocate the colour buffers
     return set;
   };
-  const current = markerSet(2), { markers } = current;
+  const current = markerSet(2);
   let yearZero = null; // the wipe's year-0 side, made the first time the wipe is on
 
   // 15-501: the trunk roads inside the map. The tint covers the middle of each carriageway, clipped to the map's edge.
@@ -168,7 +168,9 @@ export function mountAgentLayer({ world, osm, zones }) {
   tip.className = 'agent-tip';
   tip.hidden = true;
   document.body.append(tip);
-  const hit = e => view.raycastScreen(e.clientX, e.clientY, [markers])[0] ?? view.raycastScreen(e.clientX, e.clientY, [road])[0];
+  // The markers under the pointer: year 0's left of the wipe's split, the shown year's elsewhere (view.sideAt).
+  const markersAt = e => (view.sideAt(e.clientX) === 1 && yearZero ? yearZero : current).markers;
+  const hit = e => view.raycastScreen(e.clientX, e.clientY, [markersAt(e)])[0] ?? view.raycastScreen(e.clientX, e.clientY, [road])[0];
   const hover = on => { if (hovered !== on) { hovered = on; tint(); } };
   let pending = null, down = null;
   dom.addEventListener('pointermove', e => {
@@ -179,7 +181,7 @@ export function mountAgentLayer({ world, osm, zones }) {
       pending = null;
       if (ev.buttons || !run) { tip.hidden = true; dom.style.cursor = ''; hover(false); return; }
       const h = hit(ev);
-      dom.style.cursor = h?.object === markers ? 'pointer' : '';
+      dom.style.cursor = h && h.object !== road ? 'pointer' : '';
       hover(h?.object === road);
       if (!h) { tip.hidden = true; return; }
       const y = road.userData;
@@ -200,7 +202,7 @@ export function mountAgentLayer({ world, osm, zones }) {
     const d = down;
     down = null;
     if (!d || e.target !== dom || Math.hypot(e.clientX - d[0], e.clientY - d[1]) > 5 || performance.now() - d[2] > 450 || !run) return;
-    const h = view.raycastScreen(e.clientX, e.clientY, [markers])[0];
+    const h = view.raycastScreen(e.clientX, e.clientY, [markersAt(e)])[0];
     if (!h) return;
     e.preventDefault();
     world.traffic?.select(null); // street life arrives after the first frame

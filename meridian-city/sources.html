@@ -649,8 +649,14 @@
 <tr>
   <th scope="row"><code>medicareTaxRate</code></th>
   <td>0.0145</td>
-  <td>IRS Topic 751: 1.45% employee Medicare tax.<p class="note">The 0.9% Additional Medicare Tax (wages over $200,000 single, $250,000 joint) is left out: no showcase household earns that much.</p></td>
+  <td>IRS Topic 751: 1.45% employee Medicare tax.</td>
   <td><a href="https://www.irs.gov/taxtopics/tc751">irs.gov</a></td>
+</tr>
+<tr>
+  <th scope="row"><code>additionalMedicareTax</code></th>
+  <td>rate 0.009 · threshold [object Object] <span class="unit">employee rate on wages above the threshold for the filing status ($)</span></td>
+  <td>IRS Topic 560, Additional Medicare Tax: 0.9% of wages over $200,000 (single) or $250,000 (married filing jointly). The thresholds are set in law and not indexed.</td>
+  <td><a href="https://www.irs.gov/taxtopics/tc560">irs.gov</a></td>
 </tr>
 <tr>
   <th scope="row"><code>ceTotalSpending</code></th>

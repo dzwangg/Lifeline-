@@ -63,11 +63,14 @@ const inRange = (params, card) => isObj(params) && Object.entries(params).every(
   const spec = card.params.find(s => s.key === k);
   return spec && isNum(v) && v >= spec.min && v <= spec.max;
 });
-/** 1-`max` of { id, params }, each a card in `cards` with that card's params, in range. Also used by api/resident*.js. */
+/**
+ * 1-`max` of { id, params }, each a card in `cards` with that card's params, in range, and no card twice: the models add up
+ * each copy's effect, so a repeat would take a card past its range. Also used by api/resident*.js.
+ */
 export const validPolicies = (list, cards, min = 1, max = 10) => Array.isArray(list) && list.length >= min && list.length <= max
-  && list.every(p => isObj(p) && cards.has(p.id) && inRange(p.params, cards.get(p.id)));
+  && list.every(p => isObj(p) && cards.has(p.id) && inRange(p.params, cards.get(p.id))) && new Set(list.map(p => p.id)).size === list.length;
 export const policiesError = (cards, min = 1) =>
-  `policies must be ${min}-10 of { id, params } where id is one of ${[...cards.keys()].join(', ')} and params are that card's, within its range`;
+  `policies must be ${min}-10 of { id, params }, each card at most once, where id is one of ${[...cards.keys()].join(', ')} and params are that card's, within its range`;
 
 /** Hand-written check of the fields the recap uses. Titles and tradeoffs come from `cards`, never the body. @returns {{ errors: string[], input?: NarrationInput }} */
 export function parseInput(b, cards) {

@@ -131,28 +131,58 @@ let data = null, latest = 0;
 const ZONE = { downtown: 'downtown', campus: 'near campus', edge: 'on the edge of town' };
 const WORK = { remote: 'works from home', durham: 'works in Durham', campus: 'works on campus', downtown: 'works downtown' };
 
+// What is on screen is for one selection: the resident, the card and, for "You", the numbers. Any change clears the budget,
+// chart and ledger and invalidates replies still on their way; a reply is drawn only if it is the latest request and the
+// selection is still the one it was asked for.
+const selection = () => JSON.stringify([$('resident').value, $('card').value,
+  ...($('resident').value === 'you' ? ['you-rent', 'you-income', 'you-zone', 'you-mode'].map(id => $(id).value) : [])]);
+function clearBudget() {
+  latest++;
+  data = null;
+  for (const id of ['budget', 'savings', 'ledger', 'flags', 'chart']) $(id).replaceChildren();
+  for (const id of ['who', 'ledger-note', 'source', 'status']) $(id).textContent = '';
+}
+// "You" requests go one at a time: the first creates the visitor's Nessie account, and the next waits for it and reuses it,
+// so overlapping requests never make a second account. Each saves the account it gets, even if its reply is stale.
+let youQueue = Promise.resolve();
+const post = body => fetch('/api/resident-bank', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+async function youRequest(body) {
+  const turn = youQueue.then(async () => {
+    const account = store.get('meridian-you-account');
+    if (account) body.account = account;
+    let res = await post(body);
+    if (res.status === 400 && body.account) { // made with another key: start a new one
+      store.set('meridian-you-account', null);
+      delete body.account;
+      res = await post(body);
+    }
+    const out = await res.json();
+    if (out.account) store.set('meridian-you-account', out.account);
+    return { res, out };
+  });
+  youQueue = turn.catch(() => {});
+  return turn;
+}
+
 async function load() {
-  const id = ++latest, you = $('resident').value === 'you';
+  clearBudget();
   resetTalk(); // a new resident or card: the last answer, its audio and any reply still on its way are for the old one
+  const id = latest, wanted = selection(), you = $('resident').value === 'you';
   $('you-form').hidden = !you;
   $('talk').hidden = you;
   const body = { policies: policiesOf(), ledger: true };
-  if (you) {
-    body.you = { rent: +$('you-rent').value, income: +$('you-income').value, zone: $('you-zone').value, mode: $('you-mode').value };
-    const account = store.get('meridian-you-account');
-    if (account) body.account = account;
-  } else body.resident = $('resident').value;
+  if (you) body.you = { rent: +$('you-rent').value, income: +$('you-income').value, zone: $('you-zone').value, mode: $('you-mode').value };
+  else body.resident = $('resident').value;
   $('status').textContent = 'Loading…';
-  let res = await fetch('/api/resident-bank', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-  if (res.status === 400 && body.account) { // made with another key: start a new one
-    store.set('meridian-you-account', null);
-    delete body.account;
-    res = await fetch('/api/resident-bank', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  let res, out;
+  try {
+    ({ res, out } = you ? await youRequest(body) : await post(body).then(async r => ({ res: r, out: await r.json() })));
+  } catch {
+    if (id === latest) $('status').textContent = 'The budget is unavailable right now.';
+    return;
   }
-  const out = await res.json();
-  if (id !== latest) return;
+  if (id !== latest || wanted !== selection()) return; // the selection changed while this was on its way
   if (!res.ok) { $('status').textContent = out.error ?? `HTTP ${res.status}`; return; }
-  if (out.account) store.set('meridian-you-account', out.account);
   data = out;
   $('status').textContent = '';
   render();
@@ -299,7 +329,7 @@ $('ask').onclick = async () => {
   }
 };
 
-$('resident').onchange = () => { if ($('resident').value !== 'you') load(); else { resetTalk(); $('you-form').hidden = false; $('talk').hidden = true; } };
+$('resident').onchange = () => { if ($('resident').value !== 'you') load(); else { clearBudget(); resetTalk(); $('you-form').hidden = false; $('talk').hidden = true; } };
 $('card').onchange = () => load();
 $('year').oninput = () => data && render();
 $('you-form').onsubmit = e => { e.preventDefault(); load(); };

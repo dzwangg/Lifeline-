@@ -81,7 +81,8 @@ export function taxes(wages, filing, F) {
   const brackets = table(filing === 'joint' ? F.federalBracketsJoint : F.federalBracketsSingle);
   const federal = brackets.reduce((s, [lo, rate], i) => s + rate * Math.max(0, Math.min(taxable, brackets[i + 1]?.[0] ?? Infinity) - lo), 0);
   const nc = F.ncIncomeTaxRate * Math.max(0, wages - F.ncStandardDeduction[filing]);
-  return federal + nc + F.socialSecurityTax.rate * Math.min(wages, F.socialSecurityTax.wageBase) + F.medicareTaxRate * wages;
+  const medicare = F.medicareTaxRate * wages + F.additionalMedicareTax.rate * Math.max(0, wages - F.additionalMedicareTax.threshold[filing]);
+  return federal + nc + F.socialSecurityTax.rate * Math.min(wages, F.socialSecurityTax.wageBase) + medicare;
 }
 // A value at each CE quintile's average income (2024 dollars), interpolated, and flat beyond the end quintiles.
 const interpolate = (points, x) => {
@@ -336,6 +337,7 @@ export function parseBody(b, cards, residents) {
 
 const ledgers = new Map(); // `${checking account}|${entries hash}` -> written ledger: Nessie is called once per scenario
 const queues = new Map(); // checking account -> its last write, so two writes to one account never interleave
+const writing = new Map(); // `${checking account}|${entries hash}` -> that write in flight: a repeat waits for it, writing nothing
 const computeLimit = rateLimiter(30), ledgerLimit = rateLimiter(6), visitorLimit = rateLimiter(3, 600_000);
 
 export async function POST(request, env = process.env) {
@@ -382,11 +384,17 @@ export async function POST(request, env = process.env) {
       accounts = await createCustomer(env, 'Visitor', 'Prosperia (simulated)');
       reply.account = { ...accounts, sig: sign(env, accounts) };
     }
-    const prev = queues.get(accounts.checking) ?? Promise.resolve();
-    const job = prev.catch(() => {}).then(() => writeLedger(env, accounts, entries));
-    lru(queues, accounts.checking, job, 500);
+    // "You" writes are keyed by the (signed) account and the entries: within an instance, the same write twice is one write.
+    const writeKey = `${accounts.checking}|${hashInput(entries)}`;
+    let job = writing.get(writeKey);
+    if (!job) {
+      const prev = queues.get(accounts.checking) ?? Promise.resolve();
+      job = prev.catch(() => {}).then(() => writeLedger(env, accounts, entries));
+      lru(queues, accounts.checking, job, 500);
+      writing.set(writeKey, job);
+      job.then(ledger => lru(ledgers, writeKey, ledger, 500), () => {}).finally(() => writing.delete(writeKey));
+    }
     const ledger = await job;
-    lru(ledgers, `${accounts.checking}|${hashInput(entries)}`, ledger, 500);
     return Response.json({ ...statement, ...reply, ledger: { ...ledger, cached: false } });
   } catch (err) {
     console.error('resident-bank:', err.message);

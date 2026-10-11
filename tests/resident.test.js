@@ -6,7 +6,7 @@ import { simulate } from '../shared/agents.js';
 import { POST as bankPOST, budget, ledgerEntries, loadData, savingsAt, scenarioCached, seedBank, seedLedgers, spendingAt, statementFor, taxes, writeLedger } from '../api/resident-bank.js';
 import { POST as talkPOST, VOICES, answerKey, clipFiles, facts, templateAnswer } from '../api/resident.js';
 import { assignModels, audioOf, jobs } from '../scripts/pregen-demo.js';
-import { badNumbers, loadCards, validPolicies } from '../api/narration.js';
+import { badNumbers, loadCards, parseInput, validPolicies } from '../api/narration.js';
 import { zones, assumptions, baselines } from './data.js';
 
 const { residents } = JSON.parse(readFileSync(new URL('../data/residents.json', import.meta.url), 'utf8'));
@@ -99,7 +99,14 @@ test('take-home pay: federal and NC income tax and payroll tax at 2026 law, work
   assert.equal(Math.round(taxes(60000, 'single', d.F) * 100) / 100, 11495.28);
   // 120,000 joint: federal 10% of 24,800 + 12% of 63,000 = 10,040; NC 3.99% of 94,500 = 3,770.55; FICA 9,180
   assert.equal(Math.round(taxes(120000, 'joint', d.F) * 100) / 100, 22990.55);
-  assert.ok(Math.abs(taxes(250000, 'single', d.F) - taxes(240000, 'single', d.F) - 10000 * (0.32 + 0.0399 + 0.0145)) < 1e-6, 'past the wage base, in the 32% bracket');
+  assert.ok(Math.abs(taxes(250000, 'single', d.F) - taxes(240000, 'single', d.F) - 10000 * (0.32 + 0.0399 + 0.0145 + 0.009)) < 1e-6, 'past the wage base, in the 32% bracket, with the Additional Medicare Tax');
+  // the 0.9% Additional Medicare Tax starts at $200,000 single and $250,000 joint
+  const step = (w, filing) => taxes(w + 1000, filing, d.F) - taxes(w, filing, d.F) - (taxes(w, filing, d.F) - taxes(w - 1000, filing, d.F));
+  assert.ok(Math.abs(step(200000, 'single') - 9) < 1e-6, '$9 more per $1,000 above $200,000 single');
+  assert.ok(Math.abs(step(250000, 'joint') - 9) < 1e-6, 'and above $250,000 joint');
+  assert.ok(Math.abs(step(200000, 'joint')) < 1e-6, 'not at $200,000 joint');
+  const withoutIt = { ...d.F, additionalMedicareTax: { rate: 0, threshold: d.F.additionalMedicareTax.threshold } };
+  assert.equal(Math.round((taxes(300000, 'single', d.F) - taxes(300000, 'single', withoutIt)) / 12), 75, 'a $300,000 visitor takes home $75 a month less');
 });
 
 test('spending: CE shares of after-tax income less the saving rate, rising with income', () => {
@@ -336,6 +343,13 @@ test('handler: "You" gets a Nessie customer on the first ledger write, and only 
     assert.equal(later.policy.years[0].housing, 1600);
     assert.equal((await bank({ you, policies: NONE, account: { ...account, sig: 'f'.repeat(64) } })).status, 400);
     assert.equal((await bank({ you, policies: NONE, account: { ...account, checking: d.bank.residents.bryce?.checking ?? 'x' } })).status, 400);
+    // the same write sent twice at once (a double submit): one set of reads and writes, both replies the same ledger
+    const n = calls.length, again = { you: { ...you, rent: 1700 }, policies: BIKES, ledger: true, account };
+    const [a, b] = await Promise.all([bank(again), bank(again)]);
+    const made = calls.slice(n).filter(c => c.url.includes('nessieisreal'));
+    assert.equal(made.filter(c => c.method === 'GET').length, 7, 'one read of each list');
+    assert.equal(made.filter(c => c.method === 'POST').length, a.ledger.entries.length, 'each entry posted once');
+    assert.deepEqual(a.ledger.entries, b.ledger.entries);
   });
 });
 
@@ -508,6 +522,18 @@ test('demo scenarios: valid cards and residents, and the pregen plan is a recap 
   assert.equal(a.speech, 'I pay twelve hundred fifty dollars a month.', 'counted as spoken, the way ElevenLabs is sent it');
   assert.equal(a.voice, VOICES[answerJob.f.type]);
   assert.equal(audioOf(voiced[0], 'Rents rise.').voice, undefined, 'the recap takes the narrator');
+});
+
+test('a card sent twice is rejected everywhere the shared check runs: narration, the bank and the chat', async () => {
+  const cards = await loadCards(), twice = [{ id: 'property-tax-adjustment', params: { cents_per_100: 10 } }, { id: 'property-tax-adjustment', params: { cents_per_100: 10 } }];
+  assert.equal(validPolicies(twice, cards), false, 'two 10-cent rises would be a 20-cent one, past the card\'s range');
+  assert.equal(validPolicies([twice[0], { id: 'core-infill', params: {} }], cards), true, 'different cards are fine');
+  const narration = parseInput({ policies: twice, years: 10, deltas: [{ metric: 'medianRent', baseline: 1, final: 1, changePct: 0 }] }, cards);
+  assert.match(narration.errors.join(), /each card at most once/);
+  const b = await bank({ resident: 'femi', policies: twice });
+  assert.deepEqual([b.status, /each card at most once/.test(b.error)], [400, true]);
+  const t = await talk({ resident: 'femi', policies: twice, question: 'What changes for you?' });
+  assert.deepEqual([t.status, /each card at most once/.test(t.error)], [400, true]);
 });
 
 test('pregen:demo shares its Gemini calls across the routed models by daily quota, and refuses a plan that can\'t fit a day', () => {

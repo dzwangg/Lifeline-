@@ -247,8 +247,10 @@
 /* A card the player drafted: the same card, held in a wrapper that carries its Discard button and, on the second
    click, the confirmation over the card's face. */
 .pp-held { position: relative; display: grid; transition: transform .2s var(--pp-ease); }
-.pp-held:has(.pp-card:hover) { transform: translateY(-3px); } /* ride the card's own lift, so the button stays on it */
-.pp-held:has(.pp-card:hover) .pp-card:hover { transform: none; }
+/* The whole holder lifts, not just the card: hovering the button has to keep the lift, or the button slides back down
+   out from under the pointer as you reach for it. */
+.pp-held:hover { transform: translateY(-3px); }
+.pp-held:hover .pp-card:hover { transform: none; }
 .pp-held__btn {
   position: absolute; z-index: 2; top: 6px; right: 6px; display: grid; place-items: center;
   width: 26px; height: 26px; padding: 0; cursor: pointer; color: var(--cat-deep);

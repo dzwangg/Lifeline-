@@ -149,7 +149,7 @@ export const INDICATORS = [
   // ---------- local economy: what households earn ----------
   { key: 'realIncome', pillar: 'economy', label: 'Median household income (today’s dollars)', short: 'Real income', fmt: 'usd', better: 'higher',
     today: { value: 85989, text: '$85,989', source: `${ACS}, B19013; the model’s own median starts a little above it, from its household mix` },
-    why: 'What a typical household here lives on once inflation is taken out. Context, not a goal: no card in the library changes what anyone earns, so against the no-policy town this moves only with who is still living here — it goes up when the lowest-income households are priced out. Read it beside households priced out, never on its own.',
+    why: 'What a typical household here lives on once inflation is taken out. Context, not a goal: only job training or cash help changes what a household earns, and no card in the library does either — so unless a drafted card asks for one, this moves with who is still living here and goes up when the lowest-income households are priced out. Read it beside households priced out, never on its own.',
     model: 'the household model: the median household’s income, with any job-training gain or cash help, over CH-LUTI’s price level' },
 
   // ---------- town finances ----------

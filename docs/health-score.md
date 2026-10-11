@@ -179,8 +179,8 @@ Three measurement choices worth knowing, because each one moves its score by a l
 - **It does not score context numbers.** Median rent, median home value, households, affordable homes added, tax
   revenue and median household income stay in the panel but out of the score. A rising home value is good for owners
   and bad for first buyers; rent is already measured against income by rent burden; and median income is the sharpest
-  case of all — no card in the library changes what anyone earns, so against the no-policy town it moves only with who
-  is still living here. Scoring it made displacement read as an economic gain: a deep tax cut that forced out 171 extra
+  case of all — only job training and cash help change what a household earns, and no card in the library asks for
+  either, so against the no-policy town it moves with who is still living here. Scoring it made displacement read as an economic gain: a deep tax cut that forced out 171 extra
   households scored 88 on "real income", and the economy half's sentence read *Better on real income*. It is context
   now, to be read beside households priced out.
 - **It is not a forecast.** It scores one central run. CH-LUTI's 200-run range is still shown per indicator; the score

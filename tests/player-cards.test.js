@@ -162,6 +162,18 @@ test('a discard this browser refuses to save says so instead of promising it is 
   assert.deepEqual(saved(), ['a1'], 'and it is indeed still there');
 });
 
+test('a redraft this browser refuses to save supersedes nothing, so the old card stays in the library', () => {
+  store.set(KEY, JSON.stringify([entry('morrison-a1')]));
+  const warn = console.warn, setItem = globalThis.localStorage.setItem;
+  console.warn = () => {};
+  globalThis.localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
+  const superseded = rememberPlayerCard(entry('morrison-b2'));
+  globalThis.localStorage.setItem = setItem;
+  console.warn = warn;
+  assert.deepEqual(superseded, [], 'nothing was written, so nothing was replaced');
+  assert.deepEqual(saved(), ['morrison-a1'], 'and the old card is still saved, so dropping it would lose it for nothing');
+});
+
 test('reverting after a drop does not bring the card back into a slot', () => {
   const panel = { id: 'draft-1', title: 'A drafted card', category: 'housing', icon: 'house', summary: 'Something.', drafted: true };
   const s = createPolicyStore({ policies: [] });

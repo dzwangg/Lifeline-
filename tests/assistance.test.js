@@ -3,8 +3,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createModel } from '../shared/luti/model.js';
-import { runCombined } from '../shared/combined.js';
+import { buildSchedule } from '../shared/luti/levers.js';
+import { runCombined, runModels } from '../shared/combined.js';
 import { zones, assumptions, baselines, cards } from './data.js';
+
+const byId = id => cards.find(c => c.id === id);
 
 const model = createModel(assumptions, baselines), mid = model.midParams();
 const card = levers => ({ id: 't', title: 't', summary: 's', category: 'housing', icon: 'house', decider: { body: 'Town Council', how: [] },
@@ -34,4 +37,28 @@ test('job training: trainees earn more from the year after, so fewer are priced 
 test('no catalog card uses the prompt-only levers, and the no-policy run has none of them', () => {
   for (const c of cards) assert.ok(!(c.levers ?? []).some(l => /^assistance\.|^workforce\./.test(l.lever)), c.id);
   assert.equal(model.simulate(mid, [], { seedEvents: false }).series.at(-1).programCost, 0);
+});
+
+test('a card may list a payment lever twice: the households and the money paid stay in step', () => {
+  const twice = buildSchedule([{ id: 'two', timing: { delayQuarters: 0, phaseInQuarters: 1 },
+    levers: [{ lever: 'assistance.rentHouseholds', value: 1000 }, { lever: 'assistance.rentHouseholds', value: 1000 }, { lever: 'assistance.rentMonthly', value: 500 }] }], []);
+  const L = twice(0);
+  assert.equal(L['assistance.rentHouseholds'], 2000);
+  assert.equal(L['assistance.rentPaid'], 2000 * 500, 'every household listed is paid for');
+});
+
+test('a programme that starts late in a year serves that share of the year, and costs that much', () => {
+  const late = card([{ lever: 'assistance.cashHouseholds', value: 1000 }, { lever: 'assistance.cashMonthly', value: 500 }]);
+  late.timing = { delayQuarters: 3, phaseInQuarters: 1 }; // the last quarter of year 1
+  const run = runModels([late], {}, zones, assumptions, baselines);
+  assert.ok(Math.abs(run.inputs.help[1].cashHouseholds - 250) < 1, `year 1 serves a quarter of the households: ${run.inputs.help[1].cashHouseholds}`);
+  assert.equal(run.inputs.help[1].cashMonthly, 500, 'each household it does serve gets the full amount');
+  assert.equal(run.inputs.help[2].cashHouseholds, 1000, 'the next full year serves all of them');
+});
+
+test('an affordable-housing requirement covers the homes the zone rules build, not just CH-LUTI’s own', () => {
+  const pct = card([{ lever: 'housing.inclusionaryPct', value: 15 }]);
+  const alone = last(runCombined([pct], {}, zones, assumptions, baselines, none)).affordableHomes;
+  const withParcels = last(runCombined([pct, byId('corridor-midrise')], {}, zones, assumptions, baselines, none)).affordableHomes;
+  assert.ok(withParcels > alone, `parcels add restricted homes: ${withParcels} vs ${alone}`);
 });

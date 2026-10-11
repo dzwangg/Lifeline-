@@ -252,10 +252,12 @@ export function createModel(assumptions, baselines) {
     for (let q = 0; q < quarters; q++) {
       const L = schedule(q), year = BASE_YEAR + q / 4;
       const rateDelta = L['tax.rateDelta'];
+      let landUseDone = 0;
       if (landUse) ZONES.forEach((z, i) => { // homes the zone rules finished this quarter
         const added = landUse.unitsAdded[q][z.id] - (q ? landUse.unitsAdded[q - 1][z.id] : 0);
         s.units[i] += added;
         s.avRes[i] += added * value0[i] * g.value(q);
+        landUseDone += added;
       });
       // NC revalues property every four years; the base rate is reset to revenue-neutral, the policy's change rides on top
       if (q > 0 && q % 4 === 0 && F.revaluationYears.includes(year)) {
@@ -320,9 +322,10 @@ export function createModel(assumptions, baselines) {
       let subsidyPer = Math.max(0, L['housing.subsidyPerUnit']), dev = proForma(subsidyPer);
       if (subsidyPer * startsOf(dev) > budget) { subsidyPer = budget / startsOf(dev); dev = proForma(subsidyPer); }
       const startsTotal = startsOf(dev);
-      // an affordable-housing requirement's homes count once they are finished, like every other home
+      // an affordable-housing requirement's homes count once they are finished, like every other home. It covers new homes
+      // on the parcels the zone rules build too; those arrive finished, so their share counts the quarter they land.
       const restricted = Math.min(0.9, L['housing.inclusionaryPct'] / 100), affordableStarts = startsTotal * restricted;
-      let affordableDone = 0;
+      let affordableDone = landUseDone * restricted;
       for (let i = 0; i < N; i++) {
         const z = ZONES[i], { starts, value, far } = dev[i];
         const done = s.pipe[i].shift();

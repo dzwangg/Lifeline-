@@ -390,7 +390,10 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
     return luti && luti.version === scenario.get().version && luti.policies.join() === ui.active.filter(c => c.levers?.length).map(c => c.id).join()
       && luti.years.length === 4 * (run.result.timeline.length - 1);
   }
-  const MONEY = new Set(['usd', 'usdk', 'usdm']);
+  const MONEY = new Set(['usd', 'usdk', 'usdm', 'usdb']);
+  // "In today's dollars" divides every dollar amount by the price level at the shown year: the charts and tiles (series,
+  // below) and the dollars in the detail panel's trace and per-policy bars, so one panel never mixes the two.
+  const real = (v, fmt) => (ui.real && MONEY.has(fmt) ? v / priceIndex(scenario.get().drivers, cpi, run.result.timeline.length - 1)[y] : v);
   function series(m) {
     const deflate = ui.real && MONEY.has(m.fmt) ? priceIndex(scenario.get().drivers, cpi, run.result.timeline.length - 1) : null, at = (v, i) => (deflate ? v / deflate[i] : v);
     const pol = run.result.timeline.map((t, i) => at(t.metrics[m.key], i)), base = run.noPolicy.timeline.map((t, i) => at(t.metrics[m.key], i));
@@ -470,8 +473,9 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
       h('p', { class: 'rp-note' }, 'Traced through CH-LUTI at central assumptions. Each line is a model variable; branches that barely moved are left out.'));
     if (lutiCurrent() && m.luti && y && luti.perPolicy.length > 1) {
       const lb = luti.baseline[m.luti].p50[q];
+      const pf = VARIABLES[m.luti]?.fmt ?? 'dec';
       kids.push(h('h4', { class: 'rp-h4' }, 'Which policy did it'), barList(luti.perPolicy.map(pp => ({
-        label: cardById.get(pp.id)?.title ?? pp.title, value: pp.diff[q][m.luti], text: fmtChange(VARIABLES[m.luti]?.fmt ?? 'dec', pp.diff[q][m.luti], lb),
+        label: cardById.get(pp.id)?.title ?? pp.title, value: pp.diff[q][m.luti], text: fmtChange(pf, real(pp.diff[q][m.luti], pf), real(lb, pf)),
       })), 'Effect of each policy on its own'),
       h('p', { class: 'rp-note' }, 'Each card run on its own in CH-LUTI at central assumptions; together they can add up to more or less than the sum.'));
     }
@@ -507,12 +511,13 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
   function whyTree(node) {
     const item = (n, depth) => {
       const v = VARIABLES[n.id] ?? { label: n.id }, f = v.fmt ?? 'dec';
+      const delta = real(n.delta, f), base = real(n.base, f);
       const kids = n.children.filter(c => !OTHER_MODEL.has(c.id)).sort((a, b) => Math.abs(b.rel) - Math.abs(a.rel)).slice(0, 3);
       return h('li', { class: 'rp-why__item' },
         h('span', { class: 'rp-why__row' },
           h('span', { class: 'rp-why__arrow', 'aria-hidden': 'true' }, n.delta > 0 ? '▲' : '▼'),
           h('span', { class: 'rp-why__label' }, v.label),
-          h('span', { class: 'rp-why__delta' }, fmtChange(f, n.delta, n.base), depth && f !== 'pct' && f !== 'index' && Math.abs(n.base) > 1e-9 ? ` (${sign(n.rel)}${fixed(Math.abs(n.rel * 100), 1)}%)` : '')),
+          h('span', { class: 'rp-why__delta' }, fmtChange(f, delta, base), depth && f !== 'pct' && f !== 'index' && Math.abs(base) > 1e-9 ? ` (${sign(n.rel)}${fixed(Math.abs(n.rel * 100), 1)}%)` : '')),
         kids.length > 0 && h('ul', { class: 'rp-why__kids' }, kids.map(c => item(c, depth + 1))));
     };
     return h('ul', { class: 'rp-why' }, item(node, 0));

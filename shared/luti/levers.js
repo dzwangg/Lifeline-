@@ -87,8 +87,10 @@ export function buildSchedule(policies, zoneIds, defaults = {}) {
     for (const [count, amount, paid] of PAYMENTS) {
       out[paid] = 0;
       for (const p of policies) {
-        const n = p.levers?.find(l => l.lever === count), each = p.levers?.find(l => l.lever === amount);
-        if (n && each) out[paid] += n.value * each.value * ramp(q, p.timing);
+        // a card may list a lever more than once; the loop above adds every entry, so these do too
+        const total = key => (p.levers ?? []).filter(l => l.lever === key).reduce((s, l) => s + l.value, 0);
+        const n = total(count), each = total(amount);
+        if (n && each) out[paid] += n * each * ramp(q, p.timing);
       }
     }
     return out;

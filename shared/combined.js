@@ -96,10 +96,18 @@ export function runModels(cards, params, zones, assumptions, baselines, { years 
     // years of growth, as the household model's own rate gives it); without, the household model's own rate
     ...(!noDrivers(drivers) && { incomeIndex: raw.timeline.map((_, y) => (y ? luti.series[4 * y - 1].incomeIndexEnd : 1)) }),
   };
-  // help paid to households and job training act on households one by one, so the household model applies them
+  // Help paid to households and job training act on households one by one, so the household model applies them. The
+  // household model works a year at a time, so each count is the mean of the year's four quarters: a programme that starts
+  // in the last quarter serves a quarter of the households (and trains a quarter of the people) that year, which is what it
+  // is paid for. Monthly amounts are per served household, so they are the level, not the mean. affordableHomes is a stock,
+  // so it is the count standing at the year's end.
+  const meanOverYear = (y, f) => (y ? [4, 3, 2, 1].reduce((s, back) => s + f(luti.series[4 * y - back]), 0) / 4 : 0);
   const helpAt = y => {
     const L = y ? luti.series[4 * y - 1] : null;
-    return { rentHouseholds: L?.rentHelpHouseholds ?? 0, rentMonthly: L?.rentHelpMonthly ?? 0, cashHouseholds: L?.cashHouseholds ?? 0, cashMonthly: L?.cashMonthly ?? 0, trainees: L?.trainees ?? 0,
+    const rentHouseholds = meanOverYear(y, r => r.rentHelpHouseholds), cashHouseholds = meanOverYear(y, r => r.cashHouseholds);
+    return { rentHouseholds, cashHouseholds, trainees: meanOverYear(y, r => r.trainees),
+      rentMonthly: rentHouseholds > 0 ? meanOverYear(y, r => r.rentHelpHouseholds * r.rentHelpMonthly) / rentHouseholds : 0,
+      cashMonthly: cashHouseholds > 0 ? meanOverYear(y, r => r.cashHouseholds * r.cashMonthly) / cashHouseholds : 0,
       // finished income-restricted homes, for renters under 80% of the town's median household income (a stand-in for HUD's
       // area median income, which inclusionary rules use)
       affordable: L?.affordableHomes ?? 0, incomeLimit: 0.8 * TOWN.medianHouseholdIncome };

@@ -132,7 +132,7 @@ simWorker.onmessage = async ({ data: { version, run, luti, error } }) => {
   runFor(version).resolve(run);
   scenario.set({ result: run.result });
   const [, assumptions, baselines] = await dataReady;
-  runLuti({ ...luti, assumptions, baselines });
+  runLuti({ ...luti, version, assumptions, baselines });
 };
 simWorker.onerror = e => {
   simBusy = false;
@@ -151,7 +151,8 @@ export const predict = async (version, step) => {
 };
 
 // CH-LUTI runs 2 × 200 simulations (about a second), in a worker. While one run is busy only the newest request waits,
-// and a result that a newer request has made stale is dropped.
+// and a result that a newer request has made stale is dropped, as is one for an older version of the scenario (other
+// cards, sliders or what-ifs), so ranges and traces never sit beside results they weren't run for.
 const lutiWorker = new Worker(new URL('./luti-worker.js', import.meta.url), { type: 'module' });
 let lutiBusy = false, lutiNext = null;
 function runLuti(job) {
@@ -162,7 +163,7 @@ function runLuti(job) {
 lutiWorker.onmessage = ({ data }) => {
   lutiBusy = false;
   if (lutiNext) { const job = lutiNext; lutiNext = null; return runLuti(job); }
-  scenario.set({ luti: data });
+  if (data.version === state.version) scenario.set({ luti: data });
 };
 lutiWorker.onerror = e => { lutiBusy = false; console.warn('CH-LUTI did not run, so its metrics stay empty.', e); };
 rerun(); // the baseline, before any card is applied

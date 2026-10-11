@@ -11,7 +11,7 @@
 // need no model) and after it (lever limits, a budget ceiling, the card checks /api/policies uses, slider ranges, driver
 // bounds, neutral wording). Replies are cached by prompt and context; drafted cards are signed like /api/policies' ones.
 import { randomBytes } from 'node:crypto';
-import { AI_PAUSED, aiLimiter, clientIp, evaluativeWords, gemini, hashInput, readBody, signCard } from './narration.js';
+import { AI_PAUSED, aiLimiter, badNumbers, clientIp, evaluativeWords, gemini, hashInput, readBody, signCard } from './narration.js';
 import { CARD_SCHEMA, checkCard, directionErrors, generateCard, loadContext, systemPrompt as cardRules, tidy } from './policies.js';
 import { LEVERS, LEVER_LIMITS, cardPolicies } from '../shared/luti/levers.js';
 import { DRIVERS, FED_SEP_2026_09, clampDrivers } from '../shared/luti/drivers.js';
@@ -218,9 +218,13 @@ export function settle(reply, prompt, ctx, active, { checked = false } = {}) {
   // where the prompt names a place outside town that it doesn't act on, say that nothing there changes
   const place = prompt.match(OUTSIDE)?.[0];
   if (place && reply.intent !== 'question') notes.push(`Only Chapel Hill is simulated, so nothing in ${cap(place)} changes.`);
-  // the reply is shown as is: neutral, short, and with no numbers the player or the card didn't give
+  // the reply is shown as is only when it is neutral, short, and has no number but the player's words, the card, the sliders
+  // and what-ifs it set, the applied cards, and the town's size and budget. Any other number may be a result the simulator
+  // hasn't computed, so the plain fallback stands in.
   const text = typeof reply.reply === 'string' ? reply.reply.trim().slice(0, 600) : '';
-  out.reply = text && !evaluativeWords(text).length ? text : fallbackReply(out);
+  const given = { prompt, card: out.card, adjust: out.adjust, drivers: out.drivers, active, population: ctx.baselines.population.value,
+    generalFund: TOWN.generalFund, ...(out.drivers?.inflation === 'fed' && { fed: FED_SEP_2026_09.path }) };
+  out.reply = text && !evaluativeWords(text).length && !badNumbers(text, given).length ? text : fallbackReply(out);
   return { result: out };
 }
 /** Gemini's what-ifs, [{ name, value }] (or { name: value }): text like "3", "3%" or "-1.5" becomes a number, "fed" is the
@@ -238,7 +242,7 @@ function fallbackReply(out) {
   if (out.card) return `Drafted a policy: ${out.card.title}. It is applied now; the simulator is working out what follows.`;
   if (out.adjust?.length) return 'Changed the applied policy settings. The simulator is rerunning.';
   if (out.drivers) return 'Set the what-if. It applies with and without your policies.';
-  return 'Here is what the simulator can say about that.';
+  return 'The simulator answers that by running it: apply a policy or set a what-if, then press play to see what follows.';
 }
 
 /** Answers a prompt: the guardrails, then Gemini with one retry that names the problems. Throws { status } errors. */

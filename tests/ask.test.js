@@ -175,3 +175,13 @@ test('a draft identical to a library card applies that card instead of a copy, k
   assert.deepEqual([result.kind, result.library, result.card, result.drivers], ['policy', 'bus-frequency-boost', undefined, { inflation: 4 }]);
   assert.match(result.reply, /already in the library: /);
 });
+
+test('a reply that states a number nobody gave (a forecast) is replaced; numbers from the prompt or the card pass', () => {
+  const card = directed(buses);
+  const invented = settle({ intent: 'policy', card, unmodeled: [], reply: 'This will lower rent by 20% and add 500 riders.' }, 'run buses more often', ctx, []).result;
+  assert.doesNotMatch(invented.reply, /20%|500/);
+  const fine = settle({ intent: 'policy', card, unmodeled: [], reply: 'Drafted bus service at 1.5 times today.' }, 'run buses more often', ctx, []).result;
+  assert.equal(fine.reply, 'Drafted bus service at 1.5 times today.');
+  const question = settle({ intent: 'question', unmodeled: [], reply: 'Rents would fall 12% within two years.' }, 'what happens to rent if we upzone?', ctx, []).result;
+  assert.match(question.reply, /answers that by running it/);
+});

@@ -61,6 +61,7 @@ export const VARIABLES = {
   commuteCO2: { label: 'Commute CO₂', unit: 't/yr', fmt: 'int' },
   affordableHomes: { label: 'Income-restricted homes', fmt: 'int' },
   affordableStarts: { label: 'Income-restricted homes started', unit: 'per yr', fmt: 'int' },
+  affordableCompletions: { label: 'Income-restricted homes finished', unit: 'per yr', fmt: 'int' },
   impactFeeRevenue: { label: 'Impact fee revenue', unit: '$/yr', fmt: 'usdm' },
   parkingRevenue: { label: 'Downtown parking revenue', unit: '$/yr', fmt: 'usdm' },
   busSpeed: { label: 'Bus speed in town', fmt: 'index' },

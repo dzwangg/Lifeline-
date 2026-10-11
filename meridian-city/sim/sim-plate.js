@@ -377,10 +377,10 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
 
   // A metric's yearly values from the central run, its no-policy values, and CH-LUTI's yearly P10–P90 change (null before
   // CH-LUTI has run, or for metrics from the other models). Year y ends with CH-LUTI's quarter 4y − 1; year 0 is today.
-  // CH-LUTI's runs for an older set of cards, or a shorter game, are not shown while the new ones run.
-  // A declaration, not a const: render() can run as soon as the clock subscription above fires.
+  // CH-LUTI's runs for an older version of the scenario (other cards, sliders or what-ifs), or a shorter game, are not shown
+  // while the new ones run. A declaration, not a const: render() can run as soon as the clock subscription above fires.
   function lutiCurrent() {
-    return luti && luti.policies.join() === ui.active.filter(c => c.levers?.length).map(c => c.id).join()
+    return luti && luti.version === scenario.get().version && luti.policies.join() === ui.active.filter(c => c.levers?.length).map(c => c.id).join()
       && luti.years.length === 4 * (run.result.timeline.length - 1);
   }
   const MONEY = new Set(['usd', 'usdk', 'usdm']);

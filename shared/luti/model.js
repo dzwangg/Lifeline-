@@ -223,6 +223,8 @@ export function createModel(assumptions, baselines) {
     };
     // the pipeline starts full of the projects already under way, split by where starts land
     s.pipe = ZONES.map(z => new Array(F.buildQuarters).fill(BASE_STARTS_Q * F.startShare[z.id]));
+    // the income-restricted share of the same projects, through the same queue (none under way today)
+    s.affPipe = ZONES.map(() => new Array(F.buildQuarters).fill(0));
     if (shock?.units) s.units = s.units.map((u, i) => u + (u - NONMARKET[i]) * shock.units);
     const rent0 = s.rent.slice(), access0 = cal.access0, spaces0 = s.spaces.slice();
     const occ0 = N0.map((n, i) => n / spaces0[i]);
@@ -318,12 +320,15 @@ export function createModel(assumptions, baselines) {
       let subsidyPer = Math.max(0, L['housing.subsidyPerUnit']), dev = proForma(subsidyPer);
       if (subsidyPer * startsOf(dev) > budget) { subsidyPer = budget / startsOf(dev); dev = proForma(subsidyPer); }
       const startsTotal = startsOf(dev);
-      const affordableStarts = startsTotal * Math.min(0.9, L['housing.inclusionaryPct'] / 100);
-      s.affordable += affordableStarts;
+      // an affordable-housing requirement's homes count once they are finished, like every other home
+      const restricted = Math.min(0.9, L['housing.inclusionaryPct'] / 100), affordableStarts = startsTotal * restricted;
+      let affordableDone = 0;
       for (let i = 0; i < N; i++) {
         const z = ZONES[i], { starts, value, far } = dev[i];
         const done = s.pipe[i].shift();
         s.pipe[i].push(starts);
+        affordableDone += s.affPipe[i].shift();
+        s.affPipe[i].push(starts * restricted);
         s.units[i] += done;
         s.avRes[i] += done * value;
         if (MIXED_USE.has(z.id)) s.spaces[i] += done * F.retailSpacesPerUnit;
@@ -338,6 +343,7 @@ export function createModel(assumptions, baselines) {
           }
         }
       }
+      s.affordable += affordableDone;
       const subsidySpend = subsidyPer * startsTotal;
 
       // 4 storefront businesses: openings and closures move the stock toward what local spending supports
@@ -372,7 +378,7 @@ export function createModel(assumptions, baselines) {
       const bikeCost = L['transport.protectedBikeKm'] * (F.bikeLaneCost.capitalPerKm * F.bikeLaneCost.debtServicePerYear + F.bikeLaneCost.upkeepPerKm);
       const programCost = L['business.supportGrants'] + L['business.startupGrants'] + L['employment.hiringSubsidy']
         + subsidySpend * 4 + L['housing.planningCost'] * 4 + transitCost + bikeCost + L['budget.annualCost'] + L['budget.oneTimeCost'] * 4
-        + 12 * (L['assistance.rentHouseholds'] * L['assistance.rentMonthly'] + L['assistance.cashHouseholds'] * L['assistance.cashMonthly'])
+        + 12 * (L['assistance.rentPaid'] + L['assistance.cashPaid']) // each card's households x its payment, summed (levers.js PAYMENTS)
         + L['workforce.trainees'] * F.trainingCost * cpi;
       const impactFeeRevenue = L['housing.impactFee'] * startsTotal * 4;
       const parkingRevenue = L['transport.parkingPriceDelta'] * F.workdaysPerYear * tr.parkedTown;
@@ -410,11 +416,13 @@ export function createModel(assumptions, baselines) {
         subsidyPerHome: subsidyPer,
         desiredHouseholds: sum(desired), vacancy: 1 - (hh / marketUnits),
         taxRate: TAX_CENTS + rateDelta, assessedValue: assessed, propertyTax, salesTax, vacancyTaxRevenue: vacTaxRevenue, impactFeeRevenue, parkingRevenue,
-        affordableStarts: affordableStarts * 4, affordableHomes: s.affordable, priceIndex: g.price(q + 1), incomeIndex: incomeIdx, busSpeed: L['transit.busSpeedMultiplier'],
+        affordableStarts: affordableStarts * 4, affordableCompletions: affordableDone * 4, affordableHomes: s.affordable, priceIndex: g.price(q + 1), incomeIndex: incomeIdx, incomeIndexEnd: g.income(q + 1), busSpeed: L['transit.busSpeedMultiplier'],
         townRevenue: revenue, programCost, serviceCost, netFiscal: revenue - programCost - serviceCost,
         // for the household model: help paid to households and job training, as they stand this quarter
-        rentHelpHouseholds: L['assistance.rentHouseholds'], rentHelpMonthly: L['assistance.rentMonthly'],
-        cashHouseholds: L['assistance.cashHouseholds'], cashMonthly: L['assistance.cashMonthly'], trainees: L['workforce.trainees'],
+        // (the monthly amount is the average over the programmes' households)
+        rentHelpHouseholds: L['assistance.rentHouseholds'], rentHelpMonthly: L['assistance.rentHouseholds'] > 0 ? L['assistance.rentPaid'] / L['assistance.rentHouseholds'] : 0,
+        cashHouseholds: L['assistance.cashHouseholds'], cashMonthly: L['assistance.cashHouseholds'] > 0 ? L['assistance.cashPaid'] / L['assistance.cashHouseholds'] : 0,
+        trainees: L['workforce.trainees'],
       });
       zoneSeries.push(ZONES.map((z, i) => ({
         households: s.households[i], units: s.units[i], rent: s.rent[i], commute: tr.zones[i].time * cal.timeScale, starts: dev[i].starts * 4, margin: dev[i].margin,
@@ -456,7 +464,8 @@ export const CAUSES = {
   trafficIndex: ['carShare', 'jobs', 'population'],
   accessIndex: ['busWait', 'carSpeed', 'bikeStress', 'jobs'],
   townRevenue: ['propertyTax', 'salesTax', 'vacancyTaxRevenue', 'impactFeeRevenue', 'parkingRevenue'],
-  affordableHomes: ['affordableStarts'],
+  affordableHomes: ['affordableCompletions'],
+  affordableCompletions: ['affordableStarts'],
   affordableStarts: ['starts'],
   propertyTax: ['taxRate', 'housingUnits'],
   assessedValue: ['housingUnits', 'rent'],

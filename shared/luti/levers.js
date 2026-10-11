@@ -51,11 +51,18 @@ export const LEVER_LIMITS = {
   'workforce.trainees': [0, 1000],
 };
 
+// Payment programmes: a card's households and its monthly payment belong together, so programmes add up as money paid
+// (households x payment, card by card) under these keys, never as all the households times all the payments.
+export const PAYMENTS = [
+  ['assistance.rentHouseholds', 'assistance.rentMonthly', 'assistance.rentPaid'],
+  ['assistance.cashHouseholds', 'assistance.cashMonthly', 'assistance.cashPaid'],
+];
+
 const ramp = (q, { delayQuarters = 0, phaseInQuarters = 0 } = {}) =>
   q < delayQuarters ? 0 : phaseInQuarters <= 0 ? 1 : Math.min(1, (q - delayQuarters + 1) / phaseInQuarters);
 
 // Builds levers(q) → { [lever]: number | { [zoneId]: number } } for a list of policies, given zone defaults for 'cap' and
-// 'floor' levers.
+// 'floor' levers, plus each payment programme's dollars a month (PAYMENTS).
 export function buildSchedule(policies, zoneIds, defaults = {}) {
   const entries = policies.flatMap(p => (p.levers ?? []).map(l => ({ ...l, timing: p.timing, policy: p.id })));
   for (const e of entries) if (!LEVERS[e.lever]) throw new Error(`Policy ${e.policy} uses unknown lever ${e.lever}`);
@@ -76,6 +83,13 @@ export function buildSchedule(policies, zoneIds, defaults = {}) {
         }
       } else if (def.kind === 'multiplier') out[e.lever] *= 1 + (e.value - 1) * r;
       else out[e.lever] += e.value * r;
+    }
+    for (const [count, amount, paid] of PAYMENTS) {
+      out[paid] = 0;
+      for (const p of policies) {
+        const n = p.levers?.find(l => l.lever === count), each = p.levers?.find(l => l.lever === amount);
+        if (n && each) out[paid] += n.value * each.value * ramp(q, p.timing);
+      }
     }
     return out;
   };

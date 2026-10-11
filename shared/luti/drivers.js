@@ -7,10 +7,12 @@
 // carry the default rate (data/assumptions.json lutiCpi); a scenario's rate shifts each of them by its difference from it,
 // one for one. Policy dollar amounts (grants, subsidies, fees) stay as written, so inflation erodes their real value.
 
+import { BASE_YEAR } from './data.js';
+
 export const FED_SEP_2026_09 = {
   label: "the Fed's September 2026 projection",
   // FOMC Summary of Economic Projections, 16 Sep 2026, Table 1, median PCE inflation: 2026, 2027, 2028, 2029, longer run
-  path: [3.7, 2.3, 2.1, 2.0, 2.0],
+  path: [3.7, 2.3, 2.1, 2.0, 2.0], firstYear: 2026,
   source: 'Federal Reserve, FOMC Summary of Economic Projections, September 16, 2026, Table 1 (median PCE inflation)',
   url: 'https://www.federalreserve.gov/monetarypolicy/fomcprojtabl20260916.htm',
 };
@@ -52,10 +54,14 @@ export function clampDrivers(drivers) {
 /** True when no driver changes anything, so runs can skip the driver arithmetic entirely and match the defaults exactly. */
 export const noDrivers = drivers => !drivers || !Object.keys(drivers).some(k => DRIVERS[k] && drivers[k] != null);
 
-/** The yearly inflation rate (a fraction) in sim year y (0 = the first), for a scenario whose default is `base`. */
+/** The yearly inflation rate (a fraction) in sim year y (0 = CH-LUTI's first, BASE_YEAR), for a scenario whose default is
+ *  `base`. The Fed's path is by calendar year, from 2026: the sim's first year, 2027, takes the 2027 projection. */
 export function inflationAt(drivers, base, y) {
   const v = drivers?.inflation;
-  if (v === 'fed') return FED_SEP_2026_09.path[Math.min(y, FED_SEP_2026_09.path.length - 1)] / 100;
+  if (v === 'fed') {
+    const { path, firstYear } = FED_SEP_2026_09, i = Math.max(0, Math.min(BASE_YEAR + y - firstYear, path.length - 1));
+    return path[i] / 100;
+  }
   return typeof v === 'number' ? v / 100 : base;
 }
 

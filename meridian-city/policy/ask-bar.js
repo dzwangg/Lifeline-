@@ -85,18 +85,23 @@ export function mountAskBar({ store, cards, host = document.body }) {
       addCard(r.card);
       saved = [...saved.filter(e => e.card.id !== r.card.id), { card: r.card, signature: r.signature ?? null }];
       savePlayerCards(saved);
-      const { slot, replaced } = place(r.card);
+      const placed = place(r.card);
       done.push(h('div', { class: 'ask__card' },
-        h('p', { class: 'ask__kicker' }, `Applied in ${slot}${replaced ? `, replacing ${store.getPolicy(replaced)?.title ?? replaced}` : ''}`),
+        h('p', { class: 'ask__kicker' }, placed ? appliedIn('Applied in', placed) : 'Added to your library; no slot could take it'),
         h('strong', {}, r.card.title), h('p', { class: 'ask__note' }, r.card.summary),
         h('ul', { class: 'ask__list' }, modeledAs(r.card).map(t => h('li', {}, t)))));
     }
-    const library = r.library && cards.find(c => c.id === r.library);
-    if (library) { // the same as a library card: that card goes in, not a copy
-      const { slot, replaced } = place(library);
+    const libraryCard = r.library && cards.find(c => c.id === r.library);
+    let library = null;
+    if (libraryCard) { // the same as a library card: that card goes in, not a copy, at its default settings as the answer says
+      const params = { ...scenario.get().params };
+      delete params[libraryCard.id];
+      const placed = place(libraryCard, () => scenario.set({ params }));
+      if (placed) library = libraryCard;
       done.push(h('div', { class: 'ask__card' },
-        h('p', { class: 'ask__kicker' }, `From the library, applied in ${slot}${replaced ? `, replacing ${store.getPolicy(replaced)?.title ?? replaced}` : ''}`),
-        h('strong', {}, library.title), h('p', { class: 'ask__note' }, library.summary)));
+        h('p', { class: 'ask__kicker' }, placed ? appliedIn('From the library, applied in', placed) : 'Already enacted, so nothing changed'),
+        h('strong', {}, libraryCard.title),
+        h('p', { class: 'ask__note' }, placed ? libraryCard.summary : 'It was enacted in an earlier decade and stays in force; it can’t be applied again.')));
     }
     if (r.adjust?.length) {
       const params = structuredClone(scenario.get().params);
@@ -137,16 +142,23 @@ export function mountAskBar({ store, cards, host = document.body }) {
     if (!cards.some(c => c.id === card.id)) cards.push(card);
     store.addPolicy(panelPolicy(card));
   }
-  // Into the first empty slot of its category, or the first slot (whose card goes back to the deck), then applied.
-  function place(card) {
+  // Into the first empty slot that takes it, or the first such slot (whose card goes back to the deck), then applied; a card
+  // already applied stays where it is. null when no slot takes it (a card enacted in an earlier decade): nothing changes.
+  // before: runs only once the card is sure to go in.
+  function place(card, before = () => {}) {
     store.revert(); // act on what is applied, not on an unapplied draft in the panel
-    const slots = store.slots.filter(s => s.category === (card.category ?? 'housing')), draft = store.getState().draft;
+    const name = slot => { const cat = store.categories.find(c => c.id === slot.category); return `${cat?.label ?? slot.category}${cat?.slots > 1 ? ` ${slot.index + 1}` : ''}`; };
+    const at = store.slotOf(card.id);
+    if (at) { before(); store.apply(); return { slot: name(store.getSlot(at)), replaced: null }; }
+    const slots = store.slots.filter(s => store.fits(card.id, s.id)), draft = store.getState().draft;
+    if (!slots.length) return null;
     const slot = slots.find(s => !draft[s.id]) ?? slots[0], replaced = draft[slot.id];
-    store.place(card.id, slot.id);
+    before();
+    if (!store.place(card.id, slot.id)) return null;
     store.apply();
-    const cat = store.categories.find(c => c.id === slot.category);
-    return { slot: `${cat?.label ?? slot.category}${cat?.slots > 1 ? ` ${slot.index + 1}` : ''}`, replaced };
+    return { slot: name(slot), replaced };
   }
+  const appliedIn = (what, { slot, replaced }) => `${what} ${slot}${replaced ? `, replacing ${store.getPolicy(replaced)?.title ?? replaced}` : ''}`;
   function activeCards() {
     const { params } = scenario.get();
     return Object.values(store.getState().applied).filter(Boolean).map(id => cards.find(c => c.id === id)).filter(Boolean).map(c => ({

@@ -28,10 +28,12 @@ test('inflation moves every nominal series together and leaves real rent about w
   assert.ok(Math.abs(hot.rentBurden - base.rentBurden) < 0.01, 'incomes keep pace, so rent burden barely moves');
 });
 
-test("the Fed path and the price index follow the FOMC's projection", () => {
+test("the Fed path and the price index follow the FOMC's projection, year by calendar year", () => {
+  // the sim's first year is 2027, so it takes the 2027 projection (2.3%), then 2028 (2.1%), then 2.0% from 2029 on
   const idx = priceIndex({ inflation: 'fed' }, cpi, 4);
-  assert.deepEqual(idx.map(x => +x.toFixed(4)), [1, 1.037, 1.0609, 1.0831, 1.1048]); // 1.037 × 1.023 × 1.021 × 1.020
+  assert.deepEqual(idx.map(x => +x.toFixed(4)), [1, 1.023, 1.0445, 1.0654, 1.0867]);
   assert.equal(FED_SEP_2026_09.path[0], 3.7);
+  assert.equal(FED_SEP_2026_09.firstYear, 2026);
 });
 
 test('other drivers: UNC job growth adds jobs; costlier construction slows building; bounds are enforced', () => {
@@ -72,4 +74,11 @@ test('drivers hold over a three-decade game: every quarter of a 30-year run has 
     assert.ok(s.every(row => ['rent', 'homeValue', 'netFiscal', 'priceIndex'].every(k => Number.isFinite(row[k]))), JSON.stringify(drivers));
     assert.ok(s[119].rent > s[79].rent && s[79].rent > s[39].rent);
   }
+});
+
+test('setting inflation to its default leaves households exactly where no what-if leaves them', () => {
+  const last = r => r.timeline.at(-1).metrics;
+  const plain = last(runCombined([], {}, zones, assumptions, baselines));
+  const same = last(runCombined([], {}, zones, assumptions, baselines, undefined, { drivers: { inflation: cpi * 100 } }));
+  for (const k of ['pricedOut', 'rentBurden', 'households']) assert.ok(Math.abs(same[k] - plain[k]) <= Math.abs(plain[k]) * 0.005 + 1, `${k}: ${same[k]} vs ${plain[k]}`);
 });

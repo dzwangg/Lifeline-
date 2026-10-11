@@ -92,16 +92,20 @@ export function runModels(cards, params, zones, assumptions, baselines, { years 
     households: raw.timeline.map((_, y) => atYear(luti, y).households - luti.start.households),
     ...Object.fromEntries(['rent', 'commute'].map(key => [key, raw.timeline.map((_, y) => Object.fromEntries(Object.keys(LUTI_OF).map(z => [z, indexOf(luti, key, y, z)])))])),
     traffic: raw.timeline.map((_, y) => atYear(luti, y).trafficIndex),
-    // with scenario drivers, incomes follow the scenario's inflation (CH-LUTI's index); without, the household model's own rate
-    ...(!noDrivers(drivers) && { incomeIndex: raw.timeline.map((_, y) => (y ? luti.series[4 * y - 1].incomeIndex : 1)) }),
+    // with scenario drivers, incomes follow the scenario's inflation (CH-LUTI's index as each year ends, so year y has y full
+    // years of growth, as the household model's own rate gives it); without, the household model's own rate
+    ...(!noDrivers(drivers) && { incomeIndex: raw.timeline.map((_, y) => (y ? luti.series[4 * y - 1].incomeIndexEnd : 1)) }),
   };
   // help paid to households and job training act on households one by one, so the household model applies them
   const helpAt = y => {
     const L = y ? luti.series[4 * y - 1] : null;
-    return { rentHouseholds: L?.rentHelpHouseholds ?? 0, rentMonthly: L?.rentHelpMonthly ?? 0, cashHouseholds: L?.cashHouseholds ?? 0, cashMonthly: L?.cashMonthly ?? 0, trainees: L?.trainees ?? 0 };
+    return { rentHouseholds: L?.rentHelpHouseholds ?? 0, rentMonthly: L?.rentHelpMonthly ?? 0, cashHouseholds: L?.cashHouseholds ?? 0, cashMonthly: L?.cashMonthly ?? 0, trainees: L?.trainees ?? 0,
+      // finished income-restricted homes, for renters under 80% of the town's median household income (a stand-in for HUD's
+      // area median income, which inclusionary rules use)
+      affordable: L?.affordableHomes ?? 0, incomeLimit: 0.8 * TOWN.medianHouseholdIncome };
   };
   const ys = raw.timeline.map((_, y) => y);
-  if (ys.some(y => { const h = helpAt(y); return h.rentHouseholds * h.rentMonthly > 0 || h.cashHouseholds * h.cashMonthly > 0 || h.trainees > 0; })) inputs.help = ys.map(helpAt);
+  if (ys.some(y => { const h = helpAt(y); return h.rentHouseholds * h.rentMonthly > 0 || h.cashHouseholds * h.cashMonthly > 0 || h.trainees > 0 || h.affordable > 0; })) inputs.help = ys.map(helpAt);
   const averages = averageRuns(inputs, assumptions, baselines);
   const timeline = raw.timeline.map((t, y) => {
     const L = atYear(luti, y), h = averages[y];

@@ -9,7 +9,7 @@ globalThis.localStorage = {
   setItem: (key, value) => store.set(key, String(value)),
   removeItem: key => store.delete(key),
 };
-const KEY = 'prosperia.playerPolicies.v2';
+const KEY = 'prosperia.playerPolicies.v3';
 const { loadPlayerCards, rememberPlayerCard, forgetPlayerCard } = await import('../meridian-city/policy/player-cards.js');
 const { createPolicyStore } = await import('../meridian-city/policy/store.js');
 

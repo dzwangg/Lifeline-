@@ -5,7 +5,10 @@
 // From William Chen's restore code in meridian-city/index.html (origin/William, 0f80831).
 import { validateCard } from '../../shared/schema.js';
 
-const KEY = 'prosperia.playerPolicies.v2'; // v1 (William's branch) held bare cards, without signatures
+// v1 (William's branch) held bare cards, without signatures. v2 could hold the same policy twice, because every reply
+// carries a fresh id and nothing in the page compared two drafts or could throw one away; bumping to v3 clears those
+// duplicates out of everyone's browser once, and dedupe() plus the library's Discard button keep them from coming back.
+const KEY = 'prosperia.playerPolicies.v3';
 
 // Storage is the only copy: no in-memory cache, so a discard in one tab is gone in the next read, here and anywhere else.
 function read() {

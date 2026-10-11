@@ -38,11 +38,6 @@
   0%, 62% { background-position: 100% 0, 0 0; animation-timing-function: steps(14, end); }
   100% { background-position: 0% 0, 0 0; }
 }
-/* The premise, one line under the title, lettered like the footer. */
-.start__lede {
-  max-width: 34ch; margin: 6px 0 0; font: 600 clamp(17px, 2vw, 22px)/1.35 var(--ae-pixel); color: #ffffff; text-align: center;
-  text-wrap: balance; text-shadow: 2px 2px 0 var(--ae-navy), -1px -1px 0 var(--ae-navy), 1px -1px 0 var(--ae-navy), -1px 1px 0 var(--ae-navy);
-}
 /* Four-point pixel sparkles around the logo, twinkling in turn. */
 .start__spark {
   position: absolute; width: 21px; height: 21px; pointer-events: none; transform: scale(0);

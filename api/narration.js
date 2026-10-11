@@ -44,7 +44,7 @@ const METRICS = {
   carShare: { meaning: 'share of commuters who drive, in percent', label: 'commuters driving', fmt: n => `${fmtNum(n, { maximumFractionDigits: 1 })}%`, pct: true, toInput: v => Math.round(v * 1000) / 10 },
   jobAccess: { meaning: 'jobs residents can reach in a typical commute, in percent above year 0', label: 'access to jobs', fmt: n => `${fmtNum(n, { maximumFractionDigits: 1 })}% above year 0`, pct: true, toInput: v => Math.round((v - 1) * 1000) / 10 },
   commuteCO2: { meaning: 'carbon dioxide from car commutes to, from and within town, in tonnes a year', label: 'commute CO2', fmt: n => `${about(n)} tonnes a year` },
-  realIncome: { meaning: "median household income in year 0's dollars, so a rise is a real gain", label: 'median household income', fmt: n => `$${fmtNum(Math.round(n / 100) * 100)}` },
+  realIncome: { meaning: "median household income in year 0's dollars; no policy here changes what anyone earns, so a rise means lower-income households have left rather than that people are better off", label: 'median household income', fmt: n => `$${fmtNum(Math.round(n / 100) * 100)}` },
   taxBurden: { meaning: 'property tax on the median home as a share of median household income, in percent', label: 'the property tax bill as a share of income', fmt: n => `${fmtNum(n, { maximumFractionDigits: 1 })}%`, pct: true, toInput: v => Math.round(v * 1000) / 10 },
 };
 // The panel's six headline metrics: the template recap covers these, and Gemini is told to focus on them.

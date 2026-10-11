@@ -5,7 +5,7 @@ import { runModels } from '../shared/combined.js';
 import { simulate } from '../shared/agents.js';
 import { POST as bankPOST, budget, ledgerEntries, loadData, savingsAt, seedBank, spendingAt, statementFor, taxes, writeLedger } from '../api/resident-bank.js';
 import { POST as talkPOST, VOICES, answerKey, clipFiles, facts, templateAnswer } from '../api/resident.js';
-import { assignModels, jobs } from '../scripts/pregen-demo.js';
+import { assignModels, audioOf, jobs } from '../scripts/pregen-demo.js';
 import { badNumbers, loadCards, validPolicies } from '../api/narration.js';
 import { zones, assumptions, baselines } from './data.js';
 
@@ -474,6 +474,15 @@ test('demo scenarios: valid cards and residents, and the pregen plan is a recap 
   assert.deepEqual(plan.map(j => j.kind).filter(k => k === 'recap').length, 3);
   assert.equal(plan.filter(j => j.kind === 'answer').length, 27);
   assert.equal(new Set(plan.map(j => j.json)).size, 30, 'every clip has its own file');
+  // ElevenLabs' budget: audio for the 3 recaps and the first resident's answers to the first 2 questions in each scenario
+  const voiced = plan.filter(j => j.audio);
+  assert.equal(voiced.length, 9);
+  for (const sc of scenarios) assert.deepEqual(voiced.filter(j => j.scenario === sc.id).map(j => [j.kind, j.resident, j.question]),
+    [['recap', undefined, undefined], ['answer', sc.residents[0], questions[0]], ['answer', sc.residents[0], questions[1]]]);
+  const answerJob = voiced.find(j => j.kind === 'answer'), a = audioOf(answerJob, 'I pay $1,250 a month.');
+  assert.equal(a.speech, 'I pay twelve hundred fifty dollars a month.', 'counted as spoken, the way ElevenLabs is sent it');
+  assert.equal(a.voice, VOICES[answerJob.f.type]);
+  assert.equal(audioOf(voiced[0], 'Rents rise.').voice, undefined, 'the recap takes the narrator');
 });
 
 test('pregen:demo shares its Gemini calls across the routed models by daily quota, and refuses a plan that can\'t fit a day', () => {

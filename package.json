@@ -11,6 +11,9 @@
     "fixture": "node scripts/sim-fixture.js",
     "pregen": "node scripts/pregen-narration.js",
     "sources": "node scripts/make-sources.js",
-    "bake": "node scripts/bake-people-atlas.js"
+    "bake": "node scripts/bake-people-atlas.js",
+    "dev": "node scripts/dev.js",
+    "seed:nessie": "node scripts/seed-nessie.js",
+    "pregen:demo": "node scripts/pregen-demo.js"
   }
 }

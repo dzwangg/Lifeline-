@@ -207,8 +207,21 @@ the speed and a status line (loading, failed, end of forecast). Its buttons call
 `play(1|2|4)`. Space calls `toggle()`, and 1, 2 and 4 call `play(n)`, except while typing or with a dialog open.
 `sim-plate.js` uses the same clock for its year slider (`seek`), "show before" checkbox (`setBefore`) and metrics
 (the shown year's, compared with the same year with no new policy, `shown.data.run.noPolicy`). The household layer
-(`sim/agent-layer.js`) draws `shown.data.run.households` for the shown year. The zone layer reads `shown`, `frac` and `before` to grow
-conversions over each year's first simulated months.
+(`sim/agent-layer.js`) draws `shown.data.run.households` for the shown year. The zone layer reads `shown`, `frac` and `before` to build
+each conversion over 0.9 of the year it happens in (about 2.7 s at 1x): trees are felled one by one and leave stumps,
+the ground is cleared to soil, scaffolds go up, and the buildings rise inside them. The steps' timing is in the
+constants at the top of `sim/zone-layer.js`. Parcels a forecast converts in a later year get a white outline until their
+year comes; converted ones get the gold one.
+
+**Guided views** (`sim/focus.js`): `scenario.focus` is `null`, `'road'` (15-501 and its corridor parcels) or
+`'changes'` (the parcels converting next, by group). The camera flies there and back with `view.lookAt`, `zoomTo` and
+`rotate`. Applying a card with zone rules frames the parcels it converts, Play frames the changes when no view is on,
+and a changes view follows the conversions as the years play. `?demo` adds a "Demo scenario" button to the sim panel.
+
+**The before/after wipe** (`sim/wipe.js`): `view.split` (0 to 1 from the left, or `null`) draws the frame in two
+passes. Objects on layer 1 draw left of the split, objects on layer 2 right of it, and layer 0 on both; with no split,
+layer 1 is left out. The zone and household layers draw the shown year on layer 2, and keep a year-0 copy on layer 1
+that they make the first time the wipe is on. `view.raycastScreen` hits layers 0 and 2.
 
 Predictions come from `predict(version, step)` in `scenario.js`, which currently runs `shared/combined.js` (the land-use sim, CH-LUTI and the household model) in the browser. A
 forecast backend could answer the same call. Add `?latency=ms` to the page URL to simulate a slow backend and watch the

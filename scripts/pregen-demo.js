@@ -1,8 +1,9 @@
 // Pregenerates the demo's clips into demo-audio/, so the deployed demo (and DEMO_MODE) serves them without calling Gemini
 // or ElevenLabs: for each scenario in data/demo-scenarios.json, the narration recap (as npm run pregen writes it), and
-// each listed resident's answer to each starter question (api/resident.js clipFiles()). ElevenLabs' free characters are
-// few, so only the 3 recaps and the first resident's answers to the first 2 questions in each scenario (9 clips) get
-// audio; the rest are text. The texts come first; then the run prints the characters the audio will take and stops if
+// each listed resident's answer to each starter question (api/resident.js clipFiles()), and the end-of-decade recap
+// (meridian-city/narration/turn-recap.js) of each decade of the page's ?demo game, and its game-over recap: the first
+// scenario's cards enacted in decade 1, none added after. ElevenLabs' free characters are few, so only the 3 recaps, the 4
+// game recaps and the first resident's answers to the first 2 questions in each scenario (13 clips) get audio; the rest are text. The texts come first; then the run prints the characters the audio will take and stops if
 // they are over MAX_TTS_CHARS (default 10,000, ElevenLabs' free month) before calling ElevenLabs.
 // Run it once at demo freeze, after all merges, then commit demo-audio/: npm run pregen:demo. Keys come from .env.local.
 // Clips already there are skipped, so a run stopped early picks up where it left off. Free-tier quotas are per model, so
@@ -11,13 +12,15 @@
 // calling anything. Each model's calls are spaced out to stay under its per-minute limit.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { runCombined } from '../shared/combined.js';
+import { runCombined, runModels } from '../shared/combined.js';
+import { recapBody } from '../meridian-city/narration/turn-recap.js';
 import { hashInput, loadCards, modelFor, narrate, parseInput, speak, speakable, speechKey } from '../api/narration.js';
 import { VOICES, answer, answerKey, clipFiles, facts } from '../api/resident.js';
 import { loadData, statementFor } from '../api/resident-bank.js';
 
 const OUT = new URL('../demo-audio/', import.meta.url);
 const AUDIO_QUESTIONS = 2; // per scenario, the first resident's answers to this many questions get audio
+const DECADE = 10, TURNS = 3, START_YEAR = 2026; // as meridian-city/sim/scenario.js
 const PACE_MS = 13_000; // per model; ponytail: free tier is about 5 requests a minute; drop it on a paid key
 // Free-tier requests a day per model, as measured for .env.example: Flash-Lite 500, other Flash models 20. A clip takes up
 // to two calls (a rejected draft is retried once).
@@ -41,8 +44,8 @@ export function assignModels(jobs, env) {
   });
 }
 
-/** Every clip the demo needs: a recap per scenario, then an answer per resident and question; audio marks the ones read
- *  aloud. Pure apart from the models. */
+/** Every clip the demo needs: a recap per scenario, then an answer per resident and question, then the ?demo game's decade
+ *  and game-over recaps; audio marks the ones read aloud. Pure apart from the models. */
 export async function jobs() {
   const { scenarios, questions } = JSON.parse(readFileSync(new URL('../data/demo-scenarios.json', import.meta.url), 'utf8'));
   const [d, cards] = await Promise.all([loadData(), loadCards()]);
@@ -59,11 +62,20 @@ export async function jobs() {
         out.push({ kind: 'answer', scenario: s.id, resident: id, question, f, json: clipFiles(answerKey(f, question)).json, audio: r === 0 && q < AUDIO_QUESTIONS });
     }
   }
+  // The ?demo game (sim-plate.js runDemo): the first scenario's cards in decade 1, enacted at the turn's end and in force
+  // after, run as the page's worker runs each turn (sim-worker.js), so the body hashes as the page's does.
+  const demo = scenarios[0], picked = demo.policies.map(p => cards.get(p.id)), params = Object.fromEntries(demo.policies.map(p => [p.id, p.params]));
+  for (const [decade, from, to] of [[1, 0, DECADE], [2, DECADE, 2 * DECADE], [3, 2 * DECADE, 3 * DECADE], ['game', 0, TURNS * DECADE]]) {
+    const run = (c, p) => runModels(c, p, d.zones, d.assumptions, d.baselines, { years: to }).result;
+    const { errors, input } = parseInput(recapBody({ result: run(picked, params), noPolicy: run([], {}) }, from, to, START_YEAR), cards);
+    if (errors.length) throw new Error(`${demo.id} ${decade} recap: ${errors.join('; ')}`);
+    out.push({ kind: 'decade', scenario: demo.id, decade, input, json: `${hashInput(input)}.json`, audio: true });
+  }
   return out;
 }
 
 /** A clip's audio file, its voice (undefined: the narrator's), its text and the words ElevenLabs is sent for it. */
-export const audioOf = (j, text) => ({ text, speech: speakable(text), ...(j.kind === 'recap'
+export const audioOf = (j, text) => ({ text, speech: speakable(text), ...(j.kind !== 'answer'
   ? { mp3: `${speechKey(text)}.mp3`, voice: undefined }
   : { mp3: clipFiles(null, text, j.f.type).mp3, voice: VOICES[j.f.type] }) });
 
@@ -83,12 +95,12 @@ async function main() {
     const model = models[i], wait = (last.get(model) ?? -Infinity) + PACE_MS - Date.now();
     if (wait > 0) await new Promise(done => setTimeout(done, wait));
     last.set(model, Date.now());
-    const env = { ...textOnly, [j.kind === 'recap' ? 'GEMINI_MODEL_NARRATION' : 'GEMINI_MODEL_CHAT']: model };
-    const r = j.kind === 'recap' ? await narrate(j.input, env) : await answer(j.f, j.question, env);
-    if (r.failed) throw new Error(`stopped at ${j.scenario} ${j.resident ?? 'recap'}: ${r.reason ?? 'Gemini failed (see above)'}. `
+    const env = { ...textOnly, [j.kind !== 'answer' ? 'GEMINI_MODEL_NARRATION' : 'GEMINI_MODEL_CHAT']: model };
+    const r = j.kind !== 'answer' ? await narrate(j.input, env) : await answer(j.f, j.question, env);
+    if (r.failed) throw new Error(`stopped at ${j.scenario} ${j.resident ?? (j.decade ? `${j.decade} recap` : 'recap')}: ${r.reason ?? 'Gemini failed (see above)'}. `
       + `${i} of ${todo.length} written this run; run it again once the quota resets.`);
     writeFileSync(new URL(j.json, OUT), JSON.stringify({ text: r.text, fallback: r.fallback }, null, 2) + '\n');
-    console.log(`${j.scenario} ${j.resident ? `${j.resident}: ${j.question}` : 'recap'} -> demo-audio/${j.json}${r.fallback ? ' (template text)' : ''}`);
+    console.log(`${j.scenario} ${j.resident ? `${j.resident}: ${j.question}` : j.decade ? `${j.decade} recap` : 'recap'} -> demo-audio/${j.json}${r.fallback ? ' (template text)' : ''}`);
   }
 
   // 2. The audio budget: every character ElevenLabs will be sent, before any call.

@@ -117,6 +117,8 @@ import { mountSimPlate } from './sim/sim-plate.js';
 import { mountClockBar } from './sim/clock-bar.js';
 import { mountAskBar } from './policy/ask-bar.js';
 import { createGame } from './sim/turns.js';
+import { simClock } from './sim/scenario.js';
+import { mountTurnRecap } from './narration/turn-recap.js';
 
 const cards = await cardsReady; // policy cards from data/policies/ join the hardcoded policies in the panel
 // ?demo runs two housing cards together, so housing gets a second slot.
@@ -142,6 +144,7 @@ window.policyStore = store; // the simulation reads store.getState().applied onc
 mountClockBar(); // starts paused, so policies can be set up before Play
 mountAskBar({ store, cards, game }); // before the sim plate, so cards drafted on an earlier visit are in the deck
 mountSimPlate({ policyStore: store, cards, game });
+mountTurnRecap({ clock: simClock, game }); // each decade's recap: pops up the first time it plays out, then a button in the clock bar
 // Meet the residents: the fifty showcase households and "You", their budgets, Nessie ledgers and chat (resident/panel.js)
 import('./resident/panel.js').then(({ mountResidentPanel }) => mountResidentPanel({ launch: document.getElementById('resident-launch') }));
 // ?forecast adds the forecast dock (meridian-city/forecast/: the backend's forecasts, or its precomputed demos when no

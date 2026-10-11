@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
 import { POST, badNumbers, clearGeminiPauses, hashInput, loadCards, modelFor, nextModel, parseInput, speakable, speechKey, templateRecap } from '../api/narration.js';
+import { recapBody, fallbackText } from '../meridian-city/narration/turn-recap.js';
 
 // A frozen SimResult (the stub card, as of the narration PR), so these tests don't move whenever the models do.
 // The last test checks the current one, tests/fixtures/sim-result.json.
@@ -340,4 +341,52 @@ test('the current full SimResult (every metric, all against no new policy) is ac
   const text = templateRecap(now), words = text.split(/\s+/).length;
   assert.ok(text.includes('Compared with no new policy') && words <= 100, `${words} words: ${text}`);
   assert.deepEqual(badNumbers(text, now), []);
+});
+
+// The end-of-decade recap (meridian-city/narration/turn-recap.js): a decade of a game, against its first year and no new policy.
+const simResult = JSON.parse(readFileSync(new URL('./fixtures/sim-result.json', import.meta.url), 'utf8'));
+const shifted = { timeline: simResult.timeline.map(t => ({ ...t, metrics: { ...t.metrics, medianRent: t.metrics.medianRent + 50 } })) }; // a stand-in no-policy run
+const decadeBody = recapBody({ result: simResult, noPolicy: shifted }, 5, 10, 2031); // years 5-10 stand in for a later decade
+
+test('decade recap: the body compares the decade\'s last year with its first and with no new policy, and parses', () => {
+  const rent = decadeBody.deltas.filter(d => d.metric === 'medianRent');
+  assert.deepEqual(rent.map(d => [d.comparedWith, d.baseline, d.final]), [
+    ['start of decade', simResult.timeline[5].metrics.medianRent, simResult.timeline[10].metrics.medianRent],
+    ['no new policy', simResult.timeline[10].metrics.medianRent + 50, simResult.timeline[10].metrics.medianRent]]);
+  assert.deepEqual(decadeBody.decade, { from: 2036, to: 2041 });
+  const whole = recapBody({ result: simResult, noPolicy: shifted }, 0, 10, 2026);
+  assert.deepEqual([whole.decade, whole.deltas[0].comparedWith, whole.deltas[0].baseline], [{ from: 2026, to: 2036 }, 'year 0', simResult.timeline[0].metrics[whole.deltas[0].metric]], 'from the start: against year 0');
+  assert.deepEqual(decadeBody.policies, [{ id: 'stub-card', params: { acres_released: 130 } }], 'ids and params only: titles come from the cards');
+  const { errors, input: decade } = parseInput(decadeBody, cards);
+  assert.deepEqual(errors, []);
+  assert.equal(decade.deltas.length, 2 * Object.keys(simResult.timeline[0].metrics).length);
+  const text = templateRecap(decade);
+  assert.ok(text.startsWith('From 2036 to 2041, with “STUB: Release edge forest for homes”, '), text);
+  assert.ok(text.includes('Compared with no new policy, ') && !text.includes('simulation of'), text);
+  assert.ok(text.split(/\s+/).length <= 120, text);
+  assert.deepEqual(badNumbers(text, decade), []);
+  assert.notEqual(hashInput(decade), hashInput(parseInput({ ...decadeBody, decade: { from: 2046, to: 2056 } }, cards).input), 'each decade has its own clip');
+});
+
+test('decade recap: "start of decade" needs a decade, and the decade must be calendar years in order', () => {
+  const { decade, ...plain } = decadeBody;
+  assert.match(parseInput(plain, cards).errors.join(), /deltas/);
+  for (const bad of [{ from: 2046, to: 2036 }, { from: 36, to: 46 }, { from: '2036', to: 2046 }, [2036, 2046]])
+    assert.match(parseInput({ ...decadeBody, decade: bad }, cards).errors.join(), /decade/, JSON.stringify(bad));
+});
+
+test('handler: a decade recap asks Gemini for 2-3 sentences on those years, and its years pass the number check', async () => {
+  const said = 'From 2036 to 2046, homes reached about 27,600. Compared with no new policy, fewer households were priced out. STUB pro; STUB con.';
+  await withMocks(KEYS, [said], async calls => {
+    const r = await post({ ...decadeBody, decade: { from: 2036, to: 2046 } });
+    assert.deepEqual([r.status, r.text, r.fallback], [200, said, false]);
+    const prompt = JSON.parse(calls[0].init.body).contents[0].parts[0].text;
+    assert.match(prompt, /covers 2036 to 2046 of a game played a decade at a time/);
+    assert.match(prompt, /2 or 3 sentences/);
+  });
+});
+
+test('decade recap: the page\'s own fallback names the decade and its headline numbers', () => {
+  assert.match(fallbackText(decadeBody), /^From 2036 to 2041, with 1 policy in force, median rent went from \$[\d,]+ to \$[\d,]+, homes went from [\d,]+ to [\d,]+/);
+  assert.match(fallbackText({ ...decadeBody, policies: [] }), /^From 2036 to 2041, with no new policy, /);
 });

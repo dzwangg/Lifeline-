@@ -1,5 +1,7 @@
 // POST /api/narration: a short spoken news-style recap of a SimResult (see shared/types.d.ts).
 // Body (at most 16 KB): a SimResult's { policies, years, deltas }. Reply: { text, audio, cached, fallback }
+// A game's recap of a decade, or of the whole game, also sends decade: { from, to } (calendar years) and compares the last year
+// with the first (comparedWith "start of decade", or "year 0" from the start) and with no new policy (meridian-city/narration/turn-recap.js).
 // where audio is a base64 mp3 or null, and fallback means the text is the deterministic template, not Gemini's.
 // Abuse limits: no client text reaches Gemini or ElevenLabs. Policy ids must be cards in data/cards.index.json (plus the
 // stub card outside production) with in-range params, and titles and tradeoffs are read from the card files here.
@@ -46,8 +48,9 @@ const METRICS = {
 // The panel's six headline metrics: the template recap covers these, and Gemini is told to focus on them.
 const HEADLINE = ['medianRent', 'pricedOut', 'housingUnits', 'treeCoverPct', 'avgCommuteMin', 'netFiscal'];
 const TEMPLATE = new Set(HEADLINE);
+const DECADE_TEMPLATE = new Set(['housingUnits', 'medianRent', 'pricedOut', 'treeCoverPct']); // a decade's pop-up has less room
 const fmtNum = (n, opts) => n.toLocaleString('en-US', opts); // Intl rounds the decimal value: 2.15 -> 2.2, where toPrecision gives 2.1
-const NO_POLICY = 'no new policy';
+const NO_POLICY = 'no new policy', DECADE_START = 'start of decade';
 
 const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
@@ -86,15 +89,19 @@ export function parseInput(b, cards) {
   const ok = (pass, problem) => pass || errors.push(problem);
   ok(validPolicies(b.policies, cards), policiesError(cards));
   ok(Number.isInteger(b.years) && b.years >= 1 && b.years <= 100, 'years must be a whole number from 1 to 100');
-  ok(isList(b.deltas, Object.keys(METRICS).length, d => isObj(d) && Object.hasOwn(METRICS, d.metric) && [d.baseline, d.final, d.changePct].every(isNum)
-    && (d.changePts === undefined || isNum(d.changePts)) && [undefined, 'year 0', NO_POLICY].includes(d.comparedWith)),
-    `deltas must be 1-${Object.keys(METRICS).length} of { metric: ${Object.keys(METRICS).join('|')}, baseline, final, changePct, changePts?, comparedWith?: "year 0"|"${NO_POLICY}" }`);
+  const decade = b.decade, maxDeltas = 2 * Object.keys(METRICS).length; // a decade recap compares each metric twice
+  ok(decade === undefined || (isObj(decade) && [decade.from, decade.to].every(y => Number.isInteger(y) && y >= 2000 && y <= 2200) && decade.to > decade.from),
+    'decade, if sent, must be { from, to }: calendar years, from before to');
+  ok(isList(b.deltas, maxDeltas, d => isObj(d) && Object.hasOwn(METRICS, d.metric) && [d.baseline, d.final, d.changePct].every(isNum)
+    && (d.changePts === undefined || isNum(d.changePts)) && [undefined, 'year 0', NO_POLICY, ...(decade ? [DECADE_START] : [])].includes(d.comparedWith)),
+    `deltas must be 1-${maxDeltas} of { metric: ${Object.keys(METRICS).join('|')}, baseline, final, changePct, changePts?, comparedWith?: "year 0"|"${NO_POLICY}"|"${DECADE_START}" (with decade) }`);
   if (errors.length) return { errors };
   const picked = b.policies.map(p => cards.get(p.id));
   const sides = side => [...new Set(picked.flatMap(c => c.tradeoffs[side]))]; // as runScenario merges them
   return { errors, input: {
     policies: b.policies.map(({ id, params }) => ({ id, title: cards.get(id).title, params })),
     years: b.years,
+    ...(decade && { decade: { from: decade.from, to: decade.to } }),
     deltas: b.deltas.map(({ metric, baseline, final, changePct, changePts, comparedWith = 'year 0' }) => {
       // shares and indexes in percent, so the recap can quote them as they are; changePct then follows the converted values
       const as = METRICS[metric].toInput, [b0, f0] = as ? [as(baseline), as(final)] : [baseline, final];
@@ -195,12 +202,12 @@ export function templateRecap(input) {
     return pct ? `${label} ${verb} from ${fmt(baseline)} to ${fmt(final)}`
       : `${label} ${verb} ${fmtNum(Math.abs(changePct), { maximumSignificantDigits: 2 })}% to ${fmt(final)}${unit}`;
   };
-  const deltas = input.deltas.filter(d => TEMPLATE.has(d.metric));
+  const deltas = input.deltas.filter(d => (input.decade ? DECADE_TEMPLATE : TEMPLATE).has(d.metric));
   const overTime = deltas.filter(d => d.comparedWith !== NO_POLICY).map(clause);
   const vsNoPolicy = deltas.filter(d => d.comparedWith === NO_POLICY).map(clause);
   // ponytail: first pro and first con only, so real cards (3 of each) stay near 90 words; list them all if length stops mattering.
   return [
-    `In a ${input.years}-year simulation of ${list(input.policies.map(p => `“${p.title}”`))}${overTime.length ? `, ${list(overTime)}` : ''}.`,
+    `${input.decade ? `From ${input.decade.from} to ${input.decade.to}, with` : `In a ${input.years}-year simulation of`} ${list(input.policies.map(p => `“${p.title}”`))}${overTime.length ? `, ${list(overTime)}` : ''}.`,
     vsNoPolicy.length ? `Compared with ${NO_POLICY}, ${list(vsNoPolicy)}.` : '',
     input.tradeoffs.pros[0] && `On the plus side: ${input.tradeoffs.pros[0]}`, input.tradeoffs.cons[0] && `On the downside: ${input.tradeoffs.cons[0]}`,
   ].filter(Boolean).join(' ');
@@ -231,7 +238,10 @@ const userPrompt = full => { const input = promptInput(full); return `Simulation
   input.deltas.map(({ metric }) => `${metric} = ${METRICS[metric].meaning}`).join('; ')
 }. In each delta, final is the value after the simulated years with this policy, and baseline is what it is compared with: `
   + `the starting value when comparedWith is "year 0", or the value after the same years with no new policy when comparedWith is "${NO_POLICY}". `
-  + 'changePct is the percent change from baseline to final.'; };
+  + 'changePct is the percent change from baseline to final.'
+  + (input.decade ? ` This recap covers ${input.decade.from} to ${input.decade.to} of a game played a decade at a time (one decade, or the whole game): `
+    + `final is the value in ${input.decade.to}, and baseline is the value in ${input.decade.from} when comparedWith is "${DECADE_START}" or "year 0". Say which years it covers. Write 2 or 3 sentences `
+    + '(40 to 70 words) instead of 60 to 90.' : ''); };
 
 // Each feature has its own model, so one feature's spent daily quota doesn't stop the others: GEMINI_MODEL_NARRATION,
 // GEMINI_MODEL_CHAT, GEMINI_MODEL_CARDS, else GEMINI_MODEL, else these. Free-tier quotas are per project and model:
@@ -443,7 +453,7 @@ export async function readBody(request, max, hint) {
 }
 
 export async function POST(request) {
-  const { body, error } = await readBody(request, MAX_BODY, 'send { policies, years, deltas, cards? }');
+  const { body, error } = await readBody(request, MAX_BODY, 'send { policies, years, deltas, decade?, cards? }');
   if (error) return error;
   const { cards, unverified } = withPlayerCards(body?.cards, await loadCards());
   const { errors, input } = parseInput(body, cards);

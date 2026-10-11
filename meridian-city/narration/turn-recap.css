@@ -1,0 +1,33 @@
+/* The end-of-decade recap (turn-recap.js): a glass pop-up under the clock bar and the changes tour's caption, over the map. */
+.plate.recap {
+  left: 50%; top: calc(140px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 45; box-sizing: border-box;
+  width: min(440px, calc(100% - 32px)); padding: 12px 14px 14px !important;
+  font: 15px/1.45 var(--ae-body, 'Mukta', sans-serif); color: var(--ae-navy, #1c2c5e);
+  animation: recap-in .25s ease-out;
+}
+@keyframes recap-in { from { opacity: 0; } }
+.recap[hidden], .recap [hidden], .recap-launch[hidden], .recap-launch [hidden] { display: none !important; }
+.recap__head { display: flex; align-items: center; gap: 8px; }
+.recap__title { flex: 1; margin: 0; font: 600 18px var(--ae-pixel, monospace); }
+.recap__kicker { margin: 2px 0 6px; font: 600 11px var(--ae-pixel, monospace); letter-spacing: .06em; text-transform: uppercase; color: var(--ae-aqua-dark, #1a8fc4); }
+.recap__kicker:empty { display: none; }
+.recap__text { margin: 0; text-wrap: pretty; }
+.recap__actions { display: flex; justify-content: flex-start; margin-top: 8px; }
+.recap__actions:has(> [hidden]:only-child) { display: none; }
+.tool-btn.recap__play { width: auto; padding: 0 12px; font: 600 13px var(--ae-pixel, monospace); }
+/* loading: three shimmering lines where the text will be */
+.recap.is-loading .recap__text { height: 66px; border-radius: 6px;
+  background: linear-gradient(90deg, rgba(28,44,94,.10) 30%, rgba(255,255,255,.75) 50%, rgba(28,44,94,.10) 70%) 0 0 / 300% 100%;
+  -webkit-mask: repeating-linear-gradient(180deg, #000 0 16px, transparent 16px 25px); mask: repeating-linear-gradient(180deg, #000 0 16px, transparent 16px 25px);
+  animation: recap-shimmer 1.2s linear infinite; }
+@keyframes recap-shimmer { to { background-position: -150% 0; } }
+@media (prefers-reduced-motion: reduce) { .plate.recap, .recap.is-loading .recap__text { animation: none; } }
+.recap__credit { margin: 8px 0 0; font-size: 11px; color: var(--ae-ink-soft, #456186); }
+.recap__credit:empty { display: none; }
+/* the launcher, beside the Residents button (turn-recap.js places it) */
+.recap-launch { position: fixed; left: 140px; top: calc(80px + env(safe-area-inset-top, 0px)); z-index: 40; display: flex; gap: 6px; align-items: center; }
+body.city-loading .recap-launch { visibility: hidden; }
+.recap-launch .pp-launch { position: static; padding: 7px 14px !important; font-size: 14px !important; cursor: pointer; }
+.recap-launch__pick { height: 34px; max-width: 150px; padding: 0 6px; font: 600 13px var(--ae-pixel, monospace); color: var(--ae-navy, #1c2c5e);
+  background: #fff; border: 2px solid var(--ae-navy, #1c2c5e); border-radius: 8px; cursor: pointer; }
+@media (max-width: 640px) { .plate.recap { top: calc(120px + env(safe-area-inset-top, 0px)); } }

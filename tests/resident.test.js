@@ -516,7 +516,7 @@ test('talk: a committed demo clip (npm run pregen:demo) is served first, in DEMO
   }
 });
 
-test('demo scenarios: valid cards and residents, and the pregen plan is a recap per scenario and 3 x 3 answers each', async () => {
+test('demo scenarios: valid cards and residents, and the pregen plan is a recap per scenario, 3 x 3 answers each and the ?demo game\'s 3 decade recaps and game recap', async () => {
   const { scenarios, questions } = JSON.parse(readFileSync(new URL('../data/demo-scenarios.json', import.meta.url), 'utf8'));
   const cards = await loadCards(true), ids = new Set(residents.map(r => r.id));
   assert.equal(scenarios.length, 3);
@@ -532,11 +532,16 @@ test('demo scenarios: valid cards and residents, and the pregen plan is a recap 
   const plan = await jobs();
   assert.deepEqual(plan.map(j => j.kind).filter(k => k === 'recap').length, 3);
   assert.equal(plan.filter(j => j.kind === 'answer').length, 27);
-  assert.equal(new Set(plan.map(j => j.json)).size, 30, 'every clip has its own file');
-  // ElevenLabs' budget: audio for the 3 recaps and the first resident's answers to the first 2 questions in each scenario
+  const decades = plan.filter(j => j.kind === 'decade');
+  assert.deepEqual(decades.map(j => [j.scenario, j.decade, j.input.decade]), [[1, 2026, 2036], [2, 2036, 2046], [3, 2046, 2056], ['game', 2026, 2056]]
+    .map(([n, from, to]) => [scenarios[0].id, n, { from, to }]));
+  assert.deepEqual(decades.map(j => j.input.deltas[0].comparedWith), ['year 0', 'start of decade', 'start of decade', 'year 0']);
+  assert.equal(new Set(plan.map(j => j.json)).size, 34, 'every clip has its own file');
+  // ElevenLabs' budget: audio for the 3 recaps, the 4 game recaps and the first resident's answers to the first 2 questions in each scenario
   const voiced = plan.filter(j => j.audio);
-  assert.equal(voiced.length, 9);
-  for (const sc of scenarios) assert.deepEqual(voiced.filter(j => j.scenario === sc.id).map(j => [j.kind, j.resident, j.question]),
+  assert.equal(voiced.length, 13);
+  assert.ok(decades.every(j => j.audio && audioOf(j, 'Rents rise.').voice === undefined), 'decade recaps are read aloud by the narrator');
+  for (const sc of scenarios) assert.deepEqual(voiced.filter(j => j.scenario === sc.id && j.kind !== 'decade').map(j => [j.kind, j.resident, j.question]),
     [['recap', undefined, undefined], ['answer', sc.residents[0], questions[0]], ['answer', sc.residents[0], questions[1]]]);
   const answerJob = voiced.find(j => j.kind === 'answer'), a = audioOf(answerJob, 'I pay $1,250 a month.');
   assert.equal(a.speech, 'I pay twelve hundred fifty dollars a month.', 'counted as spoken, the way ElevenLabs is sent it');

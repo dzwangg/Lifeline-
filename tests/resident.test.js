@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
 import { runModels } from '../shared/combined.js';
 import { simulate } from '../shared/agents.js';
-import { POST as bankPOST, budget, ledgerEntries, loadData, savingsAt, seedBank, spendingAt, statementFor, taxes, writeLedger } from '../api/resident-bank.js';
+import { POST as bankPOST, budget, ledgerEntries, loadData, savingsAt, scenarioCached, seedBank, seedLedgers, spendingAt, statementFor, taxes, writeLedger } from '../api/resident-bank.js';
 import { POST as talkPOST, VOICES, answerKey, clipFiles, facts, templateAnswer } from '../api/resident.js';
 import { assignModels, audioOf, jobs } from '../scripts/pregen-demo.js';
 import { badNumbers, loadCards, validPolicies } from '../api/narration.js';
@@ -229,7 +229,7 @@ test('seeding is idempotent: merchants, then a customer with checking and saving
     assert.equal(calls.length, 2 + 4 * 12);
     assert.deepEqual(Object.keys(b.residents), residents.map(r => r.id));
     assert.ok(Object.values(b.residents).every(r => r.customer && r.checking && r.savings && r.loan));
-    assert.equal(saved.length, 2 + 12, 'saved after each step');
+    assert.equal(saved.length, 2 + 4 * 12, 'saved after every id Nessie returns');
     await seedBank({ NESSIE_API_KEY: KEY }, b, residents);
     assert.equal(calls.length, 2 + 4 * 12);
     delete b.residents.uma.loan; // an older entry without a loan account gets just that
@@ -238,15 +238,33 @@ test('seeding is idempotent: merchants, then a customer with checking and saving
   });
 });
 
-test('handler: the ledger is written to the resident\'s Nessie accounts once, then served from cache', async () => withSeeded(async nessie => {
+test('seeding keeps every id Nessie returned when a request fails partway, and a rerun makes only what is missing', async () => {
+  const nessie = fakeNessie(), handle = nessie.handle;
+  let accounts = 0;
+  nessie.handle = (method, path, body) => (method === 'POST' && /accounts$/.test(path) && ++accounts === 2 ? 503 : handle(method, path, body));
+  await withFetch({ nessie }, async calls => {
+    let file = null;
+    const b = { merchants: {}, residents: {} }, save = async x => { file = structuredClone(x); };
+    await assert.rejects(seedBank({ NESSIE_API_KEY: KEY }, b, residents.slice(0, 1), save), /HTTP 503/);
+    const kept = file.residents[residents[0].id];
+    assert.ok(kept.customer, 'the customer was saved');
+    assert.equal(['checking', 'savings', 'loan'].filter(k => kept[k]).length, 2, 'and both accounts that were made');
+    const n = calls.length;
+    await seedBank({ NESSIE_API_KEY: KEY }, file, residents.slice(0, 1), save);
+    assert.deepEqual(calls.slice(n).map(c => c.method), ['POST'], 'just the missing account');
+    assert.ok(['customer', 'checking', 'savings', 'loan'].every(k => file.residents[residents[0].id][k]));
+  });
+});
+
+test('handler: a showcase resident\'s ledger is only read back, as seed:nessie wrote it; one it didn\'t is computed here', async () => withSeeded(async nessie => {
+  await withFetch({ nessie }, async () => assert.ok(await seedLedgers({ NESSIE_API_KEY: KEY }, d.bank, residents.filter(r => r.id === 'bryce'), [BIKES]) > 0));
   await withFetch({ nessie }, async calls => {
     const r = await bank({ resident: 'bryce', policies: BIKES, ledger: true });
     assert.equal(r.status, 200);
     assert.equal(r.ledger.source, 'nessie');
+    assert.equal(r.ledger.written, 0);
     const entries = ledgerEntries(r.policy, r.resident, d.bank.merchants);
-    assert.equal(calls.filter(c => c.method === 'POST').length, entries.length);
-    const { checking, savings, loan } = d.bank.residents.bryce;
-    assert.ok(calls.filter(c => c.method === 'POST').every(c => [checking, savings, loan].some(id => c.url.includes(id))));
+    assert.equal(calls.filter(c => c.method === 'POST').length, 0, 'the endpoint never writes a showcase ledger');
     assert.deepEqual(r.ledger.entries.map(e => e.amount), entries.map(e => e.body.amount ?? e.body.payment_amount));
     assert.ok(r.ledger.entries.every(e => e.id));
     assert.deepEqual(r.ledger.totals, { checking: r.policy.years.at(-1).net, savings: r.policy.years.at(-1).savings, loan: r.policy.years.at(-1).borrowed }, 'summed from what Nessie returned');
@@ -255,10 +273,12 @@ test('handler: the ledger is written to the resident\'s Nessie accounts once, th
     const n = calls.length;
     assert.equal((await bank({ resident: 'bryce', policies: BIKES })).ledger.cached, true, 'cached, even without ledger: true');
     assert.equal(calls.length, n);
-    // a new scenario is added alongside (Nessie can't delete purchases), under its own tag
-    await bank({ resident: 'bryce', policies: NONE, ledger: true });
-    const held = Object.values(nessie.store.txns).filter(t => [checking, savings, loan].includes(t.account_id));
-    assert.equal(held.length, entries.length + ledgerEntries((await statementFor('bryce', NONE)).policy, r.resident, d.bank.merchants).length);
+    // a scenario seed:nessie didn't write: read, found missing, computed here, and still nothing written
+    const other = await bank({ resident: 'bryce', policies: NONE, ledger: true });
+    assert.deepEqual([other.ledger.source, other.ledger.note], ['local', 'Not in Nessie: showcase ledgers are written for the demo\'s scenarios at demo freeze (npm run seed:nessie). Computed here.']);
+    assert.equal(calls.filter(c => c.method === 'POST').length, 0);
+    const { checking, savings, loan } = d.bank.residents.bryce;
+    assert.equal(Object.values(nessie.store.txns).filter(t => [checking, savings, loan].includes(t.account_id)).length, entries.length, 'only what the script wrote');
   });
 }));
 
@@ -410,6 +430,11 @@ test('talk: client-sent titles never reach Gemini; 10 questions per IP per minut
   });
   for (let i = 0; i < 10; i++) assert.equal((await talk(ask('uma', `Question ${i}`), {}, '192.0.2.60')).status, 200);
   assert.equal((await talk(ask('uma', 'One more'), {}, '192.0.2.60')).status, 429);
+  // over the limit, a scenario not run yet is refused before its models run
+  const fresh = [{ id: 'core-infill', params: { acres_built: 3.25 } }]; // a scenario no other test runs
+  assert.equal(scenarioCached(fresh), false);
+  assert.equal((await talk({ ...ask('uma', 'And now?'), policies: fresh }, {}, '192.0.2.60')).status, 429);
+  assert.equal(scenarioCached(fresh), false, 'the models never ran');
 });
 
 test('talk: a 429 with a short retry (a per-minute limit) waits and retries once', async () => {

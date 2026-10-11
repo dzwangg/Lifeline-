@@ -12,16 +12,18 @@
 // savings from the Survey of Consumer Finances; data/resident-finance.json holds those values and their sources. "You" follows the same CH-LUTI paths from the visitor's
 // self-reported year-0 numbers, which are kept nowhere but their own Nessie ledger.
 //
-// Nessie (NESSIE_API_KEY, server-side only): scripts/seed-nessie.js creates a customer with checking, savings and loan accounts
-// per showcase resident once (ids in data/resident-bank.json). With ledger: true the scenario's ledger is written to those
-// accounts: the last year's month in checking (paycheck deposit, housing bill, commute and basket purchases) and the
-// savings path in savings (opening deposit, then each year's saving or drawdown) and, once savings are gone, what a household
-// that borrows borrows or pays back each year in its loan account; all tagged with a hash of the budget. Nessie's
-// sandbox never posts entries to the balance and can't delete purchases, so the ledger is append-only: a scenario's entries
-// are written once (a cold start reads them back rather than writing them again), and the reply's totals are summed from
-// what Nessie returns. Written ledgers are cached, so a scenario costs Nessie calls once; without
-// ledger: true no call is made (the panel asks only once a scenario settles, never per slider move). "You" gets a customer
-// on its first ledger write; the reply's account (ids signed with the key) goes back with later requests.
+// Nessie (NESSIE_API_KEY, server-side only). A ledger is the last year's month in checking (paycheck deposit, housing bill,
+// commute and basket purchases), the savings path in savings (opening deposit, then each year's saving or drawdown) and,
+// once savings are gone, what a household that borrows borrows or pays back each year in its loan account; all tagged
+// with a hash of the budget. Nessie's sandbox never posts entries to the balance and can't delete purchases, so ledgers are
+// append-only, and the reply's totals are summed from what Nessie returns.
+// Showcase residents: scripts/seed-nessie.js (npm run seed:nessie, at demo freeze) makes each one's customer and accounts
+// (ids in data/resident-bank.json) and writes their ledgers for the demo's scenarios, one process, one write at a time.
+// This endpoint never writes to them: with ledger: true it reads a scenario's ledger back, and computes it here if Nessie
+// lacks it. So no two server instances can race to write the same entries. "You" is the one live writer: it gets a customer
+// on its first ledger write and writes only to that customer's accounts, whose ids (signed with the key) the reply hands
+// back for later requests. Ledgers are cached, so a scenario costs Nessie calls once per instance; without ledger: true no
+// call is made (the panel asks only once a scenario settles, never per slider move).
 // No key, DEMO_MODE=1, a rate limit or a Nessie error: the reply's ledger is the same entries computed here, with
 // source: "local" and a note saying why.
 import { createHmac, timingSafeEqual } from 'node:crypto';
@@ -65,6 +67,8 @@ function scenarioRun(policies, cards, d) {
   return lru(runs, key, { agents: simulate(inputs, d.assumptions, d.baselines, SEED).agents, inputs, luti }, 50);
 }
 const isCached = (policies) => runs.has(hashInput([...policies].sort((a, b) => (a.id < b.id ? -1 : 1))));
+/** Whether statementFor(…, policies) runs on cached models (these policies and no policy), costing no model run. */
+export const scenarioCached = policies => isCached(policies) && isCached([]);
 
 const Y0 = BASE_YEAR - 1; // year 0's calendar year: CH-LUTI's year 1 is BASE_YEAR
 // Costs, fares and tax thresholds grow with CH-LUTI's regional rent inflation, so spending keeps pace with rents.
@@ -220,8 +224,9 @@ const inBatches = async (items, f, n = 6) => { // ponytail: 6 in flight; Nessie'
 // Nessie's sandbox records transactions but never posts them to the balance, and it can't delete purchases or withdrawals,
 // so the ledger is append-only: each scenario's entries carry its tag, and the accounts keep every scenario written so far.
 const KINDS = ['checking/deposits', 'checking/bills', 'checking/purchases', 'savings/deposits', 'savings/withdrawals', 'loan/loans', 'loan/deposits']; // all ledgerEntries writes
-/** Posts whichever of `entries` the accounts lack (all, the first time; none, once written, even from a cold start). */
-export async function writeLedger(env, accounts, entries) {
+const keyOf = e => `${e.account}/${e.kind}/${labelOf(e)}`;
+/** What the accounts hold of `entries`, matched by their tagged labels: held (by keyOf) and the entries missing. Reads only. */
+export async function readLedger(env, accounts, entries) {
   const tag = labelOf(entries[0]).slice(0, 10), held = new Map();
   await inBatches(KINDS, async k => {
     const [account, kind] = k.split('/');
@@ -230,11 +235,18 @@ export async function writeLedger(env, accounts, entries) {
       if (label?.startsWith(tag)) held.set(`${account}/${kind}/${label}`, x);
     }
   });
-  const missing = entries.filter(e => !held.has(`${e.account}/${e.kind}/${labelOf(e)}`));
-  await inBatches(missing, async e => held.set(`${e.account}/${e.kind}/${labelOf(e)}`, created(await nessie(env, 'POST', `/accounts/${accounts[e.account]}/${e.kind}`, e.body))));
-  // what Nessie holds, read back: its ids and amounts, not ours
-  const rows = entries.map(e => ({ ...view(e), id: held.get(`${e.account}/${e.kind}/${labelOf(e)}`)._id, amount: amountOf(held.get(`${e.account}/${e.kind}/${labelOf(e)}`)) }));
-  return { source: 'nessie', written: missing.length, totals: totals(rows), entries: rows };
+  return { held, missing: entries.filter(e => !held.has(keyOf(e))) };
+}
+// What Nessie holds, read back: its ids and amounts, not ours.
+const fromNessie = (entries, held, written) => {
+  const rows = entries.map(e => ({ ...view(e), id: held.get(keyOf(e))._id, amount: amountOf(held.get(keyOf(e))) }));
+  return { source: 'nessie', written, totals: totals(rows), entries: rows };
+};
+/** Posts whichever of `entries` the accounts lack (all, the first time; none, once written, even from a cold start). */
+export async function writeLedger(env, accounts, entries) {
+  const { held, missing } = await readLedger(env, accounts, entries);
+  await inBatches(missing, async e => held.set(keyOf(e), created(await nessie(env, 'POST', `/accounts/${accounts[e.account]}/${e.kind}`, e.body))));
+  return fromNessie(entries, held, missing.length);
 }
 const amountOf = x => x.amount ?? x.payment_amount;
 const view = e => ({ id: null, account: e.account, kind: e.kind, amount: amountOf(e.body), date: e.body.transaction_date ?? e.body.purchase_date ?? e.body.payment_date ?? null, label: labelOf(e) });
@@ -247,17 +259,30 @@ const localLedger = (entries, note) => { const rows = entries.map(view); return 
 
 // Nessie has no loan account type, so loans and family support sit on a Credit Card account, as Nessie loans.
 const ACCOUNTS = { checking: ['Checking', 'checking'], savings: ['Savings', 'savings'], loan: ['Credit Card', 'loans and family support'] };
-/** A customer with a checking, a savings and a loan account: whichever of them `have` lacks is made. */
-async function createCustomer(env, first_name, last_name, have = {}) {
-  const customer = have.customer ?? created(await nessie(env, 'POST', '/customers', { first_name, last_name, address: ADDRESS }))._id;
-  const made = await Promise.all(Object.entries(ACCOUNTS).map(async ([key, [type, what]]) => [key, have[key]
-    ?? created(await nessie(env, 'POST', `/customers/${customer}/accounts`, { type, nickname: `${first_name} ${what}`, rewards: 0, balance: 0 }))._id]));
-  return { customer, ...Object.fromEntries(made) };
+/**
+ * A customer with a checking, a savings and a loan account: whichever of them `have` lacks is made. save(ids) runs after
+ * each one is made, with every id so far, so a failure partway (say, one account request of three) keeps what was made,
+ * and a rerun makes only the rest.
+ */
+async function createCustomer(env, first_name, last_name, have = {}, save = async () => {}) {
+  const ids = { ...have };
+  if (!ids.customer) {
+    ids.customer = created(await nessie(env, 'POST', '/customers', { first_name, last_name, address: ADDRESS }))._id;
+    await save({ ...ids });
+  }
+  const made = await Promise.allSettled(Object.entries(ACCOUNTS).filter(([key]) => !ids[key]).map(async ([key, [type, what]]) => {
+    ids[key] = created(await nessie(env, 'POST', `/customers/${ids.customer}/accounts`, { type, nickname: `${first_name} ${what}`, rewards: 0, balance: 0 }))._id;
+    await save({ ...ids });
+  }));
+  const failed = made.find(m => m.status === 'rejected');
+  if (failed) throw failed.reason; // once every request has finished, so each one that worked is saved
+  return ids;
 }
 
 /**
  * Creates what `bank` lacks: the two merchants purchases need, and each showcase resident's customer and accounts. Calls
- * save(bank) after each step, so a failure halfway keeps what was made. Idempotent: what bank holds is never recreated.
+ * save(bank) after each id Nessie returns, so a failure partway keeps everything made, and a rerun makes only what is
+ * missing. Idempotent: what bank holds is never recreated.
  */
 export async function seedBank(env, bank, residents, save = async () => {}) {
   const merchants = { commute: ['Commute costs', 'transportation'], basket: ['Household basket', 'groceries'] };
@@ -265,11 +290,24 @@ export async function seedBank(env, bank, residents, save = async () => {}) {
     bank.merchants[key] = created(await nessie(env, 'POST', '/merchants', { name, category, address: ADDRESS, geocode: { lat: 35.9132, lng: -79.0558 } }))._id;
     await save(bank);
   }
-  for (const r of residents) if (!Object.keys(ACCOUNTS).every(k => bank.residents[r.id]?.[k])) { // what exists is kept
-    bank.residents[r.id] = await createCustomer(env, r.name, 'Meridian (simulated)', bank.residents[r.id]);
-    await save(bank);
+  for (const r of residents) if (!['customer', ...Object.keys(ACCOUNTS)].every(k => bank.residents[r.id]?.[k])) { // what exists is kept
+    await createCustomer(env, r.name, 'Meridian (simulated)', bank.residents[r.id], async ids => { bank.residents[r.id] = ids; await save(bank); });
   }
   return bank;
+}
+
+/**
+ * Writes each showcase resident's ledger for each of these policy sets to its seeded accounts (npm run seed:nessie, at demo
+ * freeze), one at a time: the only writer of showcase ledgers. Entries already there are skipped (writeLedger), so a rerun
+ * after a failure writes only the rest. Returns how many entries were written.
+ */
+export async function seedLedgers(env, bank, residents, policySets) {
+  let written = 0;
+  for (const policies of policySets) for (const r of residents) {
+    const s = await statementFor(r.id, policies);
+    written += (await writeLedger(env, bank.residents[r.id], ledgerEntries(s.policy, s.resident, bank.merchants))).written;
+  }
+  return written;
 }
 
 // A visitor's account ids come back from the browser, so they are signed: a visitor can only write to accounts made for them.
@@ -313,7 +351,7 @@ export async function POST(request, env = process.env) {
   const { errors, who, policies, account } = parseBody(body, cards, d.residents);
   if (errors.length) return Response.json({ error: errors.join('; ') }, { status: 400 });
   const ip = clientIp(request);
-  if (!isCached(policies) || !isCached([])) {
+  if (!scenarioCached(policies)) {
     const wait = computeLimit(ip);
     if (wait) return Response.json({ error: 'too many new scenarios; try again shortly' }, { status: 429, headers: { 'retry-after': String(wait) } });
   }
@@ -333,6 +371,13 @@ export async function POST(request, env = process.env) {
     : (ledgerLimit(ip) || (you && !accounts && visitorLimit(ip))) ? 'Too many ledger writes just now: computed here.' : null;
   if (note) return Response.json({ ...statement, ledger: localLedger(entries, note) });
   try {
+    if (!you) { // a showcase resident: written at demo freeze, only read back here
+      const { held, missing } = await readLedger(env, accounts, entries);
+      const ledger = missing.length ? localLedger(entries, 'Not in Nessie: showcase ledgers are written for the demo\'s scenarios at demo freeze (npm run seed:nessie). Computed here.')
+        : fromNessie(entries, held, 0);
+      lru(ledgers, key, ledger, 500);
+      return Response.json({ ...statement, ledger: { ...ledger, cached: false } });
+    }
     if (!accounts) {
       accounts = await createCustomer(env, 'Visitor', 'Prosperia (simulated)');
       reply.account = { ...accounts, sig: sign(env, accounts) };

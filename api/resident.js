@@ -10,7 +10,7 @@
 // resident type. DEMO_MODE=1 never calls out; a missing key degrades its own step.
 import { readFile } from 'node:fs/promises';
 import { badNumbers, clientIp, gemini, hashInput, loadCards, policiesError, rateLimiter, speak, speakable, validPolicies } from './narration.js';
-import { loadData, statementFor } from './resident-bank.js';
+import { loadData, scenarioCached, statementFor } from './resident-bank.js';
 
 // ElevenLabs premade voices (in every account's voice library), one per resident type.
 export const VOICES = { student: 'cgSgspJ2msm6clMCkdW9', family: 'EXAVITQu4vr4xnSDxMaL', owner: 'JBFqnCBsd6RMkjVDRZzb', commuter: 'nPczCjzI2devNBz1zQrb' };
@@ -152,7 +152,14 @@ export async function POST(request, env = process.env) {
   if (!question || question.length > MAX_QUESTION) errors.push(`question must be 1-${MAX_QUESTION} characters`);
   if (errors.length) return Response.json({ error: errors.join('; ') }, { status: 400 });
 
-  const f = facts(await statementFor(b.resident, b.policies.map(({ id, params }) => ({ id, params }))));
+  // One count against the limit per request: before running the models for a scenario not cached yet (that costs CPU, so
+  // it is checked first, as /api/resident-bank does), else before calling Gemini. Cached answers and demo clips are free.
+  let counted = false;
+  const limited = () => (counted ? 0 : (counted = true, retryAfter(clientIp(request))));
+  const tooMany = wait => Response.json({ error: 'too many questions; try again shortly' }, { status: 429, headers: { 'retry-after': String(wait) } });
+  const policies = b.policies.map(({ id, params }) => ({ id, params }));
+  if (!scenarioCached(policies)) { const wait = limited(); if (wait) return tooMany(wait); }
+  const f = facts(await statementFor(b.resident, policies));
   const key = answerKey(f, question);
   if (cache.has(key)) return Response.json({ ...cache.get(key), cached: true });
   const clip = await demoAnswer(key, f.type); // committed by npm run pregen:demo, and served first, in DEMO_MODE too
@@ -161,8 +168,8 @@ export async function POST(request, env = process.env) {
     return Response.json({ ...clip, cached: true });
   }
   if (env.DEMO_MODE === '1') return Response.json({ text: templateAnswer(f), audio: null, cached: false, fallback: true, reason: 'demo mode' });
-  const wait = retryAfter(clientIp(request));
-  if (wait) return Response.json({ error: 'too many questions; try again shortly' }, { status: 429, headers: { 'retry-after': String(wait) } });
+  const wait = limited();
+  if (wait) return tooMany(wait);
   const { failed, ...result } = await answer(f, question, env);
   if (!failed) {
     cache.set(key, result);

@@ -133,9 +133,9 @@ const WORK = { remote: 'works from home', durham: 'works in Durham', campus: 'wo
 
 async function load() {
   const id = ++latest, you = $('resident').value === 'you';
+  resetTalk(); // a new resident or card: the last answer, its audio and any reply still on its way are for the old one
   $('you-form').hidden = !you;
   $('talk').hidden = you;
-  $('answer').hidden = true;
   const body = { policies: policiesOf(), ledger: true };
   if (you) {
     body.you = { rent: +$('you-rent').value, income: +$('you-income').value, zone: $('you-zone').value, mode: $('you-mode').value };
@@ -259,33 +259,47 @@ function chart(a, b, title) {
 }
 
 const audio = new Audio();
+let asked = 0; // bumped by each question and each reset: a reply is shown only if nothing has happened since it was asked
+function resetTalk() {
+  asked++;
+  audio.pause();
+  audio.removeAttribute('src');
+  audio.load();
+  $('play').disabled = true;
+  $('play').textContent = 'Play';
+  $('answer').hidden = true;
+  $('answer').textContent = '';
+  $('talk-fallback').hidden = true;
+  $('ask').disabled = false;
+}
 $('play').onclick = () => (audio.paused ? audio.play() : audio.pause());
 audio.onplay = () => { $('play').textContent = 'Pause'; };
 audio.onpause = audio.onended = () => { $('play').textContent = 'Play'; };
 $('ask').onclick = async () => {
   const question = $('question').value.trim();
   if (!question) return;
+  resetTalk();
+  const mine = asked;
   $('ask').disabled = true;
-  $('play').disabled = true;
-  audio.pause();
   $('answer').hidden = false;
   $('answer').textContent = '…';
   try {
     const res = await fetch('/api/resident', { method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ resident: $('resident').value, policies: policiesOf(), question }) });
     const out = await res.json();
+    if (mine !== asked) return; // the resident or cards changed (or another question went out) while this was on its way
     $('answer').textContent = res.ok ? out.text : out.error;
     $('talk-fallback').hidden = !out.fallback;
     $('talk-fallback').textContent = `Standard answer: the AI answer was unavailable (${out.reason ?? 'unknown'})`;
     if (out.audio) { audio.src = `data:audio/mpeg;base64,${out.audio}`; $('play').disabled = false; }
   } catch (err) {
-    $('answer').textContent = 'The resident is unavailable right now.';
+    if (mine === asked) $('answer').textContent = 'The resident is unavailable right now.';
   } finally {
-    $('ask').disabled = false;
+    if (mine === asked) $('ask').disabled = false;
   }
 };
 
-$('resident').onchange = () => { if ($('resident').value !== 'you') load(); else { $('you-form').hidden = false; $('talk').hidden = true; } };
+$('resident').onchange = () => { if ($('resident').value !== 'you') load(); else { resetTalk(); $('you-form').hidden = false; $('talk').hidden = true; } };
 $('card').onchange = () => load();
 $('year').oninput = () => data && render();
 $('you-form').onsubmit = e => { e.preventDefault(); load(); };

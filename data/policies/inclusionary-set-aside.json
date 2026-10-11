@@ -1,7 +1,7 @@
 {
   "id": "inclusionary-set-aside",
   "title": "Require below-market homes in every new building",
-  "summary": "Raises the share of homes in a new development that must sell below market, and drops the density bonus that pays developers back for them.",
+  "summary": "Raises the share of homes in a new development that must be let below market, and drops the density bonus that pays developers back for them.",
   "category": "housing",
   "icon": "tower",
   "decider": {
@@ -16,7 +16,7 @@
   "params": [
     {
       "key": "percent_below_market",
-      "label": "Share of new homes that must be below market",
+      "label": "Share of new homes that must be let below market",
       "min": 5,
       "max": 40,
       "default": 20,
@@ -61,8 +61,8 @@
       "url": "https://bpb-us-e2.wpmucdn.com/sites.uci.edu/dist/b/5302/files/2026/06/IZ_Kouchekinia.pdf"
     },
     {
-      "claim": "North Carolina bars towns from regulating rents, so a set-aside can only be required of homes for sale; Chapel Hill's own ordinance says it “shall not be construed to establish rent control” and makes rental units voluntary",
-      "source": "N.C. Gen. Stat. §42-14.1; Town of Chapel Hill LUMO §3.10(f)",
+      "claim": "North Carolina bars a town from setting rents outright, but allows rent restrictions agreed with owners who take its funding or incentives; Chapel Hill's own ordinance says it “shall not be construed to establish rent control” and makes its rental units voluntary",
+      "source": "N.C. Gen. Stat. §42-14.1(a) and (c); Town of Chapel Hill LUMO §3.10(f)",
       "url": "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_42/GS_42-14.1.html"
     }
   ],
@@ -74,7 +74,7 @@
     "cons": [
       "With no density bonus the requirement is simply a cost on building with nothing given back, and the evidence that it is harmless comes from mild 10-15% programmes that do carry bonuses.",
       "The harm grows with how hard the requirement bites: the one study that measures stringency finds the effect about four times larger in the most demanding quartile of towns.",
-      "North Carolina bars rent regulation, so this reaches homes for sale only; the Town has to fall back on voluntary incentives for apartments, which have delivered 5 homes since 2013."
+      "A town cannot simply impose this. Chapel Hill's mandate covers homes for sale; it reaches below-market rents only by agreement with developers who take its incentives, and that voluntary route has delivered 5 homes since 2013."
     ]
   }
 }

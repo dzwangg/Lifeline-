@@ -30,6 +30,7 @@ export function mountAskBar({ store, cards, game = null, host = document.body })
     if (change?.type !== 'dropPolicy') return;
     const i = cards.findIndex(c => c.id === change.policyId);
     if (i >= 0) cards.splice(i, 1);
+    forget(change.policyId); // and its slider values, as the ask bar does for a library card it re-applies
   });
 
   const input = h('input', { class: 'ask__input', type: 'text', maxlength: 1000, autocomplete: 'off', spellcheck: 'true',
@@ -40,6 +41,7 @@ export function mountAskBar({ store, cards, game = null, host = document.body })
   const form = h('form', { class: 'plate ask', 'aria-label': 'Ask the city' }, out, h('div', { class: 'ask__row' }, input, send));
   host.append(form);
   let busy = false, undo = null;
+  const replaced = new Map(); // an earlier draft a redraft took the place of, so Undo can still fill its slot
   placeBar(form);
   // An enacted card is in force for the rest of the game at the settings it was enacted with: it can't be applied again
   // (the store refuses) and its sliders can't move. Ending a decade also drops the Undo button, which would otherwise
@@ -96,7 +98,11 @@ export function mountAskBar({ store, cards, game = null, host = document.body })
       const errors = validateCard(r.card);
       if (errors.length) return show('ask__out--error', h('p', { class: 'ask__lede' }, 'The drafted card didn’t pass the checks, so nothing changed.'));
       addCard(r.card);
-      for (const old of rememberPlayerCard({ card: r.card, signature: r.signature ?? null })) store.dropPolicy(old);
+      // An earlier draft of the same policy steps aside, unless a decade already enacted it: that one is in force for
+      // good, so the new draft is a second card beside it. Undo fills the old card's slot with the one that replaced it.
+      for (const old of rememberPlayerCard({ card: r.card, signature: r.signature ?? null }, enacted())) {
+        if (store.dropPolicy(old)) replaced.set(old, r.card.id);
+      }
       const placed = place(r.card);
       done.push(h('div', { class: 'ask__card' },
         h('p', { class: 'ask__kicker' }, placed ? appliedIn('Applied in', placed) : 'Added to your library; no slot could take it'),
@@ -143,7 +149,7 @@ export function mountAskBar({ store, cards, game = null, host = document.body })
     const changed = r.card || library || adjust.length || r.drivers;
     if (changed) undo = () => { // the last change stays undoable until another one replaces it
       store.clear();
-      for (const [slot, id] of Object.entries(before.applied)) if (id) store.place(id, slot);
+      for (const [slot, id] of Object.entries(before.applied)) if (id) store.place(replaced.get(id) ?? id, slot);
       store.apply();
       scenario.set({ params: before.params, drivers: before.drivers });
       show('ask__out--plain', h('p', { class: 'ask__lede' }, 'Undone. The city is back to how it was before that prompt.'));
@@ -159,6 +165,13 @@ export function mountAskBar({ store, cards, game = null, host = document.body })
   }
   const notesOf = r => (r.notes?.length ? h('ul', { class: 'ask__list ask__list--notes' }, r.notes.map(n => h('li', {}, n))) : null);
 
+  // A card that has left the deck leaves nothing behind.
+  function forget(id) {
+    const params = { ...scenario.get().params };
+    if (!(id in params)) return;
+    delete params[id];
+    scenario.set({ params });
+  }
   // A drafted card joins the sim's cards and the policy panel's deck.
   function addCard(card) {
     if (!cards.some(c => c.id === card.id)) cards.push(card);

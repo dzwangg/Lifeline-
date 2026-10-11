@@ -21,16 +21,20 @@ function read() {
   }
 }
 
+/** False when this browser refused the write, so a caller can say so rather than promise a change that won't last. */
 function write(next) {
-  try { localStorage.setItem(KEY, JSON.stringify(next)); }
-  catch (error) { console.warn('Could not save player policies for the next visit.', error); }
+  try { localStorage.setItem(KEY, JSON.stringify(next)); return true; }
+  catch (error) {
+    console.warn('Could not save player policies for the next visit.', error);
+    return false;
+  }
 }
 
 // Two drafts are the same policy when they ask the city for the same thing: same name, and the same levers and zone rules.
 // Each reply carries a fresh id, so without this, asking twice for homes near Morrison left two identical cards.
 const shapeOf = ({ title, category, levers = [], zoneRules = [] }) => JSON.stringify([
   title.trim().toLowerCase().replace(/\s+/g, ' '), category ?? null,
-  levers.map(l => `${l.lever}=${'value' in l ? l.value : `:${l.param}`}@${(l.zones ?? []).join('+')}`).sort(),
+  levers.map(l => `${l.lever}=${'value' in l ? l.value : `:${l.param}`}@${[...(l.zones ?? [])].sort().join('+')}`).sort(),
   zoneRules.map(r => JSON.stringify(Object.entries(r).sort())).sort(),
 ]);
 
@@ -53,19 +57,23 @@ export function loadPlayerCards(taken = new Set()) {
   return keep;
 }
 
-/** Keeps a fresh draft for later visits. Returns the ids of earlier drafts of the same policy it replaces. */
-export function rememberPlayerCard(entry) {
+/**
+ * Keeps a fresh draft for later visits. Returns the ids of earlier drafts of the same policy it replaces.
+ * @param {Set<string>} [keep] ids never superseded — a card a decade has enacted is in force for good, so a later
+ *   draft of the same policy is a new card beside it, not a replacement for it.
+ */
+export function rememberPlayerCard(entry, keep = new Set()) {
   const before = read().filter(e => e.card.id !== entry.card.id);
-  const after = dedupe([...before, entry]);
+  const safe = before.filter(e => keep.has(e.card.id));
+  const after = [...safe, ...dedupe([...before.filter(e => !keep.has(e.card.id)), entry])];
   write(after);
-  const kept = new Set(after.map(e => e.card.id));
-  return before.filter(e => !kept.has(e.card.id)).map(e => e.card.id);
+  const left = new Set(after.map(e => e.card.id));
+  return before.filter(e => !left.has(e.card.id)).map(e => e.card.id);
 }
 
-/** Drops a drafted card from this browser for good. Asking the city for it again drafts it anew. */
+/** Drops a drafted card from this browser for good. False if it wasn't there, or if this browser refused the write. */
 export function forgetPlayerCard(id) {
   const before = read(), after = before.filter(e => e.card.id !== id);
   if (after.length === before.length) return false;
-  write(after);
-  return true;
+  return write(after);
 }

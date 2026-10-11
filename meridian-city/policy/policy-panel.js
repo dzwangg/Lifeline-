@@ -427,9 +427,11 @@ export function mountPolicyPanel({ store, game = null, host = document.body } = 
     const title = store.getPolicy(id)?.title ?? 'That card';
     ui.discard = null;
     if (ui.armed?.policyId === id) ui.armed = null;
-    forgetPlayerCard(id);
+    const saved = forgetPlayerCard(id);
     if (!store.dropPolicy(id)) render();
-    announce(`Discarded ${title}. It has left your library.`);
+    announce(saved
+      ? `Discarded ${title}. It has left your library.`
+      : `Discarded ${title} for now. This browser wouldn’t save the change, so it may come back next visit.`);
     search.focus();
   }
   // The Discard button and its confirmation sit outside the card's own keyboard grid, so they are found by their own

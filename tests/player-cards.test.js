@@ -90,6 +90,45 @@ test('dropPolicy takes a discarded card out of the library and every selection, 
   assert.equal(s.fits(panel.id, 'housing-1'), true, 'and it is not retired, so it can be placed');
 });
 
+test('a policy a decade enacted is never dropped: it stays in force, and keeps its name', () => {
+  const panel = { id: 'morrison-a1', title: 'Homes near Morrison Hall', category: 'housing', icon: 'house', summary: 'x', drafted: true };
+  const s = createPolicyStore({ policies: [] });
+  s.addPolicy(panel);
+  s.place(panel.id, 'housing-1');
+  s.apply();
+  s.retire([panel.id]); // the decade ends
+
+  assert.equal(s.dropPolicy(panel.id), false, 'the ask bar cannot drop it by drafting the policy again');
+  assert.equal(s.getPolicy(panel.id).title, panel.title, 'so the In force list can still name it');
+});
+
+test('a redraft never supersedes a draft a decade enacted; the two stand side by side', () => {
+  store.set(KEY, JSON.stringify([entry('morrison-a1')]));
+  assert.deepEqual(rememberPlayerCard(entry('morrison-b2'), new Set(['morrison-a1'])), [], 'nothing to drop');
+  assert.deepEqual(saved(), ['morrison-a1', 'morrison-b2'], 'the enacted draft stays saved beside the new one');
+  // and with nothing enacted it supersedes as before
+  store.set(KEY, JSON.stringify([entry('morrison-a1')]));
+  assert.deepEqual(rememberPlayerCard(entry('morrison-b2')), ['morrison-a1']);
+});
+
+test('the same ask twice is one card however the zones came back ordered', () => {
+  const zoned = (id, zones) => entry(id, { levers: [{ lever: 'housing.farMultiplier', param: 'floor_area', zones }] });
+  store.set(KEY, JSON.stringify([zoned('a1', ['downtown', 'north']), zoned('b2', ['north', 'downtown'])]));
+  assert.deepEqual(loadPlayerCards().map(e => e.card.id), ['b2']);
+});
+
+test('a discard this browser refuses to save says so instead of promising it is gone', () => {
+  store.set(KEY, JSON.stringify([entry('a1')]));
+  const warn = console.warn;
+  console.warn = () => {};
+  const setItem = globalThis.localStorage.setItem;
+  globalThis.localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
+  assert.equal(forgetPlayerCard('a1'), false, 'the panel needs to know the change did not stick');
+  globalThis.localStorage.setItem = setItem;
+  console.warn = warn;
+  assert.deepEqual(saved(), ['a1'], 'and it is indeed still there');
+});
+
 test('reverting after a drop does not bring the card back into a slot', () => {
   const panel = { id: 'draft-1', title: 'A drafted card', category: 'housing', icon: 'house', summary: 'Something.', drafted: true };
   const s = createPolicyStore({ policies: [] });

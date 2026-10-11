@@ -3,6 +3,8 @@
 .plate.sim.rp {
   --rp-ink: #0e2f4d; --rp-soft: #3c5d79; --rp-muted: #5d7890; --rp-line: rgba(14, 47, 77, .12);
   --rp-policy: #2a78d6; --rp-base: #8796a3; --rp-good: #13751f; --rp-bad: #b3261e; --rp-now: #078c9b;
+  /* one even sky-blue glass, not the other plates' white-over-blue split; blue so the white tiles and wells stand out */
+  --rp-glass: rgba(222, 247, 255, .88); --ae-glass-top: var(--rp-glass); --ae-glass-bot: var(--rp-glass);
   right: 16px; top: calc(72px + env(safe-area-inset-top, 0px)); z-index: 30; box-sizing: border-box;
   width: min(440px, calc(100% - 32px)); max-height: calc(100% - 88px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   display: flex; flex-direction: column; overflow: hidden; padding: 0 !important;
@@ -11,6 +13,7 @@
 .rp-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .rp-head { display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px 8px 18px; }
 .rp-head__text { flex: 1; min-width: 0; }
+.rp-head__actions { flex: none; display: flex; gap: 6px; }
 .rp-kicker { margin: 0; font: 600 11px var(--mono, monospace); letter-spacing: .14em; text-transform: uppercase; color: #138da0; }
 .rp-title { margin: 2px 0 6px; font-size: 18px; font-weight: 800; line-height: 1.2; text-wrap: balance; overflow-wrap: anywhere; color: var(--rp-ink); }
 .rp-chips { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -42,7 +45,7 @@
 .rp-settings > summary { cursor: pointer; font-weight: 800; font-size: 13.5px; }
 .rp-settings > .sim__list { margin-top: 8px; max-height: 40vh; overflow: auto; }
 .rp-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 16px 16px; border-top: 1px solid var(--rp-line); }
-.rp-scroll > .sim__resident:not(:empty) { margin-top: 12px; }
+.rp-side > .sim__resident:not(:empty) { margin-top: 12px; }
 
 /* tiles */
 .rp-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding-top: 12px; }
@@ -144,6 +147,29 @@
   .plate.sim.rp { left: 16px; right: 16px; width: auto; top: calc(120px + env(safe-area-inset-top, 0px)); max-height: min(60vh, calc(100% - 136px - env(safe-area-inset-top, 0px))); }
 }
 @media (prefers-reduced-motion: reduce) { .rp-tile { transition: none; } }
+
+/* Expanded (the header's Expand button; Escape shrinks it): the plate fills the window over the toolbars and the
+   Policies launcher, under the policy panel. The resident and the tiles take a column on the left, the picked metric's
+   larger charts the right; the applied cards sit side by side. One column when the window is narrow, and in a narrow or
+   short window the whole plate scrolls, header and all, so the results aren't left a sliver. */
+.plate.sim.rp.is-expanded {
+  inset: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  width: auto; max-height: none; z-index: 45;
+  --rp-glass: rgba(226, 248, 255, .95); /* frostier: the busy city stays out of the charts */
+}
+.rp.is-expanded .rp-head { padding: 16px 20px 10px 24px; }
+.rp.is-expanded .rp-time, .rp.is-expanded .rp-views, .rp.is-expanded .rp-meta { padding-left: 24px; padding-right: 24px; }
+.rp.is-expanded .rp-turn, .rp.is-expanded .rp-settings { margin-left: 22px; margin-right: 22px; }
+.rp.is-expanded .sim__list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); align-items: start; gap: 8px; }
+.rp.is-expanded .rp-scroll { display: grid; grid-template-columns: minmax(280px, 5fr) minmax(0, 7fr); align-items: start; gap: 0 32px; padding: 4px 22px 22px; }
+.rp.is-expanded .rp-scroll > :not(.rp-side, .rp-detail) { grid-column: 1 / -1; }
+.rp.is-expanded .rp-tiles { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+@media (max-width: 900px) { .rp.is-expanded .rp-scroll { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 900px), (max-height: 700px) {
+  .plate.sim.rp.is-expanded { overflow-y: auto; }
+  .rp.is-expanded .rp-body { flex: none; }
+  .rp.is-expanded .rp-scroll { overflow: visible; }
+}
 
 /* Applied cards: sliders, who decides, pros and cons. Guided-view buttons and checkboxes. */
 .sim-card, .sim__list { min-width: 0; } /* so a one-line summary can't widen the card */

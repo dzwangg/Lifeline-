@@ -89,9 +89,10 @@ function niceTicks(lo, hi, n = 4) {
 const path = pts => pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join('');
 const finite = a => a.filter(Number.isFinite);
 
-// series: [{ label, values (one per year), kind: 'policy'|'base', band?: { lo, hi } }]; y is the shown year
-function lineChart({ series, y, tick, tip, zero = false, height = 168, title }) {
-  const W = 400, H = height, P = { l: 58, r: 14, t: 12, b: 24 }, n = series[0].values.length;
+// series: [{ label, values (one per year), kind: 'policy'|'base', band?: { lo, hi } }]; y is the shown year. fit: the px
+// width the expanded plate shows it at, so it spans that width with its text a little over life size, and grows taller.
+function lineChart({ series, y, tick, tip, zero = false, height = 168, title, fit = 0 }) {
+  const W = Math.max(400, Math.round(fit / 1.2)), H = Math.round(height * Math.sqrt(W / 400)), P = { l: 58, r: 14, t: 12, b: 24 }, n = series[0].values.length;
   const vals = finite(series.flatMap(s => [...s.values, ...(s.band ? [...s.band.lo, ...s.band.hi] : [])]));
   if (zero) vals.push(0);
   let y0 = Math.min(...vals), y1 = Math.max(...vals);
@@ -177,13 +178,14 @@ const timing = ({ delayQuarters: d, phaseInQuarters: p }) => `Starts after ${qua
 export async function mountSimPlate({ policyStore, cards, game, host = document.body }) {
   const [, assumptions, baselines] = await dataReady;
   const cardById = new Map(cards.map(c => [c.id, c]));
-  const ui = { metric: null, picked: false, active: [], confirming: false };
+  const ui = { metric: null, picked: false, active: [], confirming: false, expanded: false };
 
   // ---------- skeleton ----------
   const kicker = h('p', { class: 'rp-kicker' });
   const title = h('h2', { class: 'rp-title' }, 'Policy simulation');
   const chips = h('div', { class: 'rp-chips' });
-  const toggle = h('button', { class: 'sim__toggle', type: 'button', 'aria-expanded': 'true', 'aria-controls': 'sim-body' }, 'Hide');
+  const expandBtn = h('button', { class: 'sim__toggle', type: 'button', title: 'Fill the window with the results', onclick: () => setExpanded(!ui.expanded) }, 'Expand');
+  const toggle = h('button', { class: 'sim__toggle', type: 'button', 'aria-expanded': 'true', 'aria-controls': 'sim-body', onclick: () => setHidden(!body.hidden) }, 'Hide');
   const playBtn = h('button', { class: 'rp-play', type: 'button', 'aria-label': 'Play the forecast', onclick: () => simClock.toggle() });
   const yearIn = h('input', { class: 'rp-slider', type: 'range', min: 0, max: simClock.get().steps, step: 1, value: 0, 'aria-label': 'Year shown in the city and the results', oninput: () => simClock.seek(+yearIn.value) });
   const when = h('output', { class: 'rp-when' });
@@ -202,7 +204,7 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
   const detail = h('section', { class: 'rp-detail', 'aria-live': 'polite' });
   const assume = h('details', { class: 'rp-assume' }, h('summary', {}, 'Assumptions, sources and checks'));
   const dlBtn = h('button', { class: 'rp-dl', type: 'button', onclick: download }, 'Download scenario and results (JSON)');
-  const scroll = h('div', { class: 'rp-scroll' }, residentEl, tiles, detail, assume, dlBtn,
+  const scroll = h('div', { class: 'rp-scroll' }, h('div', { class: 'rp-side' }, residentEl, tiles), detail, assume, dlBtn,
     h('div', { class: 'rp-foot' },
       h('a', { class: 'sim__sources', href: 'sources.html', target: '_blank', rel: 'noopener' }, 'Sources'),
       devMode && !stubAuto && h('label', { class: 'sim__check sim__dev' }, h('input', { type: 'checkbox', checked: stubOn, onchange: e => toggleStub(e.target.checked) }), 'Load stub card (dev)')));
@@ -214,16 +216,33 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
       changesBtn, roadBtn, wipeBtn,
       demoBtn),
     meta, settings, scroll);
-  toggle.addEventListener('click', () => {
-    body.hidden = !body.hidden;
-    toggle.setAttribute('aria-expanded', String(!body.hidden));
-    toggle.textContent = body.hidden ? 'Show' : 'Hide';
-  });
-  host.append(h('section', { class: 'plate sim rp', 'aria-label': 'Policy simulation results' },
+  const plate = h('section', { class: 'plate sim rp', 'aria-label': 'Policy simulation results' },
     h('header', { class: 'rp-head' },
       h('div', { class: 'rp-head__text' }, kicker, title, chips),
-      toggle),
-    body));
+      h('div', { class: 'rp-head__actions' }, expandBtn, toggle)),
+    body);
+  host.append(plate);
+  // Hiding the results also shrinks the plate back to its dock; expanding shows them.
+  function setHidden(hide) {
+    body.hidden = hide;
+    toggle.setAttribute('aria-expanded', String(!hide));
+    toggle.textContent = hide ? 'Show' : 'Hide';
+    if (hide) setExpanded(false);
+  }
+  // Expanded, the plate fills the window over the city (sim-plate.css) and redraws its charts larger. Escape shrinks it.
+  function setExpanded(on) {
+    if (on === ui.expanded) return;
+    ui.expanded = on;
+    if (on) setHidden(false);
+    plate.classList.toggle('is-expanded', on);
+    expandBtn.textContent = on ? 'Shrink' : 'Expand';
+    expandBtn.title = on ? 'Shrink the results back to the side (Esc)' : 'Fill the window with the results';
+    drawn = []; render();
+  }
+  addEventListener('keydown', e => {
+    if (e.key === 'Escape' && ui.expanded && !e.defaultPrevented && !e.target.closest?.('[role="dialog"]')) setExpanded(false);
+  });
+  addEventListener('resize', () => { if (ui.expanded) { drawn = []; render(); } }); // the charts fit the new width
 
   // ---------- the game's cards drive the sim: the ones enacted in past decades, then those applied for this one ----------
   const decade = (from, to) => `${yearLabel(from)}–${yearLabel(to)}`;
@@ -395,20 +414,20 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
   // ---------- detail ----------
   function renderDetail() {
     const m = METRICS.find(x => x.key === ui.metric) ?? METRICS[0];
-    const { pol, base, diff, band } = series(m), q = 4 * y - 1;
+    const { pol, base, diff, band } = series(m), q = 4 * y - 1, fit = ui.expanded ? detail.clientWidth : 0;
     const short = v => fmtChange(m.fmt, v, null);
     const kids = [
       h('h3', { class: 'rp-h3' }, m.label, h('span', {}, ` · ${yearLabel(y)}`)),
       h('p', { class: 'rp-lede' }, summary(m, diff, base, band)),
       h('h4', { class: 'rp-h4' }, 'Change vs. no new policy'),
       h('div', { class: 'rp-legend' }, h('span', { class: 'rp-key is-policy' }), 'Central estimate', band && [h('span', { class: 'rp-swatch' }), '80% of runs fall in the band']),
-      lineChart({ title: `${m.label}: change vs. no new policy`, y, zero: true, series: [{ label: 'change', kind: 'policy', values: diff, band }],
+      lineChart({ title: `${m.label}: change vs. no new policy`, y, zero: true, fit, series: [{ label: 'change', kind: 'policy', values: diff, band }],
         tick: v => (Math.abs(v) < 1e-12 ? '0' : short(v).replace(/^\+/, '')), tip: short }),
     ];
     if (!m.diffOnly) kids.push(
       h('h4', { class: 'rp-h4' }, 'Level, with and without the policies'),
       h('div', { class: 'rp-legend' }, h('span', { class: 'rp-key is-base' }), 'No new policy', h('span', { class: 'rp-key is-policy' }), 'With these policies'),
-      lineChart({ title: `${m.label}: level`, y, height: 150, series: [
+      lineChart({ title: `${m.label}: level`, y, height: 150, fit, series: [
         { label: 'no new policy', kind: 'base', values: base },
         { label: 'with policies', kind: 'policy', values: pol },
       ], tick: v => FMT[m.fmt](v), tip: v => FMT[m.fmt](v) }));

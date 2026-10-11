@@ -50,8 +50,8 @@ export function createClock({ steps, predict, yearMs = 1000 }) {
     needCommit = false;
     want(s);
   }
-  // A prediction landed. It only changes the screen when the screen is waiting for it, and while paused only
-  // for a first load or a seek: a forecast for a changed scenario waits for Play.
+  // A prediction landed. It only changes the screen when the screen is waiting for it: while playing, or while
+  // paused for a first load, a seek or a changed scenario.
   function arrived() {
     if (needCommit && ready(step) && (playing || needCommit === 'show')) commit(step, false);
     emit();
@@ -63,7 +63,7 @@ export function createClock({ steps, predict, yearMs = 1000 }) {
     return {
       steps, step, frac, years: step + Math.min(frac, 1 - 1e-9), playing, speed, before, error, shown,
       loading: !error && (needCommit ? !ready(step) && (playing || needCommit === 'show') : holding()),
-      stale: !!shown && shown.version !== version, // a newer forecast waits for Play
+      stale: !!shown && shown.version !== version, // a newer forecast is on its way
     };
   }
 
@@ -114,11 +114,11 @@ export function createClock({ steps, predict, yearMs = 1000 }) {
     },
     setBefore(b) { before = !!b; if (before) playing = false; emit(); },
 
-    /** The scenario's inputs changed, so earlier predictions are stale. Playback holds until the new ones arrive. */
+    /** The scenario's inputs changed, so earlier predictions are stale. Playback holds until the new ones arrive;
+     *  paused, the new forecast for the shown year replaces the old one as soon as it lands. */
     invalidate(v = version + 1) {
       version = v; cache.clear(); error = null;
-      if (!shown || (!playing && step === 0 && frac === 0)) needCommit = 'show'; // year 0 is the baseline whatever the policies
-      else if (playing) needCommit = 'resume';
+      needCommit = playing ? 'resume' : 'show';
       want(step);
       emit();
     },

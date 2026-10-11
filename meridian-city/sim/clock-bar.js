@@ -39,7 +39,6 @@ export function mountClockBar({ host = document.body, clock = simClock } = {}) {
     speed.textContent = s.playing ? `${s.speed}×` : 'Paused';
     const msg = s.error ? 'Forecast failed · Play retries'
       : s.loading ? 'Loading forecast…'
-      : s.stale && !s.playing ? 'Policy changed · Play to apply'
       : !s.playing && s.step >= s.steps ? 'End of forecast'
       : '';
     if (msg !== said) { said = msg; status.textContent = msg; }

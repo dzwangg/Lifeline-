@@ -124,7 +124,7 @@ test('a prediction landing while paused waits for Play', async () => {
   assert.equal(r.clock.get().step, 2);
 });
 
-test('answers for an older scenario are dropped, and the new one shows on Play', async () => {
+test('answers for an older scenario are dropped; paused, the new one shows as soon as it lands', async () => {
   const r = rig();
   await r.settle();
   await playTo(r, 2, 1 / 60, 3.2);
@@ -132,12 +132,34 @@ test('answers for an older scenario are dropped, and the new one shows on Play',
   r.runs[1] = runScenario([], {}, zones, assumptions, baselines, YEARS);
   r.clock.invalidate(1);
   await r.answer(p => p.version === 0); // late answers for version 0
+  let s = r.clock.get();
+  assert.equal(s.shown.version, 0, 'the old forecast stays until the new one lands');
+  assert.equal(s.stale, true);
+  assert.equal(s.loading, true);
   await r.settle();
-  assert.equal(r.clock.get().shown.version, 0, 'paused: the changed forecast waits');
-  assert.equal(r.clock.get().stale, true);
-  r.clock.play();
-  assert.equal(r.clock.get().shown.version, 1);
-  assert.deepEqual(r.clock.get().shown.data, r.runs[1].timeline[3]);
+  s = r.clock.get();
+  assert.equal(s.playing, false, 'a policy change never starts playback');
+  assert.equal(s.shown.version, 1);
+  assert.equal(s.step, 3);
+  assert.equal(s.stale, false);
+  assert.deepEqual(s.shown.data, r.runs[1].timeline[3]);
+});
+
+test('a policy change while playing holds playback until the new forecast lands, then carries on', async () => {
+  const r = rig();
+  await r.settle();
+  await playTo(r, 1, 1 / 60, 2.5);
+  r.runs[1] = runScenario([], {}, zones, assumptions, baselines, YEARS);
+  r.clock.invalidate(1);
+  const t0 = r.clock.get().years;
+  assert.equal(r.clock.tick(1 / 60), 0, 'holds while the new forecast is out');
+  assert.equal(r.clock.get().years, t0);
+  await r.settle();
+  r.clock.tick(1 / 60);
+  const s = r.clock.get();
+  assert.equal(s.playing, true);
+  assert.equal(s.shown.version, 1);
+  assert.ok(s.years > t0);
 });
 
 test('seek shows a year at once while paused; Play at the end starts over', async () => {

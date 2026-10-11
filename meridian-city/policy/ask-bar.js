@@ -1,7 +1,9 @@
 // "Ask the city": a prompt bar over the map. Whatever the player types goes to /api/ask, and whatever comes back is applied
 // to the live scenario at once: a drafted policy card joins the deck and its category's slot, new slider values go to the
 // applied cards, and what-ifs (inflation and the rest) go to the scenario's drivers. A refusal says why and what to try.
-// Every change can be undone. Drafted cards are kept in this browser (player-cards.js), signed, for later visits.
+// Every change can be undone, until the decade it belongs to ends. Cards enacted in a past decade are locked: the bar
+// neither re-applies them nor moves their sliders (sim/turns.js). Drafted cards are kept in this browser
+// (player-cards.js), signed, for later visits.
 import { h, cls } from './components.js';
 import { validateCard } from '../../shared/schema.js';
 import { LEVERS } from '../../shared/luti/levers.js';
@@ -19,7 +21,7 @@ const EXAMPLES = [
 const STATES = { forest: 'woods', parking: 'parking lots', low_res: 'houses', mid_res: 'apartments', mixed_use: 'shops with homes above', transit_station: 'a transit station' };
 const panelPolicy = c => ({ id: c.id, title: c.title, category: c.category ?? 'housing', icon: c.icon ?? 'house', summary: c.summary });
 
-export function mountAskBar({ store, cards, host = document.body }) {
+export function mountAskBar({ store, cards, game = null, host = document.body }) {
   // cards drafted on an earlier visit join the deck (not applied)
   let saved = loadPlayerCards(new Set(cards.map(c => c.id)));
   for (const { card } of saved) addCard(card);
@@ -33,6 +35,11 @@ export function mountAskBar({ store, cards, host = document.body }) {
   host.append(form);
   let busy = false, undo = null;
   placeBar(form);
+  // An enacted card is in force for the rest of the game at the settings it was enacted with: it can't be applied again
+  // (the store refuses) and its sliders can't move. Ending a decade also drops the Undo button, which would otherwise
+  // restore settings from before the enactment.
+  const enacted = () => new Set((game?.get().enacted ?? []).map(e => e.id));
+  game?.subscribe(() => { if (undo && enacted().size) { undo = null; out.querySelector('.ask__actions')?.remove(); } });
 
   input.addEventListener('focus', () => { if (out.hidden && !input.value) showExamples(); });
   form.addEventListener('submit', e => { e.preventDefault(); submit(input.value); });
@@ -92,25 +99,35 @@ export function mountAskBar({ store, cards, host = document.body }) {
         h('ul', { class: 'ask__list' }, modeledAs(r.card).map(t => h('li', {}, t)))));
     }
     const libraryCard = r.library && cards.find(c => c.id === r.library);
-    let library = null;
+    let library = null, lede = r.reply;
     if (libraryCard) { // the same as a library card: that card goes in, not a copy, at its default settings as the answer says
       const params = { ...scenario.get().params };
       delete params[libraryCard.id];
       const placed = place(libraryCard, () => scenario.set({ params }));
       if (placed) library = libraryCard;
+      // the answer says the card is applied at its defaults; when the store refuses it, say that instead
+      else lede = `${libraryCard.title} was enacted in an earlier decade, so it stays in force at its own settings and nothing changed.`;
       done.push(h('div', { class: 'ask__card' },
         h('p', { class: 'ask__kicker' }, placed ? appliedIn('From the library, applied in', placed) : 'Already enacted, so nothing changed'),
         h('strong', {}, libraryCard.title),
         h('p', { class: 'ask__note' }, placed ? libraryCard.summary : 'It was enacted in an earlier decade and stays in force; it can’t be applied again.')));
     }
-    if (r.adjust?.length) {
+    // A decade can end while an answer is in flight, so the lock is checked here, not when the prompt was sent.
+    const locked = enacted(), adjust = (r.adjust ?? []).filter(a => !locked.has(a.cardId));
+    const refused = (r.adjust ?? []).filter(a => locked.has(a.cardId));
+    if (adjust.length) {
       const params = structuredClone(scenario.get().params);
-      for (const a of r.adjust) (params[a.cardId] ??= {})[a.param] = a.value;
+      for (const a of adjust) (params[a.cardId] ??= {})[a.param] = a.value;
       scenario.set({ params });
-      done.push(h('ul', { class: 'ask__list' }, r.adjust.map(a => {
+      done.push(h('ul', { class: 'ask__list' }, adjust.map(a => {
         const c = cards.find(x => x.id === a.cardId), p = c?.params.find(x => x.key === a.param);
         return h('li', {}, `${c?.title ?? a.cardId}: ${p?.label ?? a.param} set to ${a.value}${p?.unit ? ` ${p.unit}` : ''}`);
       })));
+    }
+    if (refused.length) {
+      const titles = [...new Set(refused.map(a => cards.find(x => x.id === a.cardId)?.title ?? a.cardId))];
+      done.push(h('p', { class: 'ask__note' }, `Left as enacted: ${titles.join(', ')}. A policy enacted in an earlier decade keeps the settings it was enacted with.`));
+      if (!adjust.length && !r.card && !libraryCard && !r.drivers) lede = `${titles.join(', ')} ${titles.length === 1 ? 'is' : 'are'} already enacted, so the settings stay as they are.`;
     }
     if (r.drivers) {
       const drivers = r.reset ? {} : { ...scenario.get().drivers, ...r.drivers };
@@ -118,7 +135,7 @@ export function mountAskBar({ store, cards, host = document.body }) {
       const words = describeDrivers(drivers);
       done.push(h('p', { class: 'ask__note' }, words.length ? `What-ifs now: ${words.join('; ')}.` : 'No what-ifs are set.'));
     }
-    const changed = r.card || library || r.adjust?.length || r.drivers;
+    const changed = r.card || library || adjust.length || r.drivers;
     if (changed) undo = () => { // the last change stays undoable until another one replaces it
       store.clear();
       for (const [slot, id] of Object.entries(before.applied)) if (id) store.place(id, slot);
@@ -129,7 +146,7 @@ export function mountAskBar({ store, cards, host = document.body }) {
     };
     show(r.kind === 'question' ? 'ask__out--plain' : 'ask__out--done',
       h('p', { class: 'ask__you' }, `“${prompt}”`),
-      h('p', { class: 'ask__lede' }, r.reply),
+      h('p', { class: 'ask__lede' }, lede),
       ...done,
       r.unmodeled?.length > 0 && h('p', { class: 'ask__note' }, `Not modeled: ${r.unmodeled.join('; ')}.`),
       notesOf(r),

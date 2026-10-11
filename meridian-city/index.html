@@ -125,7 +125,7 @@ store.subscribe(showCount);
 game.subscribe(showCount);
 window.policyStore = store; // the simulation reads store.getState().applied once it models effects
 mountClockBar(); // starts paused, so policies can be set up before Play
-mountAskBar({ store, cards }); // before the sim plate, so cards drafted on an earlier visit are in the deck
+mountAskBar({ store, cards, game }); // before the sim plate, so cards drafted on an earlier visit are in the deck
 mountSimPlate({ policyStore: store, cards, game });
 // ?forecast adds the forecast dock (meridian-city/forecast/: the backend's forecasts, or its precomputed demos when no
 // server answers) and its housing markers on the map. Opt-in while the dock is new, so the default page is unchanged.

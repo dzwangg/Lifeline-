@@ -654,7 +654,7 @@ export function createStreetSim({ net, walk, seed = 11, doors = [], obstacles = 
       return n;
     },
     step,
-    /** Plan queued trips for up to `ms` milliseconds. Planning moves nobody, so it runs even while paused. */
+    /** Plan queued trips for up to `ms` milliseconds. Planning moves nobody, but it does set routes and destinations. */
     plan(ms = 4) { routeBudget(ms); },
     /** Doors added after the start (new homes, growth/), each { x, z, label, gate }: a destination while gate.open. */
     /**

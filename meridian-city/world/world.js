@@ -108,17 +108,19 @@ export async function buildWorld({ container, osm, names = [], zones = [], progr
     get traffic() { return traffic; },
     sprites, art, // the sprite system and its atlas, for layers added from outside (see WORLD.md)
     gridAt: (x, z) => grid.at(x, z),
-    // dt: real seconds, for the camera, inspection (the selection pulse) and street life (traffic, walkers, signals and
-    // the households' day, which run paused or playing). simDt: simulated seconds from the shared clock (0 while paused
-    // or holding), for the rest that moves: wind, water, turbines.
-    update(dt, simDt = dt) {
+    // dt: real seconds, for the camera and inspection (the selection pulse, picking, the walker card). simDt: simulated
+    // seconds from the shared clock (0 while paused or holding), for the rest that moves: wind, water, turbines.
+    // streetDt: seconds of street life (traffic, walkers and signals): real time while the clock
+    // plays, at any speed, and 0 while it is paused, so the street freezes with the city and resumes where it stopped.
+    update(dt, simDt = dt, streetDt = dt) {
       dt = Math.min(Math.max(dt, 0), .05); // animation timestamps can run slightly behind; never step backwards
       simDt = Math.max(simDt, 0);
+      streetDt = Math.min(Math.max(streetDt, 0), .05);
       time += dt; simTime += simDt;
       view.update(dt);
       const ppm = view.ppm;
       sprites.update(view.renderCam, simTime, ppm);
-      traffic?.update(dt, time, ppm); // street life runs in real time; the clock moves the years
+      traffic?.update(streetDt, time, ppm); // street life stops with the clock; the camera and picking do not
       landMeshes.update(Math.min(simDt, .2));
       outskirts.update(Math.min(simDt, .2));
       selection.update(time);

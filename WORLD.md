@@ -289,8 +289,9 @@ store (the picked resident, the 15-501 view) doesn't bump it.
 
 **Animating on sim time.** `onFrame((dt, simDt) => …)` registers a per-frame callback on the shared loop. `simDt` is 0
 while paused or holding for a prediction. `index.html` runs the world with `onFrame((dt, simDt) => world.update(dt,
-simDt))`. Anything else that should freeze with the sim should use `simDt` the same way. Street life deliberately
-doesn't: it runs on `dt`, so cars and walkers keep moving while a year is paused for inspection.
+simDt, playing ? dt : 0))`. Anything else that should freeze with the sim should use `simDt` the same way. Street life
+runs in real time at any speed while the clock plays and stops while it is paused, so cars, walkers and signals resume
+where they stopped; the camera, picking and the cards keep working while paused.
 
 **The clock bar** (`sim/clock-bar.js`, `mountClockBar()`) is a thin view over this. It subscribes and shows `simDate`,
 the speed and a status line (loading, failed, end of forecast, and how many new homes didn't fit). The date is the only

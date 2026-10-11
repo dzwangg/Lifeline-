@@ -145,7 +145,7 @@ import { mountAgentLayer } from './sim/agent-layer.js';
 import { mountFocus } from './sim/focus.js';
 import { mountWipe } from './sim/wipe.js';
 import { mountBubbles } from './world/aero.js';
-import { onFrame } from './sim/scenario.js';
+import { onFrame, simClock } from './sim/scenario.js';
 
 const $ = id => document.getElementById(id);
 // The loading bar: the world's build fills it to 85%, the sim's layers and the first frame the rest.
@@ -191,11 +191,13 @@ world.view.onChange(({ level }) => {
   $('zoom-in').disabled = level === ZOOMS.length - 1; $('zoom-out').disabled = level === 0;
 });
 
-// One loop for everything: the camera runs on real time, so the map stays usable while paused; traffic and the
-// rest of the city's motion run on the sim clock's time (see sim/clock.js).
+// One loop for everything: the camera runs on real time, so the map stays usable while paused; the city's motion runs
+// on the sim clock's time (see sim/clock.js), and street life in real time while the clock plays, none while paused.
 progress('Drawing the city…', .95);
 t = performance.now();
-onFrame((dt, simDt) => world.update(dt, simDt));
+let playing = false;
+simClock.subscribe(s => { playing = s.playing; });
+onFrame((dt, simDt) => world.update(dt, simDt, playing ? dt : 0));
 if (new URLSearchParams(location.search).has('debug')) globalThis.world = world; // ?debug: the world, for tooling and the console
 await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); // the first frame is on screen
 timings.firstFrame = Math.round(performance.now() - t);

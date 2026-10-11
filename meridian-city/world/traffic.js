@@ -7,7 +7,8 @@
 // shadows, three levels of detail, and only the ones on screen are written to the instance buffers.
 // Click a walker to follow them and see where they are going. The sim's households walk here too (households.js):
 // the street sim adds them (addPed), they are drawn in the same layers, and clicking one opens its resident card
-// (onHousehold) instead of the walker card. Street life runs in real time, paused or playing (update()).
+// (onHousehold) instead of the walker card. Street life runs in real time while the clock plays and holds still while it
+// is paused (update()); picking and the cards work either way.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
 import { P, CAMERA, RENDER } from './palette.js';
 import { Batch, OCC } from './geometry.js';
@@ -437,16 +438,18 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
       const cx = (v[0] * p.x + v[4] + v[8] * p.z + v[12]) / w, cy = (v[1] * p.x + v[5] + v[9] * p.z + v[13]) / w;
       return { x: rect.left + (cx + 1) / 2 * rect.width, y: rect.top + (1 - cy) / 2 * rect.height - 12 };
     },
-    /** dt real seconds: street life runs in real time, paused or playing (the year comes from the clock). */
+    /** dt: seconds of street life, 0 while the clock is paused; time: real seconds, for the card and the ring. */
     update(dt, time, ppm) {
-      sim.advance(dt);
-      sim.plan(3); // trip planning moves nobody, so it may run while paused
+      if (dt > 0) { // paused: no steps and no new routes, so every walker, car, signal and timer resumes as it stopped
+        sim.advance(dt);
+        sim.plan(3);
+      }
       if (focusAt < 0 || time - focusAt > .4) { focusAt = time; refocus(ppm); }
       const alpha = Math.min(1, sim.alpha);
       drawVehicles(alpha, ppm);
       drawSignals();
       drawPeople(alpha, ppm, view.renderCam, time);
-      sprites.update(view.renderCam, time, ppm);
+      sprites.update(view.renderCam, sim.time, ppm);
       updateCard(time);
     },
   };

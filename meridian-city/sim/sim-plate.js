@@ -291,11 +291,14 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
     kicker.textContent = g.over ? `Game complete · ${decade(0, g.to)}` : `Decade ${g.turn + 1} of ${g.turns} · ${decade(g.from, g.to)}`;
     if (g.over) {
       const scored = run ? scoreAgainst(run.result.timeline, run.noPolicy.timeline) : null;
-      turnRow.replaceChildren(
+      // replaceChildren does not drop a falsy child the way h() does: it would print "false". There is no score when the
+      // forecast hasn't arrived, so the panel simply says the decades are played.
+      turnRow.replaceChildren(...[
         scored?.scored && h('p', { class: 'rp-turn__final' }, h('strong', {}, fixed(scored.overall, 0)), '/100 · ', scored.band,
           h('span', {}, ' than doing nothing'), h('small', {}, `Economy ${fixed(scored.economic, 0)} · Residents ${fixed(scored.social, 0)}, ${scored.mood.toLowerCase()}`)),
         h('p', { class: 'rp-turn__text' }, `All ${g.turns} decades are played. This is your Chapel Hill in ${yearLabel(g.to)}.`),
-        h('div', { class: 'rp-turn__actions' }, GlassButton('New game', { variant: 'quiet', onclick: () => location.reload() })));
+        h('div', { class: 'rp-turn__actions' }, GlassButton('New game', { variant: 'quiet', onclick: () => location.reload() })),
+      ].filter(Boolean));
       return;
     }
     const these = `${n} polic${n === 1 ? 'y' : 'ies'}`, finish = g.last ? 'Finish the game' : `End decade ${g.turn + 1}`;
@@ -317,6 +320,9 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
         : 'Apply policies for this decade in the Policies panel and play it, then end the decade.'),
       h('div', { class: 'rp-turn__actions' }, GlassButton(finish, { variant: 'primary', onclick: choose(true) })));
   }
+  // Declared before the subscriptions below: game.subscribe calls back as it registers (sim/turns.js), and renderTurn
+  // reads `run` once the last decade is played.
+  let drawn = [], run = null, y = 0, luti = null;
   policyStore.subscribe(() => { sync(); renderTurn(); });
   game.subscribe(() => { sync(); renderTurn(); });
 
@@ -342,7 +348,6 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
   }
 
   // ---------- render: only when the shown year, its data, the resident, CH-LUTI's runs or the picked metric change ----------
-  let drawn = [], run = null, y = 0, luti = null;
   function render() {
     const c = simClock.get(), { resident } = scenario.get();
     luti = scenario.get().luti;

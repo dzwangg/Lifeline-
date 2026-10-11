@@ -47,7 +47,7 @@ export function mountClockBar({ host = document.body, clock = simClock } = {}) {
     speed.textContent = s.playing ? `${s.speed}×` : 'Paused';
     const msg = s.error ? 'Forecast failed · Play retries'
       : s.loading ? 'Loading forecast…'
-      : !s.playing && s.step >= s.steps ? 'End of forecast'
+      : !s.playing && s.step >= s.steps ? 'End of the decade'
       : '';
     const note = unmet ? `${unmet.toLocaleString()} new home${unmet === 1 ? '' : 's'} didn't fit` : '';
     const line = [msg, note].filter(Boolean).join(' · ');

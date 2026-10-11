@@ -1,11 +1,12 @@
 // The sim plate: the results dashboard docked on the right. For the shown year (the shared clock, clock.js) it shows each
 // metric as a tile (its value, its change against no new policy, CH-LUTI's 80% range and a sparkline), then the picked
 // metric in detail: the change and the level over the years, why it changed (CH-LUTI's trace), which card did it and where.
-// Also here: the applied cards' sliders, decider and tradeoffs, the resident picked on the map, the guided views, and the
-// assumptions and sources. Values are the combined SimResult's central run (shared/combined.js); ranges, traces and
-// per-card and per-zone splits come from CH-LUTI's 200 paired runs (shared/luti/run.js), once they arrive.
-import { h, cls } from '../policy/components.js';
-import { scenario, simClock, dataReady, devMode, demoMode, stubOn, stubAuto, START_YEAR } from './scenario.js';
+// Also here: the game's turn (turns.js) and its End decade button, the applied cards' sliders, decider and tradeoffs, the
+// resident picked on the map, the guided views, and the assumptions and sources. Values are the combined SimResult's
+// central run (shared/combined.js); ranges, traces and per-card and per-zone splits come from CH-LUTI's 200 paired runs
+// (shared/luti/run.js), once they arrive.
+import { h, cls, GlassButton } from '../policy/components.js';
+import { scenario, simClock, dataReady, devMode, demoMode, stubOn, stubAuto, START_YEAR, DECADE } from './scenario.js';
 import { VARIABLES, explain, MODEL } from '../../shared/luti/run.js';
 import { LEVERS } from '../../shared/luti/levers.js';
 import { createModel } from '../../shared/luti/model.js';
@@ -103,9 +104,10 @@ function lineChart({ series, y, tick, tip, zero = false, height = 168, title }) 
     el.append(svg('line', { x1: P.l, x2: W - P.r, y1: Y(t), y2: Y(t), class: zero && t === 0 ? 'rp-zero' : 'rp-grid' }));
     const tx = svg('text', { x: P.l - 8, y: Y(t) + 4, class: 'rp-tick', 'text-anchor': 'end' }); tx.textContent = tick(t); el.append(tx);
   }
-  for (let i = 0; i < n; i += 2) {
+  for (let i = 0; i < n; i += n > 11 ? 5 : 2) {
     const tx = svg('text', { x: X(i), y: H - 6, class: 'rp-tick', 'text-anchor': 'middle' }); tx.textContent = yearLabel(i); el.append(tx);
   }
+  for (let i = DECADE; i < n - 1; i += DECADE) el.append(svg('line', { x1: X(i), x2: X(i), y1: P.t, y2: H - P.b, class: 'rp-decade' })); // a game's turns
   for (const s of series) if (s.band) el.append(svg('path', { d: path([...s.band.hi.map((v, i) => [X(i), Y(v)]), ...s.band.lo.map((v, i) => [X(i), Y(v)]).reverse()]) + 'Z', class: `rp-band is-${s.kind}` }));
   for (const s of series) el.append(svg('path', { d: path(s.values.map((v, i) => [X(i), Y(v)])), class: `rp-line is-${s.kind}` }));
   el.append(svg('line', { x1: X(y), x2: X(y), y1: P.t, y2: H - P.b, class: 'rp-now' }));
@@ -172,12 +174,13 @@ const flagOf = source => /^(PLACEHOLDER|VERIFY)/.exec(source ?? '')?.[1];
 const quarters = n => `${n} quarter${n === 1 ? '' : 's'}`;
 const timing = ({ delayQuarters: d, phaseInQuarters: p }) => `Starts after ${quarters(d)}, ${p > 1 ? `phasing in over ${quarters(p)}` : 'in full at once'}.`;
 
-export async function mountSimPlate({ policyStore, cards, host = document.body }) {
+export async function mountSimPlate({ policyStore, cards, game, host = document.body }) {
   const [, assumptions, baselines] = await dataReady;
   const cardById = new Map(cards.map(c => [c.id, c]));
-  const ui = { metric: null, picked: false, active: [] };
+  const ui = { metric: null, picked: false, active: [], confirming: false };
 
   // ---------- skeleton ----------
+  const kicker = h('p', { class: 'rp-kicker' });
   const title = h('h2', { class: 'rp-title' }, 'Policy simulation');
   const chips = h('div', { class: 'rp-chips' });
   const toggle = h('button', { class: 'sim__toggle', type: 'button', 'aria-expanded': 'true', 'aria-controls': 'sim-body' }, 'Hide');
@@ -190,6 +193,8 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
     onclick: () => scenario.set({ focus: scenario.get().focus === focus ? null : focus, focusZones: null }) }, label);
   const changesBtn = viewBtn('changes', 'Show changes'), roadBtn = viewBtn('road', 'View 15-501');
   const wipeBtn = h('button', { class: 'sim__road', type: 'button', 'aria-pressed': 'false', onclick: () => scenario.set({ wipe: !scenario.get().wipe }) }, 'Before / after');
+  const turnRow = h('div', { class: 'rp-turn', 'aria-live': 'polite' });
+  const demoBtn = demoMode && h('button', { class: 'sim__road sim__demo', type: 'button', onclick: runDemo }, 'Demo scenario');
   const meta = h('p', { class: 'rp-meta' });
   const settings = h('details', { class: 'rp-settings' });
   const residentEl = h('div', { class: 'sim__resident', 'aria-live': 'polite' });
@@ -202,11 +207,12 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
       h('a', { class: 'sim__sources', href: 'sources.html', target: '_blank', rel: 'noopener' }, 'Sources'),
       devMode && !stubAuto && h('label', { class: 'sim__check sim__dev' }, h('input', { type: 'checkbox', checked: stubOn, onchange: e => toggleStub(e.target.checked) }), 'Load stub card (dev)')));
   const body = h('div', { class: 'rp-body', id: 'sim-body' },
+    turnRow,
     h('div', { class: 'rp-time' }, playBtn, yearIn, when),
     h('div', { class: 'rp-views' },
       h('label', { class: 'sim__check' }, beforeIn, 'Show before (year 0)'),
       changesBtn, roadBtn, wipeBtn,
-      demoMode && h('button', { class: 'sim__road sim__demo', type: 'button', onclick: runDemo }, 'Demo scenario')),
+      demoBtn),
     meta, settings, scroll);
   toggle.addEventListener('click', () => {
     body.hidden = !body.hidden;
@@ -215,34 +221,80 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
   });
   host.append(h('section', { class: 'plate sim rp', 'aria-label': 'Policy simulation results' },
     h('header', { class: 'rp-head' },
-      h('div', { class: 'rp-head__text' }, h('p', { class: 'rp-kicker' }, 'Scenario results'), title, chips),
+      h('div', { class: 'rp-head__text' }, kicker, title, chips),
       toggle),
     body));
 
-  // ---------- cards applied in the policy panel drive the sim ----------
-  let shownIds = null;
-  const sync = state => {
-    const ids = Object.values(state.applied).filter(Boolean);
-    if (ids.join() === shownIds) return; // the panel also emits while its draft changes
-    shownIds = ids.join();
+  // ---------- the game's cards drive the sim: the ones enacted in past decades, then those applied for this one ----------
+  const decade = (from, to) => `${yearLabel(from)}–${yearLabel(to)}`;
+  const enactedIn = id => game.get().enacted.find(e => e.id === id)?.turn ?? null;
+  let shownKey = null;
+  const sync = () => {
+    const ids = game.cardIds(), starts = game.starts(), key = JSON.stringify([ids, starts, game.get().enacted]);
+    if (key === shownKey) return; // the panel also emits while its draft changes; enacting changes only how cards show
+    shownKey = key;
     const active = ui.active = ids.map(id => cardById.get(id)).filter(Boolean);
     const other = ids.filter(id => !cardById.has(id)).map(id => policyStore.getPolicy(id)?.title ?? id);
-    title.textContent = active.length ? state.scenarioName : 'Policy simulation';
+    title.textContent = active.length ? policyStore.getState().scenarioName : 'Policy simulation';
     chips.replaceChildren(...(active.length
-      ? active.map(c => { const cat = policyStore.categories.find(x => x.id === c.category); return h('span', { class: 'rp-chip', style: cat ? { '--cat': cat.color, '--cat-deep': cat.deep } : null }, c.title); })
+      ? active.map(c => {
+        const cat = policyStore.categories.find(x => x.id === c.category), turn = enactedIn(c.id);
+        return h('span', { class: cls('rp-chip', turn !== null && 'is-enacted'), style: cat ? { '--cat': cat.color, '--cat-deep': cat.deep } : null,
+          title: turn !== null ? `Enacted in ${yearLabel(DECADE * turn)}; in force for the rest of the game` : 'Applied for this decade' },
+          c.title, turn !== null && h('small', {}, ` · since ${yearLabel(DECADE * turn)}`));
+      })
       : [h('span', { class: 'rp-empty' }, !cards.length ? 'No policies yet.' : 'Apply a policy card in the Policies panel to simulate it.')]),
       ...(other.length ? [h('span', { class: 'rp-empty' }, `Not simulated yet: ${other.join(', ')}.`)] : []));
+    const planned = active.filter(c => enactedIn(c.id) === null);
     settings.hidden = !active.length;
-    settings.replaceChildren(h('summary', {}, `Adjust your policies (${active.length})`), h('div', { class: 'sim__list' }, active.map(Card)));
+    settings.replaceChildren(h('summary', {}, planned.length === active.length ? `Adjust your policies (${active.length})` : `Your policies (${planned.length} this decade, ${active.length - planned.length} in force)`),
+      h('div', { class: 'sim__list' }, active.map(Card)));
     ui.picked = false; // open on whatever this package moves most, once it has run
-    scenario.set({ cards: active });
+    scenario.set({ cards: active, starts });
   };
-  policyStore.subscribe(sync);
-  sync(policyStore.getState());
 
-  // ?demo: edge subdivisions at their most plus core infill, played from year 0 at 2x.
+  // The turn: which decade this is, and ending it (after a confirm, as it can't be undone).
+  function renderTurn() {
+    const g = game.get(), n = game.cardIds().length - g.enacted.length, end = yearLabel(DECADE * g.turns);
+    kicker.textContent = g.over ? `Game complete · ${decade(0, g.to)}` : `Decade ${g.turn + 1} of ${g.turns} · ${decade(g.from, g.to)}`;
+    if (g.over) {
+      turnRow.replaceChildren(h('p', { class: 'rp-turn__text' }, `All ${g.turns} decades are played. Here is your Chapel Hill in ${yearLabel(g.to)}, compared with a town that adopted no new policy.`),
+        h('div', { class: 'rp-turn__actions' }, GlassButton('New game', { variant: 'quiet', onclick: () => location.reload() })));
+      return;
+    }
+    const these = `${n} polic${n === 1 ? 'y' : 'ies'}`, finish = g.last ? 'Finish the game' : `End decade ${g.turn + 1}`;
+    // Each choice re-renders the row, then focuses its first button, so keyboard focus isn't lost with the old one.
+    const choose = confirming => () => { ui.confirming = confirming; renderTurn(); turnRow.querySelector('button')?.focus(); };
+    if (ui.confirming) {
+      turnRow.replaceChildren(
+        h('p', { class: 'rp-turn__text' }, n
+          ? `Enact ${these} for ${decade(g.from, g.to)}? They stay in force until ${end} and leave your library. You can't undo this.`
+          : `End ${decade(g.from, g.to)} with no new policy? You can't undo this.`),
+        h('div', { class: 'rp-turn__actions' },
+          GlassButton(g.last ? 'Finish the game' : 'Enact and continue', { variant: 'primary', onclick: () => { ui.confirming = false; game.endTurn(); turnRow.querySelector('button')?.focus(); } }),
+          GlassButton('Keep planning', { variant: 'quiet', onclick: choose(false) })));
+      return;
+    }
+    turnRow.replaceChildren(
+      h('p', { class: 'rp-turn__text' }, n
+        ? `${these} applied for this decade. Play and adjust as often as you like, then end the decade to enact ${n === 1 ? 'it' : 'them'}.`
+        : 'Apply policies for this decade in the Policies panel and play it, then end the decade.'),
+      h('div', { class: 'rp-turn__actions' }, GlassButton(finish, { variant: 'primary', onclick: choose(true) })));
+  }
+  policyStore.subscribe(() => { sync(); renderTurn(); });
+  game.subscribe(() => { sync(); renderTurn(); });
+
+  // ?demo: edge subdivisions at their most plus core infill, played from year 0 at 2x. Only in a game's first decade, before
+  // anything is enacted: later it would re-apply enacted cards and change their locked settings.
+  const demoOpen = () => { const g = game.get(); return !g.turn && !g.over && !g.enacted.length; };
+  game.subscribe(() => {
+    if (!demoBtn) return;
+    demoBtn.disabled = !demoOpen();
+    demoBtn.title = demoOpen() ? '' : 'The demo plays from the start of a game. Start a new game to see it.';
+  });
   function runDemo() {
     const edge = cardById.get('edge-subdivisions'), core = cardById.get('core-infill');
+    if (!demoOpen()) return;
     if (!edge || !core) return console.warn('The demo needs the edge-subdivisions and core-infill cards.');
     scenario.set({ params: { ...scenario.get().params, [edge.id]: Object.fromEntries(edge.params.map(p => [p.key, p.max])) }, focus: null, focusZones: null });
     policyStore.clear();
@@ -267,6 +319,7 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
     drawn = now;
     run = c.shown.data.run;
     y = c.before ? 0 : c.shown.step;
+    yearIn.max = c.steps; // a game's next turn runs a decade further
     yearIn.value = c.shown.step;
     when.replaceChildren(h('strong', {}, yearLabel(y)), h('span', {}, c.before ? 'year 0 (before)' : `year ${y}`));
     const first = run.result.timeline[0].zoneStates, last = run.result.timeline.at(-1).zoneStates;
@@ -292,9 +345,12 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
 
   // A metric's yearly values from the central run, its no-policy values, and CH-LUTI's yearly P10–P90 change (null before
   // CH-LUTI has run, or for metrics from the other models). Year y ends with CH-LUTI's quarter 4y − 1; year 0 is today.
-  // CH-LUTI's runs for an older set of cards are not shown while the new ones run.
+  // CH-LUTI's runs for an older set of cards, or a shorter game, are not shown while the new ones run.
   // A declaration, not a const: render() can run as soon as the clock subscription above fires.
-  function lutiCurrent() { return luti && luti.policies.join() === ui.active.filter(c => c.levers?.length).map(c => c.id).join(); }
+  function lutiCurrent() {
+    return luti && luti.policies.join() === ui.active.filter(c => c.levers?.length).map(c => c.id).join()
+      && luti.years.length === 4 * (run.result.timeline.length - 1);
+  }
   function series(m) {
     const pol = run.result.timeline.map(t => t.metrics[m.key]), base = run.noPolicy.timeline.map(t => t.metrics[m.key]);
     const diff = pol.map((v, i) => v - base[i]);
@@ -414,12 +470,13 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
 
   // ---------- applied cards: sliders, decider, tradeoffs ----------
   function Card(card) {
-    const values = scenario.get().params[card.id] ?? {};
-    const hint = h('p', { class: 'sim-card__hint', hidden: !changesNothing(card, values) }, 'At this setting the card changes nothing. Move the slider to try it.');
-    return h('section', { class: 'sim-card' },
+    const values = scenario.get().params[card.id] ?? {}, turn = enactedIn(card.id), locked = turn !== null;
+    const hint = h('p', { class: 'sim-card__hint', hidden: locked || !changesNothing(card, values) }, 'At this setting the card changes nothing. Move the slider to try it.');
+    return h('section', { class: cls('sim-card', locked && 'is-enacted') },
       h('h3', {}, card.title),
+      locked && h('p', { class: 'sim-card__enacted' }, `Enacted for ${decade(DECADE * turn, DECADE * (turn + 1))}: in force for the rest of the game, at these settings.`),
       h('p', { class: 'sim-card__summary', title: card.summary }, card.summary),
-      card.params.map(p => Slider(card, p, values[p.key] ?? p.default, now => { hint.hidden = !changesNothing(card, now); })),
+      card.params.map(p => Slider(card, p, values[p.key] ?? p.default, now => { hint.hidden = !changesNothing(card, now); }, locked)),
       hint,
       h('details', { class: 'sim-card__decider' },
         h('summary', {}, 'Who decides: ', card.decider.body),
@@ -428,12 +485,12 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
         h('div', {}, h('h4', {}, 'Pros'), h('ul', {}, card.tradeoffs.pros.map(s => h('li', {}, s)))),
         h('div', {}, h('h4', {}, 'Cons'), h('ul', {}, card.tradeoffs.cons.map(s => h('li', {}, s))))));
   }
-  function Slider(card, p, value, onChange) {
+  function Slider(card, p, value, onChange, locked) {
     const show = v => `${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}${p.unit ? ` ${p.unit}` : ''}`;
     const out = h('output', { class: 'sim__val' }, show(value));
     return h('label', { class: 'sim__slider' },
       h('span', {}, p.label, ' ', out),
-      h('input', { type: 'range', min: p.min, max: p.max, step: paramStep(p), value, oninput: e => {
+      h('input', { type: 'range', min: p.min, max: p.max, step: paramStep(p), value, disabled: locked, oninput: e => {
         const v = +e.target.value, params = scenario.get().params;
         out.textContent = show(v);
         scenario.set({ params: { ...params, [card.id]: { ...params[card.id], [p.key]: v } } });
@@ -445,7 +502,7 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
   function renderResident(households, resident, yr) {
     const a = resident == null ? null : households.agents.find(x => x.id === resident);
     if (!a) return residentEl.replaceChildren();
-    const at = a.hist[Math.min(Math.max(yr, a.joined), a.left ?? 10)];
+    const at = a.hist[Math.min(Math.max(yr, a.joined), a.left ?? a.hist.length - 1)];
     const status = yr < a.joined ? `Moves here in year ${a.joined}` : a.left !== null && a.left <= yr ? `Left in year ${a.left}` : a.joined ? `Moved in year ${a.joined}` : 'Lives here';
     residentEl.replaceChildren(h('section', { class: 'resident' },
       h('header', { class: 'resident__head' },
@@ -479,7 +536,7 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
     const t0 = run?.noPolicy.timeline[0].metrics;
     assume.replaceChildren(
       h('summary', {}, 'Assumptions, sources and checks'),
-      h('p', { class: 'rp-note' }, `${MODEL.name} (${MODEL.method}), combined with the land-use rules and the household model. Year 0 is ${START_YEAR}; the forecast runs ten years.`),
+      h('p', { class: 'rp-note' }, `${MODEL.name} (${MODEL.method}), combined with the land-use rules and the household model. Year 0 is ${START_YEAR}; each of the game's ${game.get().turns} turns runs the forecast ten years further, and a policy enacted in a turn starts in that decade. Beyond ten years the models extend today's trends, so later decades are less certain than the first.`),
       ui.active.length > 0 && [h('h4', { class: 'rp-h4' }, 'How this package works'),
         h('ul', { class: 'rp-list' }, ui.active.map(c => h('li', {},
           h('strong', {}, c.title), ` — ${c.summary} `,
@@ -503,7 +560,7 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
   function download() {
     if (!run) return;
     const out = {
-      model: MODEL, startYear: START_YEAR, cards: ui.active, params: scenario.get().params,
+      model: MODEL, startYear: START_YEAR, cards: ui.active, params: scenario.get().params, starts: scenario.get().starts, game: game.get(),
       metrics: Object.fromEntries(METRICS.map(m => [m.key, {
         withPolicies: run.result.timeline.map(t => t.metrics[m.key]), noNewPolicy: run.noPolicy.timeline.map(t => t.metrics[m.key]),
       }])),
@@ -535,7 +592,7 @@ function story(a, y, at) {
 
 // Monthly rent over the years the household lived here, with a dot on the shown year.
 function ResidentSpark(a, y) {
-  const end = a.left ?? 10, pts = [];
+  const end = a.left ?? a.hist.length - 1, pts = [];
   for (let t = a.joined; t <= end; t++) pts.push([t, a.hist[t].rent]);
   if (pts.length < 2) return null;
   const W = 220, H = 40, rents = pts.map(p => p[1]), lo = Math.min(...rents), hi = Math.max(...rents);

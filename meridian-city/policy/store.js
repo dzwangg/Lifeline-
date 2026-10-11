@@ -51,7 +51,8 @@ export function createPolicyStore({
   };
 
   const slotOf = (policyId, selection = draftOf()) => slots.find(s => selection[s.id] === policyId)?.id ?? null;
-  const fits = (policyId, slotId) => !!policyById.get(policyId) && policyById.get(policyId).category === slotById.get(slotId)?.category;
+  const retired = new Set(); // enacted in a game (retire): known for their titles, never placed again
+  const fits = (policyId, slotId) => !retired.has(policyId) && !!policyById.get(policyId) && policyById.get(policyId).category === slotById.get(slotId)?.category;
   const uniqueName = base => {
     const names = new Set(scenarios.map(sc => sc.name));
     for (let n = scenarios.length + 1; ; n++) if (!names.has(`${base} ${n}`)) return `${base} ${n}`;
@@ -113,6 +114,17 @@ export function createPolicyStore({
       scenarios = copy(saved);
       currentId = appliedId;
       return emit({ type: 'revert' });
+    },
+    // A game's turn ended and enacted these policies: they leave the library, and every scenario's slots, for good, and
+    // can't be placed again. getPolicy still finds them, for their titles.
+    retire(policyIds) {
+      const gone = new Set(policyIds);
+      if (!gone.size) return null;
+      for (const id of gone) retired.add(id);
+      policies.splice(0, policies.length, ...policies.filter(p => !gone.has(p.id)));
+      for (const selection of [applied, ...scenarios.map(sc => sc.selection), ...saved.map(sc => sc.selection)])
+        for (const s of slots) if (gone.has(selection[s.id])) selection[s.id] = null;
+      return emit({ type: 'retire', policyIds: [...gone] });
     },
 
     // Scenarios. These change the working copy, so Apply keeps them and revert undoes them.

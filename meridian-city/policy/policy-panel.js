@@ -1,11 +1,12 @@
-import { h, cls, slotLabel, glyph, PolicyCard, PolicySlot, ScenarioItem, GlassButton, FilterChip } from './components.js';
+import { h, cls, catVars, slotLabel, glyph, PolicyCard, PolicySlot, ScenarioItem, GlassButton, FilterChip } from './components.js';
 import { createDrag, flyFrom } from './drag.js';
 
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const ARROWS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
 
-// Mounts the policy overlay. Returns { open(trigger?), close(), isOpen() }.
-export function mountPolicyPanel({ store, host = document.body } = {}) {
+// Mounts the policy overlay. Returns { open(trigger?), close(), isOpen() }. With a game of turns (sim/turns.js), the panel
+// plans the current decade: it lists the policies already in force, and applies nothing once the game is over.
+export function mountPolicyPanel({ store, game = null, host = document.body } = {}) {
   const cats = new Map(store.categories.map(c => [c.id, c]));
   const catOf = policy => cats.get(policy.category);
   // armed: a card picked up by click or keyboard, waiting for a destination. from: its slot, if any.
@@ -19,6 +20,8 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
   const btnNew = h('button', { class: 'pp-scen-new', type: 'button' }, glyph('plus'), 'New scenario');
   const activeCount = h('span', { class: 'pp-active__count' });
   const activeStatus = h('span', { class: 'pp-active__status' });
+  const sub = h('p', { class: 'pp-sub' }, 'Choose the policies this scenario runs with. Nothing changes in the city until you apply them.');
+  const inForce = h('section', { class: 'pp-inforce', 'aria-labelledby': 'pp-inforce-title', hidden: true });
   const rows = h('div', { class: 'pp-rows' });
   const search = h('input', { class: 'pp-search__input', type: 'search', placeholder: 'Search policies', 'aria-label': 'Search policies' });
   const chips = h('div', { class: 'pp-chips', role: 'group', 'aria-label': 'Filter by category' });
@@ -45,14 +48,15 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
     h('header', { class: 'pp-head' },
       h('div', {},
         h('h2', { class: 'pp-title', id: 'pp-title' }, 'Policies'),
-        h('p', { class: 'pp-sub' }, 'Choose the policies this scenario runs with. Nothing changes in the city until you apply them.')),
+        sub),
       btnClose),
     h('div', { class: 'pp-columns' },
       h('aside', { class: 'pp-col pp-left', 'aria-labelledby': 'pp-scen-title' },
         h('div', { class: 'pp-col__head' },
           h('h3', { class: 'pp-col__title', id: 'pp-scen-title' }, 'Scenarios')),
         scenList,
-        btnNew),
+        btnNew,
+        inForce),
       h('section', { class: 'pp-col pp-center', 'aria-labelledby': 'pp-active-title' },
         h('div', { class: 'pp-col__head pp-active__head' },
           h('h3', { class: 'pp-col__title', id: 'pp-active-title' }, 'Active policies'),
@@ -74,9 +78,10 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
     const focusKey = panel.contains(document.activeElement) ? document.activeElement.closest('[data-key]')?.dataset.key : null;
     const s = store.getState();
     renderScenarios(s);
+    renderGame();
     renderRows(s);
     renderLibrary(s);
-    btnApply.disabled = !s.dirty;
+    btnApply.disabled = !s.dirty || !!game?.get().over;
     btnClear.disabled = !store.slots.some(sl => s.draft[sl.id]);
     markTargets();
     if (ui.scen?.mode === 'rename') {
@@ -89,6 +94,24 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
     const canDelete = s.scenarios.length > 1;
     scenList.replaceChildren(...s.scenarios.map(sc =>
       ScenarioItem(sc, store.slots.length, { mode: ui.scen?.id === sc.id ? ui.scen.mode : null, canDelete })));
+  }
+
+  // The decade being planned, and the policies earlier decades enacted, which stay in force and are gone from the library.
+  function renderGame() {
+    if (!game) return;
+    const g = game.get(), year = y => g.startYear + y;
+    sub.textContent = g.over
+      ? `The game is over: all ${g.turns} decades are played, and the results panel shows where they left the town.`
+      : `Decade ${g.turn + 1} of ${g.turns}: ${year(g.from)}–${year(g.to)}. Choose the policies to try this decade, then apply them. Ending the decade in the results panel enacts them for good.`;
+    inForce.hidden = !g.enacted.length;
+    inForce.replaceChildren(
+      h('h3', { class: 'pp-col__title', id: 'pp-inforce-title' }, 'In force'),
+      h('ul', { class: 'pp-inforce__list' }, g.enacted.map(({ id, start }) => {
+        const p = store.getPolicy(id), cat = p && catOf(p);
+        return h('li', { class: 'pp-inforce__item', style: cat ? catVars(cat) : null },
+          h('span', { class: 'pp-inforce__title' }, p?.title ?? id),
+          h('span', { class: 'pp-inforce__since' }, `Since ${year(start)}`));
+      })));
   }
 
   function renderRows(s) {
@@ -124,7 +147,7 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
     if (!list.length) {
       const where = ui.filter === 'all' ? '' : ` in ${cats.get(ui.filter).label}`;
       grid.replaceChildren(h('p', { class: 'pp-empty' },
-        q ? `No policies${where} match “${ui.query.trim()}”. Try another search or show all categories.` : `No policies${where} yet.`));
+        q ? `No policies${where} match “${ui.query.trim()}”. Try another search or show all categories.` : `No policies${where} ${game?.get().enacted.length ? 'left: the rest are in force' : 'yet'}.`));
       return;
     }
     grid.replaceChildren(...list.map(p => {
@@ -401,6 +424,7 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
 
   // ---------- events ----------
   store.subscribe(() => { if (ui.open) render(); });
+  game?.subscribe(() => { if (ui.open) render(); });
 
   const drag = createDrag({
     root: panel,

@@ -1,7 +1,7 @@
 // CH-LUTI scenario runner: paired Monte Carlo over the uncertain parameters, policy-vs-baseline comparison, per-policy
 // contributions and the "why" trace. Pure: runs the same in the browser, a Worker, or Node.
 
-import { createModel, CAUSES, QUARTERS, YEARS, MODEL } from './model.js';
+import { createModel, CAUSES, QUARTERS, YEARS, MODEL, yearsOf } from './model.js';
 
 export { MODEL, YEARS, QUARTERS, CAUSES };
 
@@ -76,7 +76,7 @@ export function sampleParams(ranges, rand) {
 const quantile = (sorted, f) => { const i = (sorted.length - 1) * f, lo = Math.floor(i); return sorted[lo] + (sorted[Math.min(lo + 1, sorted.length - 1)] - sorted[lo]) * (i - lo); };
 function band(runs, key) { // runs: array of series → { p10, p50, p90 } arrays per quarter
   const out = { p10: [], p50: [], p90: [] };
-  for (let q = 0; q < QUARTERS; q++) {
+  for (let q = 0; q < runs[0].length; q++) {
     const v = runs.map(r => r[q][key]).sort((a, b) => a - b);
     out.p10.push(quantile(v, .1)); out.p50.push(quantile(v, .5)); out.p90.push(quantile(v, .9));
   }
@@ -86,30 +86,31 @@ function band(runs, key) { // runs: array of series → { p10, p50, p90 } arrays
 /**
  * Runs a policy package against the no-policy baseline. Each draw of the parameters is used for both runs (paired), so the
  * difference isolates the policy rather than parameter noise. landUse: the land-use sim's homes, in the policy runs only.
+ * quarters: how long each run is (a decade more per turn of a game).
  * @param {ReturnType<typeof import('./levers.js').cardPolicies>} policies
  * @param {import('../types').Assumptions} assumptions @param {import('../types').Baselines} baselines
  */
-export function runScenario(policies, assumptions, baselines, { runs = 200, seed = 2026, landUse = null } = {}) {
+export function runScenario(policies, assumptions, baselines, { runs = 200, seed = 2026, landUse = null, quarters = QUARTERS } = {}) {
   const { simulate, ranges, midParams } = createModel(assumptions, baselines);
   const rand = rng(seed);
   const base = [], pol = [], diff = [];
   for (let r = 0; r < runs; r++) {
     const params = sampleParams(ranges, rand);
-    const b = simulate(params, [], { seedEvents: false }).series;
-    const p = policies.length || landUse ? simulate(params, policies, { seedEvents: false, landUse }).series : b;
+    const b = simulate(params, [], { seedEvents: false, quarters }).series;
+    const p = policies.length || landUse ? simulate(params, policies, { seedEvents: false, landUse, quarters }).series : b;
     base.push(b); pol.push(p);
     diff.push(p.map((row, q) => Object.fromEntries(Object.keys(VARIABLES).map(k => [k, row[k] - b[q][k]]))));
   }
   const keys = Object.keys(VARIABLES);
   const mid = midParams();
-  const midBase = simulate(mid, []), midPolicy = policies.length || landUse ? simulate(mid, policies, { landUse }) : midBase;
+  const midBase = simulate(mid, [], { quarters }), midPolicy = policies.length || landUse ? simulate(mid, policies, { landUse, quarters }) : midBase;
   // each card on its own, at central parameters, to show who did what
   const perPolicy = policies.length > 1 ? policies.map(p => {
-    const s = simulate(mid, [p], { seedEvents: false }).series;
+    const s = simulate(mid, [p], { seedEvents: false, quarters }).series;
     return { id: p.id, title: p.title, diff: s.map((row, q) => Object.fromEntries(keys.map(k => [k, row[k] - midBase.series[q][k]]))) };
   }) : policies.map(p => ({ id: p.id, title: p.title, diff: midPolicy.series.map((row, q) => Object.fromEntries(keys.map(k => [k, row[k] - midBase.series[q][k]]))) }));
   return {
-    model: MODEL, runs, seed, years: YEARS, policies: policies.map(p => p.id),
+    model: MODEL, runs, seed, years: yearsOf(quarters), policies: policies.map(p => p.id),
     baseline: Object.fromEntries(keys.map(k => [k, band(base, k)])),
     policy: Object.fromEntries(keys.map(k => [k, band(pol, k)])),
     diff: Object.fromEntries(keys.map(k => [k, band(diff, k)])),

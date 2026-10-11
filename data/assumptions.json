@@ -447,9 +447,9 @@
     "note": "Town's share of the cost of extra Chapel Hill Transit service (with Carrboro and UNC). From the CH-LUTI model."
   },
   "lutiRevaluationYears": {
-    "value": [2029, 2033],
+    "value": [2029, 2033, 2037, 2041, 2045, 2049, 2053],
     "source": "PLACEHOLDER - needs citation",
-    "note": "Years Orange County revalues property; each resets the base tax rate to revenue-neutral. From the CH-LUTI model."
+    "note": "Years Orange County revalues property; each resets the base tax rate to revenue-neutral. From the CH-LUTI model, which had 2029 and 2033; the same four-year cycle continues to the end of a three-decade game."
   },
   "lutiResidentialShareOfBase": {
     "value": 0.8,

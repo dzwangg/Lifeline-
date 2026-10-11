@@ -186,7 +186,7 @@ Only the `SimResult` returned directly by `runScenario` carries the aggregate re
 
 ## How CH-LUTI runs levers
 
-CH-LUTI simulates 40 quarters from 2027 in five zones. The `SimResult` uses its run at central parameters. It also runs 200 times with its uncertain parameters drawn from their ranges, with and without the active cards' levers and zone-rule homes, which gives the range the middle 80% of changes fall in (P10 to P90) and a "why" trace; the page keeps these but doesn't show them (`DETAILS` in `meridian-city/sim/sim-plate.js`). Its year 0 is `data/baselines.json`: homes, population, median gross rent, mean commute and median home value. Its unsourced constants are the `luti*` entries in `data/assumptions.json`. See `shared/luti/model.js`.
+CH-LUTI simulates 40 quarters from 2027 in five zones, and 40 more for each later turn of a game (`meridian-city/sim/turns.js`), where a card enacted in a later turn starts in that decade: its timing counts from the decade's first quarter, and its zone rules from the decade's first year. The `SimResult` uses its run at central parameters. It also runs 200 times with its uncertain parameters drawn from their ranges, with and without the active cards' levers and zone-rule homes, which gives the range the middle 80% of changes fall in (P10 to P90) and a "why" trace; the page keeps these but doesn't show them (`DETAILS` in `meridian-city/sim/sim-plate.js`). Its year 0 is `data/baselines.json`: homes, population, median gross rent, mean commute and median home value. Its unsourced constants are the `luti*` entries in `data/assumptions.json`. See `shared/luti/model.js`.
 
 ## capParam
 

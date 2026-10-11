@@ -17,7 +17,9 @@ const taxCard = (cents, direction) => directed({ ...byId('property-tax-adjustmen
   params: [{ ...byId('property-tax-adjustment').params[0], default: cents }] }, direction);
 const ENV = { GEMINI_API_KEY: 'gem-secret', GEMINI_MODEL: 'gemini-test', GEMINI_MODEL_CARDS: '', GEMINI_FALLBACK_MODELS: '', GEMINI_THINKING_LEVEL: '', DEMO_MODE: '', CARD_SIGNING_KEY: 'sign-secret',
   ELEVENLABS_API_KEY: '', ELEVENLABS_VOICE_ID: '' };
-const reply = (card, unmodeled = [], unsupportedReason = null) => JSON.stringify({ card, unmodeled, unsupportedReason });
+// As Gemini replies: evidence by its number in the catalog's list of distinct entries.
+const evidenceIds = card => card?.evidence && { evidence: card.evidence.map(e => [...new Map(cards.flatMap(c => c.evidence ?? []).map(x => [JSON.stringify(x), x])).keys()].indexOf(JSON.stringify(e))) };
+const reply = (card, unmodeled = [], unsupportedReason = null) => JSON.stringify({ card: card && { ...card, ...evidenceIds(card) }, unmodeled, unsupportedReason });
 
 /** Runs fn with these env vars and a fake fetch that answers Gemini with `drafts` in turn; fn gets the request bodies it saw,
  *  each with the model it went to as `model`. */
@@ -63,14 +65,14 @@ test('checks: invented numbers and evaluative words in title, summary, pros or c
   assert.deepEqual(checkCard({ ...zoneCard, summary: 'Opens 20 acres, up to 40, near 15-501.' }, 'up to 40 acres', ctx), []);
 });
 
-test('tidy clamps param defaults into range, drops evidence not copied from a catalog card, and drops empty lists', () => {
+test('tidy clamps param defaults into range, copies evidence in by its number, and drops empty lists', () => {
   const params = [{ key: 'a', label: 'A', min: 0, max: 60, default: 80, unit: 'acres' }, { key: 'b', label: 'B', min: -10, max: -1, default: 3, unit: '¢' }];
-  const real = cards.flatMap(c => c.evidence ?? [])[0];
-  const out = tidy({ ...zoneCard, params, levers: [], evidence: [real, { claim: 'Invented', source: 'Nobody (2024)' }] }, ctx.catalog);
+  const library = [...ctx.catalog.values()].flatMap(c => c.evidence ?? []);
+  const out = tidy({ ...zoneCard, params, levers: [], evidence: [1, 1, 999, 'x', { claim: 'Invented', source: 'Nobody (2024)' }] }, ctx.catalog);
   assert.deepEqual(out.params.map(p => p.default), [60, -1]);
-  assert.deepEqual(out.evidence, [real]);
+  assert.deepEqual(out.evidence, [library[1]], 'a known number once; an unknown number, a string or an object never');
   assert.ok(!('levers' in out));
-  assert.ok(!('evidence' in tidy({ ...zoneCard, evidence: [{ claim: 'x', source: 'y' }] }, ctx.catalog)));
+  assert.ok(!('evidence' in tidy({ ...zoneCard, evidence: [999] }, ctx.catalog)));
 });
 
 test('generate: a valid zone-rule card comes back signed, from one Gemini call with the schema and minimal thinking', async () => {

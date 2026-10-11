@@ -1,5 +1,5 @@
 // Turn a resident's idea into a simulator card with Gemini, using /api/policies' generator and checks.
-// Usage: put GEMINI_API_KEY and GEMINI_MODEL in .env.local, then npm run create:card -- "Build apartments near the corridor"
+// Usage: put GEMINI_API_KEY in .env.local (GEMINI_MODEL_CARDS picks the model), then npm run create:card -- "Build apartments near the corridor"
 // Writes data/policies/<id>.json and data/cards.index.json. Review the card's text before committing it.
 import { readdir, writeFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline/promises';
@@ -11,7 +11,7 @@ const data = new URL('../data/', import.meta.url);
 const policyDir = new URL('policies/', data);
 
 export async function createCard(idea, env = process.env) {
-  if (!env.GEMINI_API_KEY || !env.GEMINI_MODEL) throw new Error('Set GEMINI_API_KEY and GEMINI_MODEL in .env.local or your environment.');
+  if (!env.GEMINI_API_KEY) throw new Error('Set GEMINI_API_KEY in .env.local or your environment.');
   if (!idea?.trim()) throw new Error('Describe the policy you want to create.');
   const { card, unmodeled } = await generateCard(idea, env);
   const names = await readdir(policyDir);

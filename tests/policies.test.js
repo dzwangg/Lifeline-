@@ -15,18 +15,19 @@ const leverCard = { ...byId('bus-frequency-boost'), id: 'more-buses' };
 const directed = (card, direction) => ({ ...card, levers: card.levers.map(l => ({ ...l, direction })) }); // as Gemini replies
 const taxCard = (cents, direction) => directed({ ...byId('property-tax-adjustment'), id: 'tax-change',
   params: [{ ...byId('property-tax-adjustment').params[0], default: cents }] }, direction);
-const ENV = { GEMINI_API_KEY: 'gem-secret', GEMINI_MODEL: 'gemini-test', GEMINI_THINKING_LEVEL: '', DEMO_MODE: '', CARD_SIGNING_KEY: 'sign-secret',
+const ENV = { GEMINI_API_KEY: 'gem-secret', GEMINI_MODEL: 'gemini-test', GEMINI_MODEL_CARDS: '', GEMINI_FALLBACK_MODELS: '', GEMINI_THINKING_LEVEL: '', DEMO_MODE: '', CARD_SIGNING_KEY: 'sign-secret',
   ELEVENLABS_API_KEY: '', ELEVENLABS_VOICE_ID: '' };
 const reply = (card, unmodeled = [], unsupportedReason = null) => JSON.stringify({ card, unmodeled, unsupportedReason });
 
-/** Runs fn with these env vars and a fake fetch that answers Gemini with `drafts` in turn; fn gets the request bodies it saw. */
+/** Runs fn with these env vars and a fake fetch that answers Gemini with `drafts` in turn; fn gets the request bodies it saw,
+ *  each with the model it went to as `model`. */
 async function withGemini(drafts, fn, env = ENV) {
   const saved = { fetch: globalThis.fetch, env: { ...process.env } };
   const bodies = [];
   Object.assign(process.env, env);
   globalThis.fetch = async (url, init) => {
     assert.match(String(url), /generativelanguage/, 'only Gemini is called');
-    bodies.push(JSON.parse(init.body));
+    bodies.push({ ...JSON.parse(init.body), model: String(url).match(/models\/([^:]+):/)[1] });
     return Response.json({ candidates: [{ content: { parts: [{ text: drafts.shift() }] } }] });
   };
   try {
@@ -122,7 +123,7 @@ test('generate: an idea with nothing the sim can represent gets 422 with unsuppo
     const res = await generate('Rent control');
     assert.equal(res.status, 422);
     assert.deepEqual(await res.json(), { error: "This idea can't be simulated yet: The simulator has no rent regulation.",
-      unsupportedReason: 'The simulator has no rent regulation.', unmodeled: ['rent limits'] });
+      unsupportedReason: 'The simulator has no rent regulation.', unmodeled: ['rent limits'], cached: false });
     assert.equal(bodies.length, 1);
   });
 });
@@ -134,12 +135,12 @@ test('generate: bad requests, no key, and 5 drafts per IP per minute', async () 
   });
   await withGemini([], async () => assert.equal((await generate('buses')).status, 503), { ...ENV, GEMINI_API_KEY: '' });
   await withGemini(Array(6).fill(reply(directed(leverCard, 'increase'))), async bodies => {
-    for (let i = 0; i < 5; i++) assert.equal((await generate('buses', '192.0.2.9')).status, 200);
-    const limited = await generate('buses', '192.0.2.9');
+    for (let i = 0; i < 5; i++) assert.equal((await generate(`buses, take ${i}`, '192.0.2.9')).status, 200); // distinct ideas: no cache hits
+    const limited = await generate('buses, take 5', '192.0.2.9');
     assert.equal(limited.status, 429);
     assert.ok(Number(limited.headers.get('retry-after')) > 0);
     assert.equal(bodies.length, 5);
-    assert.equal((await generate('buses', '192.0.2.10')).status, 200);
+    assert.equal((await generate('buses, take 6', '192.0.2.10')).status, 200);
   });
 });
 
@@ -204,4 +205,41 @@ test('protect and parking cards: a protect card passes when it blocks a catalog 
   const lots = { ...zoneCard, id: 'campus-lot-homes', zoneRules: [{ where: 'tag:near_campus', from: 'parking', to: 'mid_res', ratePerYear: 0.2, capParam: 'acres_released' }] };
   assert.deepEqual(checkCard(lots, '', ctx), []);
   assert.match(checkCard({ ...lots, zoneRules: [{ ...lots.zoneRules[0], from: 'forest' }] }, '', ctx).join('\n'), /no forest parcel matches tag:near_campus/);
+});
+
+test('cards call GEMINI_MODEL_CARDS, else GEMINI_MODEL, else gemini-3-flash-preview', async () => {
+  for (const [env, model] of [[{ GEMINI_MODEL_CARDS: 'gemini-cards' }, 'gemini-cards'], [{}, 'gemini-test'], [{ GEMINI_MODEL: '' }, 'gemini-3-flash-preview']])
+    await withGemini([reply(zoneCard)], async bodies => {
+      await generateCard('apartments');
+      assert.equal(bodies[0].model, model);
+    }, { ...ENV, ...env });
+});
+
+test('cache: an idea asked again, in any case or spacing, is served without Gemini or the rate limit, with a new id and signature', async () => {
+  await withGemini([reply(zoneCard)], async bodies => {
+    const first = await (await generate('Mid-rise  homes by the corridor woods', '192.0.2.20')).json();
+    for (let i = 0; i < 6; i++) await generate(`other idea ${i}`, '192.0.2.20'); // spends this IP's 5 a minute (and the mock's one draft)
+    const again = await generate('  mid-rise homes BY the corridor woods ', '192.0.2.20'), body = await again.json();
+    assert.equal(again.status, 200);
+    assert.deepEqual([first.cached, body.cached], [false, true]);
+    assert.notEqual(body.card.id, first.card.id);
+    assert.equal(body.card.id.replace(/-[0-9a-f]{4}$/, ''), 'corridor-apartments');
+    assert.equal(body.signature, signCard(body.card, 'sign-secret'));
+    assert.equal(bodies.filter(b => /mid-rise/i.test(b.contents[0].parts[0].text)).length, 1);
+  });
+});
+
+test('cache: an unsupported verdict is kept; a draft that failed its checks is not', async () => {
+  await withGemini([reply(null, ['rent limits'], 'No rent regulation.')], async bodies => {
+    assert.equal((await generate('Rent control please')).status, 422);
+    const again = await generate('rent control please');
+    assert.deepEqual([again.status, (await again.json()).cached], [422, true]);
+    assert.equal(bodies.length, 1);
+  });
+  const bad = reply({ ...zoneCard, title: 'Great homes' });
+  await withGemini([bad, bad, bad, bad], async bodies => {
+    assert.equal((await generate('great homes on the edge')).status, 422);
+    assert.equal((await generate('great homes on the edge')).status, 422);
+    assert.equal(bodies.length, 4, 'two drafts and their retries');
+  });
 });

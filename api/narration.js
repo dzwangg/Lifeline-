@@ -210,23 +210,46 @@ const userPrompt = input => `Simulation results (JSON):\n${JSON.stringify(input)
   + `the starting value when comparedWith is "year 0", or the value after the same years with no new policy when comparedWith is "${NO_POLICY}". `
   + 'changePct is the percent change from baseline to final.';
 
+// Each feature has its own model, so one feature's spent daily quota doesn't stop the others: GEMINI_MODEL_NARRATION,
+// GEMINI_MODEL_CHAT, GEMINI_MODEL_CARDS, else GEMINI_MODEL, else these. Free-tier quotas are per project and model:
+// Flash models get 20 requests a day, Flash-Lite 500 (measured from 429 bodies; Google no longer publishes them). So the
+// recaps and chat take gemini-3.5-flash-lite, a Flash-Lite that accepts minimal thinking, and cards the stronger Flash.
+const MODELS = { narration: 'gemini-3.5-flash-lite', chat: 'gemini-3.5-flash-lite', cards: 'gemini-3-flash-preview' };
+/** The model a feature ('narration', 'chat' or 'cards') calls. */
+export const modelFor = (env, feature) => env[`GEMINI_MODEL_${feature.toUpperCase()}`] || env.GEMINI_MODEL || MODELS[feature];
+// When a model's daily quota is spent, gemini() tries the next one here once (the first, for a model not listed).
+// ponytail: an env list, since the free quotas and models change without notice.
+const FALLBACKS = 'gemini-3-flash-preview,gemini-3.5-flash-lite,gemini-3.1-flash-lite';
+export const nextModel = (env, model) => {
+  const list = (env.GEMINI_FALLBACK_MODELS || FALLBACKS).split(',').map(m => m.trim()).filter(Boolean), i = list.indexOf(model);
+  return i < 0 ? list[0] : list[i + 1];
+};
+
 // Thinking makes Gemini 3 slow here (12-19s at its default level, 1.5s at "minimal"), but each model accepts different
 // levels (gemini-3.8-flash rejects "minimal"), so a 400 about the level retries once with the model's default.
-// opts: system prompt, extra generationConfig (such as a responseSchema) and timeout; /api/policies passes its own.
+// A 429 for a daily quota (quotaId ...PerDay...) tries nextModel once; any other 429 or error throws, and callers use the template.
+// opts: feature, system prompt, extra generationConfig (such as a responseSchema) and timeout; /api/policies passes its own.
 export async function gemini(env, contents, opts = {}, thinkingLevel = env.GEMINI_THINKING_LEVEL || 'minimal') {
-  const { system = SYSTEM_PROMPT, config = {}, timeout = 20_000 } = opts;
+  const { feature = 'narration', model = modelFor(env, feature), fellBack = false, system = SYSTEM_PROMPT, config = {}, timeout = 20_000 } = opts;
   const generationConfig = { temperature: 0.2, ...config, ...(thinkingLevel && { thinkingConfig: { thinkingLevel } }) };
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(env.GEMINI_MODEL)}:generateContent`, {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
     body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents, generationConfig }),
     signal: AbortSignal.timeout(timeout),
   });
   if (res.status === 400 && thinkingLevel && /thinking/i.test(await res.text())) {
-    console.warn(`gemini: ${env.GEMINI_MODEL} rejected thinking level "${thinkingLevel}"; retrying with its default`);
-    return gemini(env, contents, opts, null);
+    console.warn(`gemini: ${model} rejected thinking level "${thinkingLevel}"; retrying with its default`);
+    return gemini(env, contents, { ...opts, model }, null);
   }
-  if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
+  if (res.status === 429 && !fellBack && /PerDay/.test(await res.text())) {
+    const next = nextModel(env, model);
+    if (next) {
+      console.warn(`gemini: ${model}'s daily quota is spent; trying ${next}`);
+      return gemini(env, contents, { ...opts, model: next, fellBack: true });
+    }
+  }
+  if (!res.ok) throw new Error(`Gemini HTTP ${res.status} (${model})`);
   const parts = (await res.json()).candidates?.[0]?.content?.parts ?? [];
   const text = parts.filter(p => !p.thought).map(p => p.text ?? '').join('').trim();
   if (!text) throw new Error('Gemini returned no text');
@@ -247,7 +270,7 @@ async function speak(env, text) {
 /** Gemini text (one retry naming the bad numbers or evaluative words, then the template) read aloud by ElevenLabs. Never throws. `failed` marks a transient API error. */
 export async function narrate(input, env = process.env) {
   let text = null, failed = false;
-  if (env.GEMINI_API_KEY && env.GEMINI_MODEL) {
+  if (env.GEMINI_API_KEY) {
     try {
       const contents = [{ role: 'user', parts: [{ text: userPrompt(input) }] }];
       for (let attempt = 0; attempt < 2 && !text; attempt++) {

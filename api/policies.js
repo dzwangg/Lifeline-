@@ -1,8 +1,8 @@
 // POST /api/policies/generate (vercel.json rewrites it here): a resident's idea, in words, drafted by Gemini into a policy
 // card (docs/policy-card-spec.md) that the sim can run. Body (at most 4 KB): { idea } of 1-1200 characters.
-// Reply: { card, signature, unmodeled }, where unmodeled lists the parts of the idea the sim can't represent and signature
-// is the card's HMAC (CARD_SIGNING_KEY, null without one), which /api/narration needs before it reads the card's text.
-// An idea with nothing the sim can represent gets 422 { error, unsupportedReason }.
+// Reply: { card, signature, unmodeled, cached }, where unmodeled lists the parts of the idea the sim can't represent and
+// signature is the card's HMAC (CARD_SIGNING_KEY, null without one), which /api/narration needs before it reads the card's
+// text. An idea with nothing the sim can represent gets 422 { error, unsupportedReason, cached }. Both are cached by idea.
 // Checks: validateCard; every zone rule's selector matches a parcel in its from (or protected) state; each lever's value goes
 // the way Gemini says the idea asks ("increase" or "decrease", so a "cut" can't come out as a rise); the card changes at
 // least one metric over 10 years at its default params (runCombined), or its protect rules block a catalog card's
@@ -12,7 +12,7 @@
 // Based on William Chen's scripts/create-policy-card.js (origin/William, 0f80831).
 import { randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { badNumbers, clientIp, evaluativeWords, gemini, loadCards, rateLimiter, readBody, signCard } from './narration.js';
+import { badNumbers, clientIp, evaluativeWords, gemini, hashInput, loadCards, rateLimiter, readBody, signCard } from './narration.js';
 import { ZONE_STATES, matchesWhere, validateCard } from '../shared/schema.js';
 import { runCombined, runModels } from '../shared/combined.js';
 import { runScenario } from '../shared/sim.js';
@@ -151,7 +151,7 @@ const fail = (status, error, extra = {}) => Object.assign(new Error(error), { st
  */
 export async function generateCard(idea, env = process.env) {
   const ctx = await loadContext();
-  const opts = { system: systemPrompt(ctx), config: { responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA }, timeout: 30_000 };
+  const opts = { feature: 'cards', system: systemPrompt(ctx), config: { responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA }, timeout: 30_000 };
   const contents = [{ role: 'user', parts: [{ text: `The resident's idea: ${JSON.stringify(idea.trim())}` }] }];
   let errors = [];
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -181,6 +181,11 @@ export async function generateCard(idea, env = process.env) {
 
 const MAX_BODY = 4096;
 const retryAfter = rateLimiter(5); // drafts per IP per minute; each is one or two Gemini calls
+// Drafts by idea, so an idea asked again (in any case or spacing) costs no Gemini call: the draft, or Gemini's verdict that
+// nothing in it can be simulated. Other failures aren't kept. ponytail: per instance and capped at 100 by insertion order,
+// like narration's cache; a shared KV if cold starts hurt.
+const drafts = new Map(); // idea hash -> { draft: { card, unmodeled } } | { status, body }
+const ideaKey = idea => hashInput(idea.trim().toLowerCase().replace(/\s+/g, ' '));
 
 export async function POST(request) {
   const { body, error } = await readBody(request, MAX_BODY, 'send { idea }');
@@ -188,17 +193,25 @@ export async function POST(request) {
   const idea = body?.idea;
   if (typeof idea !== 'string' || !idea.trim() || idea.length > 1200)
     return Response.json({ error: 'idea must be a description of a policy, 1 to 1200 characters' }, { status: 400 });
-  if (!process.env.GEMINI_API_KEY || !process.env.GEMINI_MODEL || process.env.DEMO_MODE === '1')
-    return Response.json({ error: 'Policy drafting is off on this server.' }, { status: 503 });
-  const wait = retryAfter(clientIp(request));
-  if (wait) return Response.json({ error: 'too many drafts; try again shortly' }, { status: 429, headers: { 'retry-after': String(wait) } });
-  try {
-    const { card, unmodeled } = await generateCard(idea);
-    card.id = `${card.id}-${randomBytes(2).toString('hex')}`; // unique among players' cards, so a browser never renames one after signing
-    const key = process.env.CARD_SIGNING_KEY;
-    return Response.json({ card, signature: key ? signCard(card, key) : null, unmodeled });
-  } catch (err) {
-    if (!err.status) console.error('policies:', err);
-    return Response.json({ error: err.status ? err.message : 'Could not draft the policy.', ...err.extra }, { status: err.status ?? 500 });
+  const id = ideaKey(idea), cached = drafts.has(id);
+  let hit = drafts.get(id);
+  if (!hit) {
+    if (!process.env.GEMINI_API_KEY || process.env.DEMO_MODE === '1')
+      return Response.json({ error: 'Policy drafting is off on this server.' }, { status: 503 });
+    const wait = retryAfter(clientIp(request));
+    if (wait) return Response.json({ error: 'too many drafts; try again shortly' }, { status: 429, headers: { 'retry-after': String(wait) } });
+    try {
+      hit = { draft: await generateCard(idea) };
+    } catch (err) {
+      if (!err.status) console.error('policies:', err);
+      hit = { status: err.status ?? 500, body: { error: err.status ? err.message : 'Could not draft the policy.', ...err.extra } };
+      if (!err.extra?.unsupportedReason) return Response.json({ ...hit.body, cached }, { status: hit.status });
+    }
+    drafts.set(id, hit);
+    if (drafts.size > 100) drafts.delete(drafts.keys().next().value);
   }
+  if (!hit.draft) return Response.json({ ...hit.body, cached }, { status: hit.status });
+  // A fresh id suffix per reply: unique among players' cards, so a browser never renames one after signing.
+  const card = { ...hit.draft.card, id: `${hit.draft.card.id}-${randomBytes(2).toString('hex')}` }, key = process.env.CARD_SIGNING_KEY;
+  return Response.json({ card, signature: key ? signCard(card, key) : null, unmodeled: hit.draft.unmodeled, cached });
 }

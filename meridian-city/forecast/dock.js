@@ -3,7 +3,7 @@
 // (sim/scenario.js simClock): Play moves the display cursor through a trajectory that was computed once.
 //
 // Flow on Run or Play: validate -> submit one job -> show progress -> cache the whole trajectory -> animate.
-// Edits mark results stale; an older job response that lands late is dropped (latestOnly).
+// Edits mark results stale; an older response (job or demo) that lands late is dropped (latestOnly).
 import { h, cls } from '../policy/components.js';
 import { simClock, START_YEAR } from '../sim/scenario.js';
 import { SPEEDS } from '../sim/clock.js';
@@ -37,7 +37,8 @@ export async function mountForecastDock({ policyStore, host = document.body, onR
     scenario: { name: 'My scenario', horizon_years: 5, macro: 'central', draws: 500, seed: 20261010, policies: structuredClone(cat.policy_defaults) },
     result: null, resultFor: null, phase: 'idle', progress: 0, message: '', errors: [], warnings: [], explanation: null,
   };
-  const run = latestOnly((sc, onP) => api.runJob(sc, onP));
+  // One guard for every request that fills the dock (validation, live jobs, demo loads): only the newest may land.
+  const latest = latestOnly((request, current) => request(current));
 
   // ---------- skeleton ----------
   const status = h('span', { class: 'fc-status', role: 'status', 'aria-live': 'polite' });
@@ -84,22 +85,28 @@ export async function mountForecastDock({ policyStore, host = document.body, onR
     }
     const sc = structuredClone(ui.scenario), key = scenarioKey(sc);
     ui.phase = 'validating'; ui.progress = 0; ui.message = 'Validating scenario'; render();
-    const v = await api.validate(sc);
-    ui.warnings = v.warnings ?? [];
-    if (!v.valid) { ui.phase = 'error'; ui.errors = v.errors; ui.message = 'Fix the highlighted inputs.'; return render(); }
-    ui.errors = []; ui.phase = 'running'; render();
+    // Validation and the job run under the one request guard (latest) that demo loads share, and any failure, including a
+    // server that stops answering mid-validation, leaves the dock in a retryable error state rather than stuck validating.
     try {
-      const r = await run(sc, (p, msg) => { ui.progress = p; ui.message = msg; paintStatus(); });
-      if (r.stale) return; // a newer request owns the screen
+      const v = await latest(() => api.validate(sc));
+      if (v.stale) return; // a newer request owns the screen
+      ui.warnings = v.value.warnings ?? [];
+      if (!v.value.valid) { ui.phase = 'error'; ui.errors = v.value.errors; ui.message = 'Fix the highlighted inputs.'; return render(); }
+      ui.errors = []; ui.phase = 'running'; render();
+      const r = await latest(current => api.runJob(sc, (p, msg) => { if (current()) { ui.progress = p; ui.message = msg; paintStatus(); } }));
+      if (r.stale) return;
       setResult(r.value, key);
       if (fromPlay && !simClock.get().playing) simClock.play();
     } catch (e) { ui.phase = 'error'; ui.message = e.message; render(); }
   }
 
   async function loadDemo(id) {
-    const r = await api.demo(id);
-    ui.scenario = { ...structuredClone(r.scenario), policies: structuredClone(r.scenario.policies) };
-    setResult(r, scenarioKey(ui.scenario));
+    try {
+      const r = await latest(() => api.demo(id));
+      if (r.stale) return; // a later choice (another demo, or a live run) won
+      ui.scenario = { ...structuredClone(r.value.scenario), policies: structuredClone(r.value.scenario.policies) };
+      setResult(r.value, scenarioKey(ui.scenario));
+    } catch (e) { ui.phase = 'error'; ui.message = e.message; render(); }
   }
 
   async function setResult(r, key) {

@@ -293,7 +293,8 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
   // A metric's yearly values from the central run, its no-policy values, and CH-LUTI's yearly P10–P90 change (null before
   // CH-LUTI has run, or for metrics from the other models). Year y ends with CH-LUTI's quarter 4y − 1; year 0 is today.
   // CH-LUTI's runs for an older set of cards are not shown while the new ones run.
-  const lutiCurrent = () => luti && luti.policies.join() === ui.active.filter(c => c.levers?.length).map(c => c.id).join();
+  // A declaration, not a const: render() can run as soon as the clock subscription above fires.
+  function lutiCurrent() { return luti && luti.policies.join() === ui.active.filter(c => c.levers?.length).map(c => c.id).join(); }
   function series(m) {
     const pol = run.result.timeline.map(t => t.metrics[m.key]), base = run.noPolicy.timeline.map(t => t.metrics[m.key]);
     const diff = pol.map((v, i) => v - base[i]);

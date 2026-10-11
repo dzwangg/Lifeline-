@@ -43,9 +43,14 @@ export function scenarioKey(scenario) {
 export function latestOnly(run) {
   let ticket = 0;
   return async (...args) => {
-    const mine = ++ticket;
-    const value = await run(...args);
-    return mine === ticket ? { stale: false, value } : { stale: true };
+    const mine = ++ticket, current = () => mine === ticket;
+    try {
+      const value = await run(...args, current); // current(): still the newest request (for progress updates)
+      return current() ? { stale: false, value } : { stale: true };
+    } catch (e) {
+      if (!current()) return { stale: true }; // a newer request owns the screen; its outcome, not this failure, shows
+      throw e;
+    }
   };
 }
 

@@ -44,6 +44,20 @@ test('a stale job response never overwrites a newer scenario', async () => {
   assert.deepEqual(await first, { stale: true });
 });
 
+test('a superseded request fails quietly; the newest request\'s failure still surfaces, and progress knows which is newest', async () => {
+  const calls = [];
+  const run = latestOnly((request, current) => request(current));
+  const older = run(current => new Promise((_, reject) => calls.push({ reject, current })));
+  const newer = run(current => new Promise(resolve => calls.push({ resolve, current })));
+  assert.equal(calls[0].current(), false, 'the older request is no longer current');
+  assert.equal(calls[1].current(), true);
+  calls[0].reject(new Error('server went away'));
+  calls[1].resolve('fresh');
+  assert.deepEqual(await older, { stale: true });
+  assert.deepEqual(await newer, { stale: false, value: 'fresh' });
+  await assert.rejects(run(() => Promise.reject(new Error('down'))), /down/);
+});
+
 test('demo results carry labels, paired deltas and zero deltas for the unchanged scenario', () => {
   const base = JSON.parse(readFileSync(new URL('../data/forecast/demo/current-policies.json', import.meta.url)));
   assert.match(base.label, /assumption-based/);

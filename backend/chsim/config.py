@@ -22,3 +22,6 @@ EFFECTS_VERSION = "effects.v1-assumption"
 BENCHMARK_VERSION = "targets.v1-illustrative"
 
 DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{(BACKEND / 'chsim.db').as_posix()}")
+# Hosted Postgres often hands out postgres:// URLs, which SQLAlchemy 2 rejects; psycopg2 (requirements.txt) serves both.
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = "postgresql://" + DATABASE_URL.removeprefix("postgres://")

@@ -70,7 +70,7 @@ export function rememberPlayerCard(entry, keep = new Set()) {
   const before = read().filter(e => e.card.id !== entry.card.id);
   const safe = before.filter(e => keep.has(e.card.id));
   const after = [...safe, ...dedupe([...before.filter(e => !keep.has(e.card.id)), entry])];
-  write(after);
+  if (!write(after)) return []; // storage refused it, so nothing was superseded and nothing should leave the library
   const left = new Set(after.map(e => e.card.id));
   return before.filter(e => !left.has(e.card.id));
 }

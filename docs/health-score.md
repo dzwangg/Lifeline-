@@ -102,7 +102,7 @@ is tempting for a real reason, and each costs more than it brings in. Scored at 
 |---|---|---|---|
 | Require below-market homes in every new building | 39.4 | 32.4 | A steep set-aside with no density bonus is a cost on building with nothing given back; new homes a year falls to 0 |
 | Send new buildings back for more review | 45.7 | 39.3 | Months of hearings are about 1% of build cost each, and land in rents |
-| Impact fee on each new home | 47.0 | 43.7 | The Town's budget goes to 100 and the fee lands on buyers, about $1.60 of price per $1 charged |
+| Impact fee on each new home | 47.0 | 43.7 | The Town's budget line climbs to 88 while the fee lands on buyers, about $1.60 of price per $1 charged |
 | Cut the charge for downtown parking | 48.6 | 44.4 | The economy holds at 50 while residents drop to 38: the Town's budget loses the fees and keeps the deck debt, and a more desirable downtown lifts home values, rents and the households priced out |
 | Bring back parking minimums | 46.0 | 40.3 | Already in the library. The worst single setting in the game |
 | Property tax cut of 10¢ | — | 49.0 | Economy 59.5, residents 38.4. The halves disagree more than anywhere else |
@@ -116,12 +116,17 @@ transit.
 
 Because the score is relative to doing nothing and leans on affordability, **making the town less desirable can read as
 a gain for residents.** Cutting bus service to a quarter takes access to jobs, ridership, traffic, CO₂ and car share all
-to 0 — and still scores 50.1 overall, because fewer people want to live here, so rent burden and displacement go to 100
-and the Town stops paying for buses. The mechanism is real (transit access is capitalised into rents, and Chapel Hill
-Transit is fare-free and Town-funded) but the weighting lets it win: rent burden and displacement carry 3.5 weight
-between them and saturate, while the five transport readings carry 3.25 and bottom out early. No card in the library
-cuts bus service, for this reason. If this matters more later, the fix is in `shared/indicators.js` — a larger transport
-swing, or less weight on affordability — not in the scorer.
+to 0 — and still scores 50.1 overall, with residents at 58.3. The mechanism is real: transit access is capitalised into
+rents, so a town that is harder to reach is a cheaper one, and Chapel Hill Transit is fare-free and Town-funded, so
+cutting it is a saving.
+
+What tips it is not that affordability outweighs transport — the five transport readings carry 3.5 between them, exactly
+what rent burden and households priced out carry. It is that **more lines move than transport's**: rent burden (2),
+price to income (1), households priced out (1.5) and the tax bill (1.5) all peg at 100, six weight against transport's
+three and a half at 0. Every clamp lands on the same side.
+
+No card in the library cuts bus service, for this reason. If it matters more later the fix is in
+`shared/indicators.js` — a larger transport swing, or less weight on affordability — not in the scorer.
 
 ## The anchors
 

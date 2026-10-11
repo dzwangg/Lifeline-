@@ -16,8 +16,9 @@
 // The swings are calibrated against what the models actually do: see docs/health-score.md. They are data, not logic —
 // tune them in shared/indicators.js without touching this file.
 //
-// The anchors (`target`, `floor`) in the same block are not used here. They say what a good and a bad town look like in
-// absolute terms, which the panel shows as context next to the value.
+// The anchors (`target`, `floor`) in the same block are not read here and not returned. They say what a good and a bad
+// town look like in absolute terms: they are where the swings were sized from, and they are documented in
+// docs/health-score.md. Nothing renders them today.
 
 import { INDICATORS, PILLARS } from './indicators.js';
 
@@ -75,11 +76,12 @@ export function scoreAgainst(policy, baseline, year = policy.length - 1) {
   const indicators = SCORED.filter(i => i.key in policy[year].metrics).map(i => {
     const dir = i.better === 'higher' ? 1 : -1;
     const value = basisValue(i, policy, year), base = basisValue(i, baseline, Math.min(year, baseline.length - 1));
-    const move = clamp1(((value - base) * dir) / i.score.swing);
+    // A metric the models could not produce counts as no change. Letting NaN through would poison its half, the overall
+    // and the band — `NaN >= min` is false for every band, so the panel would read "NaN/100 · Far worse".
+    const move = Number.isFinite(value) && Number.isFinite(base) ? clamp1(((value - base) * dir) / i.score.swing) : 0;
     return { key: i.key, label: i.score.label ?? i.short ?? i.label, category: i.score.category, pillar: i.pillar,
       pillarLabel: pillarLabel(i.pillar), value, base, move, score: round(50 + 50 * move), weight: i.score.weight ?? 1,
-      target: i.score.target, floor: i.score.floor, basis: i.score.basis ?? 'level', fmt: i.score.fmt ?? i.fmt,
-      why: i.score.why, today: i.today?.text };
+      basis: i.score.basis ?? 'level', fmt: i.score.fmt ?? i.fmt, why: i.score.why, today: i.today?.text };
   });
   const half = list => (list.length
     ? round(50 + 50 * (list.reduce((s, i) => s + i.move * i.weight, 0) / list.reduce((s, i) => s + i.weight, 0)))
@@ -101,7 +103,7 @@ export function summarise(indicators, limit = 2) {
   const pick = sign => moved.filter(i => Math.sign(i.move) === sign)
     .sort((a, b) => Math.abs(b.move * b.weight) - Math.abs(a.move * a.weight)).slice(0, limit)
     .map(i => i.label.toLowerCase());
-  const names = list => (list.length === 2 ? `${list[0]} and ${list[1]}` : list[0]);
+  const names = list => (list.length > 1 ? `${list.slice(0, -1).join(', ')} and ${list.at(-1)}` : list[0]);
   const up = pick(1), down = pick(-1);
   if (up.length && down.length) return `Better on ${names(up)}; worse on ${names(down)}.`;
   return up.length ? `Better on ${names(up)}.` : `Worse on ${names(down)}.`;

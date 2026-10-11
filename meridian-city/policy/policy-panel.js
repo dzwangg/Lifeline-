@@ -497,7 +497,7 @@ export function mountPolicyPanel({ store, game = null, host = document.body } = 
       return keepScenario(d.deleteNo);
     }
     const chip = e.target.closest('[data-filter]');
-    if (chip) { ui.filter = chip.dataset.filter; ui.filterBefore = null; return render(); }
+    if (chip) { ui.filter = chip.dataset.filter; ui.filterBefore = null; ui.discard = null; return render(); }
     const slot = e.target.closest('.pp-slot');
     if (slot) return activateSlot(slot.dataset.slot, viaKeyboard);
     const card = e.target.closest('.pp-card');
@@ -577,7 +577,7 @@ export function mountPolicyPanel({ store, game = null, host = document.body } = 
     if (ui.open && e.key === 'Escape' && !e.defaultPrevented && !panel.contains(e.target) && !drag.isActive()) cancel();
   });
 
-  search.addEventListener('input', () => { ui.query = search.value; render(); });
+  search.addEventListener('input', () => { ui.query = search.value; ui.discard = null; render(); }); // a confirm on a card the search hides would swallow the next Escape
   scenList.addEventListener('focusout', e => { if (e.target.matches('[data-rename-input]')) finishRename(true, false); });
   btnNew.addEventListener('click', newScenario);
   btnClear.addEventListener('click', () => {

@@ -136,6 +136,23 @@ test('maximum parking minimums and a deep tax cut are the catalog\u2019s own way
   assert.ok(cut.economic > 55 && cut.social < 42, `a deep tax cut splits the halves: ${cut.economic} against ${cut.social}`);
 });
 
+test('a metric the models could not produce counts as no change, rather than taking the whole score to NaN', () => {
+  const line = v => [{ metrics: { treeCoverPct: 46.9, rentBurden: 0.6 } }, { metrics: { treeCoverPct: v, rentBurden: 0.6 } }];
+  const s = scoreAgainst(line(NaN), line(46.9));
+  assert.equal(s.indicators.find(i => i.key === 'treeCoverPct').score, 50, 'the broken line sits still');
+  assert.ok(Number.isFinite(s.overall) && Number.isFinite(s.social), `overall ${s.overall}, social ${s.social}`);
+  // NaN >= min is false for every band, so an unguarded score would read as the worst one
+  assert.notEqual(s.band, 'Far worse');
+  assert.equal(s.band, 'About the same');
+});
+
+test('the scorer returns no absolute anchors, because nothing renders them', () => {
+  const s = score(['transit-upzoning']);
+  for (const i of s.indicators) {
+    assert.ok(!('target' in i) && !('floor' in i), `${i.key}: the anchors live in shared/indicators.js and docs/health-score.md`);
+  }
+});
+
 test('the summary names what carried a half, and says so plainly when nothing did', () => {
   const ind = (key, label, move, weight = 1) => ({ key, label, move, weight });
   assert.equal(summarise([ind('a', 'Jobs', 0)]), 'Nothing moved much either way.');
@@ -144,4 +161,6 @@ test('the summary names what carried a half, and says so plainly when nothing di
   assert.equal(summarise([ind('a', 'Jobs', -0.5)]), 'Worse on jobs.');
   // the biggest mover by weight leads, so a double-weighted indicator outranks a bigger move on a light one
   assert.match(summarise([ind('a', 'Rent', 0.4, 2), ind('b', 'Buses', 0.6, 0.5)]), /^Better on rent and buses\./);
+  // a bigger limit really names more, rather than silently dropping the extras
+  assert.equal(summarise([ind('a', 'Jobs', 0.5), ind('b', 'Rent', 0.4), ind('c', 'Buses', 0.3)], 3), 'Better on jobs, rent and buses.');
 });

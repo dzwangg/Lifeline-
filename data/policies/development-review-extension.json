@@ -16,7 +16,7 @@
   "params": [
     {
       "key": "extra_months",
-      "label": "Months added before a project can start",
+      "label": "Months of extra review added to every project",
       "min": 3,
       "max": 24,
       "default": 9,
@@ -62,7 +62,7 @@
       "A town with more review has more leverage to negotiate affordable homes, greenway links and design changes it cannot demand from a project approved over the counter."
     ],
     "cons": [
-      "Waiting is not free. The best figure anyone publishes is around $4,400 a home for every extra month, and that lands in rents and sale prices rather than on the builder.",
+      "Waiting is not free. The model charges the delay as carrying cost at 4% of a home's cost a year — published estimates run higher, around $4,400 a home a month — and that lands in rents and sale prices rather than on the builder.",
       "The Los Angeles evidence is that the length and the unpredictability of approval together decide whether projects start at all, so running the lever the other way should mean fewer homes, not just later ones.",
       "It reverses the Town's own 2023 and 2026 decisions to shorten review, which it adopted as a way to make housing cheaper."
     ]

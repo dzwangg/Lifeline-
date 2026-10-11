@@ -123,7 +123,8 @@ test('the harmful cards score below the town that did nothing, at their own defa
   const free = score(['downtown-parking-free'], { 'downtown-parking-free': { dollars_per_day: -10 } });
   assert.ok(at(free, 'netFiscal').score < 10, "the Town's money goes");
   assert.ok(at(free, 'avgCommuteMin').score > 50, 'driving in is easier');
-  assert.ok(free.social < 45 && free.economic >= 50, `and residents carry it: ${free.social} against ${free.economic}`);
+  assert.ok(free.social < 42, `residents carry it: ${free.social}`);
+  assert.ok(free.economic - free.social > 5, `and the halves disagree: ${free.economic} against ${free.social}`);
 });
 
 // Only two settings in the rest of the library leave the town clearly worse off. Both are popular.
@@ -133,7 +134,36 @@ test('maximum parking minimums and a deep tax cut are the catalog\u2019s own way
   assert.ok(at(parking, 'housingUnits').score < 25, 'the homes stop being built');
 
   const cut = score(['property-tax-adjustment'], { 'property-tax-adjustment': { cents_per_100: -10 } });
-  assert.ok(cut.economic > 55 && cut.social < 42, `a deep tax cut splits the halves: ${cut.economic} against ${cut.social}`);
+  assert.ok(cut.economic > 50 && cut.social < 42, `a deep tax cut splits the halves: ${cut.economic} against ${cut.social}`);
+  assert.ok(cut.overall < 50, `and still leaves the town worse off than doing nothing: ${cut.overall}`);
+});
+
+test('a metric the models could not produce counts as no change, rather than taking the whole score to NaN', () => {
+  const line = v => [{ metrics: { treeCoverPct: 46.9, rentBurden: 0.6 } }, { metrics: { treeCoverPct: v, rentBurden: 0.6 } }];
+  const s = scoreAgainst(line(NaN), line(46.9));
+  assert.equal(s.indicators.find(i => i.key === 'treeCoverPct').score, 50, 'the broken line sits still');
+  assert.ok(Number.isFinite(s.overall) && Number.isFinite(s.social), `overall ${s.overall}, social ${s.social}`);
+  // NaN >= min is false for every band, so an unguarded score would read as the worst one
+  assert.notEqual(s.band, 'Far worse');
+  assert.equal(s.band, 'About the same');
+});
+
+test('the scorer returns no absolute anchors, because nothing renders them', () => {
+  const s = score(['transit-upzoning']);
+  for (const i of s.indicators) {
+    assert.ok(!('target' in i) && !('floor' in i), `${i.key}: the anchors live in shared/indicators.js and docs/health-score.md`);
+  }
+});
+
+// No card in the library changes what a household earns, so the model's median income moves only with who is still
+// living here. Scoring it made displacement read as an economic gain — a deep tax cut that priced out 171 extra
+// households scored 87.7 on "real income" and the economy half's sentence read "Better on real income".
+test('median income is context, not a score: displacing people must never read as the economy doing well', () => {
+  assert.ok(!SCORED.some(i => i.key === 'realIncome'), 'real income stays out of the score');
+  const cut = score(['property-tax-adjustment'], { 'property-tax-adjustment': { cents_per_100: -10 } });
+  assert.equal(at(cut, 'realIncome'), undefined, 'and out of the scored indicators the panel lists');
+  assert.doesNotMatch(cut.categories.find(c => c.id === 'economic').summary, /income/i, 'and out of what carried the half');
+  assert.equal(at(cut, 'pricedOut').score, 0, 'the displacement it causes is still counted, once, against it');
 });
 
 test('the summary names what carried a half, and says so plainly when nothing did', () => {
@@ -144,4 +174,6 @@ test('the summary names what carried a half, and says so plainly when nothing di
   assert.equal(summarise([ind('a', 'Jobs', -0.5)]), 'Worse on jobs.');
   // the biggest mover by weight leads, so a double-weighted indicator outranks a bigger move on a light one
   assert.match(summarise([ind('a', 'Rent', 0.4, 2), ind('b', 'Buses', 0.6, 0.5)]), /^Better on rent and buses\./);
+  // a bigger limit really names more, rather than silently dropping the extras
+  assert.equal(summarise([ind('a', 'Jobs', 0.5), ind('b', 'Rent', 0.4), ind('c', 'Buses', 0.3)], 3), 'Better on jobs, rent and buses.');
 });

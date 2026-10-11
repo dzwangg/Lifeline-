@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
-import { POST, badNumbers, clearGeminiPauses, hashInput, loadCards, modelFor, nextModel, parseInput, speakable, speechKey, templateRecap } from '../api/narration.js';
+import { METRICS, POST, badNumbers, clearGeminiPauses, hashInput, loadCards, modelFor, nextModel, parseInput, speakable, speechKey, templateRecap } from '../api/narration.js';
 import { recapBody, fallbackText } from '../meridian-city/narration/turn-recap.js';
 
 // A frozen SimResult (the stub card, as of the narration PR), so these tests don't move whenever the models do.
@@ -396,7 +396,13 @@ test('decade recap: years must be exact (no round year inside the decade), and o
   assert.deepEqual(badNumbers('From 2036 to 2041, homes grew.', decade), []);
   assert.deepEqual(badNumbers('By 2040, homes grew; by 2050 more.', decade), ['2040', '2050']);
   const { decade: _, ...plain } = decadeBody;
-  assert.match(parseInput({ ...plain, deltas: plain.deltas.filter(d => d.comparedWith === 'no new policy').flatMap(d => [d, d]) }, cards).errors.join(), /deltas must be 1-20 /);
+  // the bound follows the metric list, so read it from there: hard-coding it went red the day an indicator was added
+  const once = Object.keys(METRICS).length;
+  assert.match(parseInput({ ...plain, deltas: plain.deltas.filter(d => d.comparedWith === 'no new policy').flatMap(d => [d, d]) }, cards).errors.join(),
+    new RegExp(`deltas must be 1-${once} `));
+  // and a decade body, which may compare each metric against two baselines, gets exactly twice the room
+  assert.match(parseInput({ ...decadeBody, deltas: Array.from({ length: 2 * once + 1 }, () => decadeBody.deltas[0]) }, cards).errors.join(),
+    new RegExp(`deltas must be 1-${2 * once} `));
 });
 
 test('handler: a decade recap that falls back to the template is not read aloud (the pop-up would not play it)', async () => {

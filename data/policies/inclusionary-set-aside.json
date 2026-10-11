@@ -1,7 +1,7 @@
 {
   "id": "inclusionary-set-aside",
   "title": "Require below-market homes in every new building",
-  "summary": "Requires a share of the homes in every new development to be let below market, and drops the density bonus that pays developers back for them. Chapel Hill's own ordinance covers homes for sale; this is the version the state does not let a town impose.",
+  "summary": "Requires a share of the homes in every new development to be let below market, with no extra floor area given back to pay for them. Chapel Hill's own ordinance covers homes for sale and does give that floor area back; this is the version the state does not let a town impose.",
   "category": "housing",
   "icon": "tower",
   "decider": {

@@ -152,7 +152,7 @@ export function mountAskBar({ store, cards, game = null, host = document.body })
       if (superseded.length) {
         forgetPlayerCard(r.card.id);
         store.dropPolicy(r.card.id);
-        for (const e of superseded) { rememberPlayerCard(e); addCard(e.card); }
+        for (const e of superseded) { rememberPlayerCard(e, enacted()); addCard(e.card); }
       }
       store.clear();
       for (const [slot, id] of Object.entries(before.applied)) if (id) store.place(id, slot);

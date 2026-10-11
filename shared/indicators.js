@@ -149,10 +149,8 @@ export const INDICATORS = [
   // ---------- local economy: what households earn ----------
   { key: 'realIncome', pillar: 'economy', label: 'Median household income (today’s dollars)', short: 'Real income', fmt: 'usd', better: 'higher',
     today: { value: 85989, text: '$85,989', source: `${ACS}, B19013; the model’s own median starts a little above it, from its household mix` },
-    why: 'What a typical household actually lives on once inflation is taken out: the plainest measure of whether people here are getting better off.',
-    model: 'the household model: the median household’s income, with any job-training gain or cash help, over CH-LUTI’s price level',
-    score: { category: 'economic', basis: 'ratioToStart', swing: 0.02, target: 1.2, floor: 0.95, fmt: 'index',
-      why: 'Target: +20%, the best decade in the US series (2011\u201321, +20.6%; FRED real median household income). Floor: \u22125%, the 2000\u201310 lost decade (\u22124.7%), the worst on record. The median US decade is +8.1%, which lands at 52 \u2014 a typical decade is a middling score.' } },
+    why: 'What a typical household here lives on once inflation is taken out. Context, not a goal: only job training or cash help changes what a household earns, and no card in the library does either — so unless a drafted card asks for one, this moves with who is still living here and goes up when the lowest-income households are priced out. Read it beside households priced out, never on its own.',
+    model: 'the household model: the median household’s income, with any job-training gain or cash help, over CH-LUTI’s price level' },
 
   // ---------- town finances ----------
   { key: 'netFiscal', pillar: 'finances', label: 'Town budget impact', fmt: 'usdm', better: 'higher', diffOnly: true,

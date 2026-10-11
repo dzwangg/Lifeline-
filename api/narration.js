@@ -21,7 +21,7 @@ import { validateCard } from '../shared/schema.js';
 // fmt says a value the way a news anchor would (unit follows it once); pct metrics are already percentages, so the template
 // gives from/to rather than a % change. households and pricedOut come from the household model (shared/agents.js).
 const about = n => `about ${fmtNum(n, { maximumSignificantDigits: 3 })}`;
-const METRICS = {
+export const METRICS = {
   housingUnits: { meaning: 'number of homes', label: 'homes', plural: true, fmt: about },
   households: { meaning: 'number of households living in town', label: 'households', plural: true, fmt: about },
   medianRent: { meaning: 'median monthly market rent in dollars (rents rise with inflation over the years)', label: 'median rent', fmt: n => `$${fmtNum(n, { maximumFractionDigits: 0 })}`, unit: ' a month' },
@@ -44,7 +44,7 @@ const METRICS = {
   carShare: { meaning: 'share of commuters who drive, in percent', label: 'commuters driving', fmt: n => `${fmtNum(n, { maximumFractionDigits: 1 })}%`, pct: true, toInput: v => Math.round(v * 1000) / 10 },
   jobAccess: { meaning: 'jobs residents can reach in a typical commute, in percent above year 0', label: 'access to jobs', fmt: n => `${fmtNum(n, { maximumFractionDigits: 1 })}% above year 0`, pct: true, toInput: v => Math.round((v - 1) * 1000) / 10 },
   commuteCO2: { meaning: 'carbon dioxide from car commutes to, from and within town, in tonnes a year', label: 'commute CO2', fmt: n => `${about(n)} tonnes a year` },
-  realIncome: { meaning: "median household income in year 0's dollars, so a rise is a real gain", label: 'median household income', fmt: n => `$${fmtNum(Math.round(n / 100) * 100)}` },
+  realIncome: { meaning: "median household income in year 0's dollars. Only job training or cash help raises what a household earns; no catalog policy does either, so unless one of those is in force a rise means lower-income households have left, not that people are better off", label: 'median household income', fmt: n => `$${fmtNum(Math.round(n / 100) * 100)}` },
   taxBurden: { meaning: 'property tax on the median home as a share of median household income, in percent', label: 'the property tax bill as a share of income', fmt: n => `${fmtNum(n, { maximumFractionDigits: 1 })}%`, pct: true, toInput: v => Math.round(v * 1000) / 10 },
 };
 // The panel's six headline metrics: the template recap covers these, and Gemini is told to focus on them.

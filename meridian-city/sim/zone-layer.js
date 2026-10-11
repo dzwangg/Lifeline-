@@ -34,13 +34,16 @@ export function mountZoneLayer({ world, zones }) {
   const rr = (a, b) => a + rnd() * (b - a);
   const zoneIndex = new Map(zones.map((z, zi) => [z.id, zi]));
 
-  // Tree slots: an 11 m jittered lattice over each zone, clear of buildings and roads.
-  const list = [];
+  // Tree slots: an 11 m jittered lattice over each zone, clear of buildings and roads. A slot's species is drawn later, so
+  // its crown is checked as the woods' widest and lowest: one near a building is drawn smaller, or not at all (scale 0,
+  // keeping its slot so every other tree's draws stay as they were), so no crown reaches a wall (world/clearance.js).
+  const list = [], woods = TREE_KINDS.wood.map(k => world.art.sprites[k]);
+  const widest = { w: Math.max(...woods.map(t => t.w)), h: Math.max(...woods.map(t => t.h)), crownBase: Math.min(...woods.map(t => t.crownBase)) };
   const range = zones.map(({ ring }) => {
     const start = list.length / STRIDE, [x0, z0, x1, z1] = bounds(ring);
     for (let x = x0; x < x1; x += TREE_STEP) for (let z = z0; z < z1; z += TREE_STEP) {
       const px = x + rr(0, TREE_STEP), pz = z + rr(0, TREE_STEP);
-      if (!(at(px, pz) & 3) && inside(ring, px, pz)) list.push(px, pz, rr(1.1, 1.7));
+      if (!(at(px, pz) & 3) && inside(ring, px, pz)) list.push(px, pz, world.footprints.fitScale(px, pz, widest, rr(1.1, 1.7), .7));
     }
     return [start, list.length / STRIDE];
   });
@@ -147,11 +150,15 @@ export function mountZoneLayer({ world, zones }) {
       return byZone.get(zi);
     };
     const builtPlan = (z, state) => (isBuilt(state) && state !== z.state ? growth.plan(z, state) : null);
+    // The plans standing on a site in some year's states: its parcels' own, and those of blocks elsewhere whose homes it
+    // also holds (develop.js shares out homes a block's own land can't), so their trees fall and their streets are built.
+    const guestsIn = (site, states) => growth.hosted(site).filter(g => builtPlan(g.zone, states[g.zone.id]) === g.plan);
+    const plansIn = (site, states) => [...new Set([...site.parcels.map(z => builtPlan(z, states[z.id])).filter(Boolean), ...guestsIn(site, states).map(g => g.plan)])];
     // The streets a site's parcels need in some year's states: those their plans use, with the streets those connect through.
-    const plansIn = (site, states) => [...new Set(site.parcels.map(z => builtPlan(z, states[z.id])).filter(Boolean))];
     const streetsIn = (site, states) => {
       const used = new Set();
       for (const z of site.parcels) { const plan = builtPlan(z, states[z.id]); if (plan) for (const k of plan.streets) used.add(k); }
+      for (const g of guestsIn(site, states)) for (const a of g.annexes) for (const k of a.streets) used.add(k);
       return used;
     };
 
@@ -267,12 +274,16 @@ export function mountZoneLayer({ world, zones }) {
           if (changed || planned) fills[zi].material = mats[(changed ? to : final)[z.id]] ?? mats.parking;
         });
         drawn = shown; drawnBefore = before;
+        // The ledger first: it plans every block standing by now (develop.js, year by year), so each site knows the homes
+        // other blocks placed on it before it is drawn.
+        const { totals } = growth.ledger(to, from);
         // Every site anything stands on now, drawn in full; the sites converting this year are then animated.
         touched.clear();
         building = [];
         for (const site of growth.sites.values()) {
-          const changing = site.parcels.some(z => from[z.id] !== to[z.id]);
-          const anything = site.parcels.some(z => to[z.id] !== z.state || from[z.id] !== z.state);
+          const guests = growth.hosted(site).map(g => g.zone);
+          const changing = [...site.parcels, ...guests].some(z => from[z.id] !== to[z.id]);
+          const anything = [...site.parcels, ...guests].some(z => to[z.id] !== z.state || from[z.id] !== z.state);
           if (changing) building.push(site);
           if (anything || changing) writeSite(site, from, to, changing ? p : 1);
           else for (const z of site.parcels) { const zi = zoneIndex.get(z.id); for (let i = range[zi][0]; i < range[zi][1]; i++) { put(trees, i, z.state === 'forest' ? 1 : 0); put(stumps, i, 0); } }
@@ -281,7 +292,6 @@ export function mountZoneLayer({ world, zones }) {
         flushTrees();
         syncPicks(); syncWalks();
         lastP = p;
-        const { totals } = growth.ledger(to);
         growthReport.set({ ...totals, year: shown.step, before });
         return;
       }

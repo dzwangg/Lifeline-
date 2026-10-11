@@ -13,6 +13,7 @@ import { createModel } from '../../shared/luti/model.js';
 import { paramRanges } from '../../shared/luti/params.js';
 import { ZONES as LUTI_ZONES, SOURCES } from '../../shared/luti/data.js';
 import { paramStep } from '../../shared/schema.js';
+import { residentState, statusOf, STATUS } from './residents.js';
 
 // Colour each change by whether it helps most people (green) or hurts (red). false shows every change in one neutral ink.
 const VERDICT_COLORS = true;
@@ -517,17 +518,21 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
       } }));
   }
 
-  // ---------- the household picked on the map, as of the shown year ----------
+  // ---------- the resident picked on the map, as of the shown year ----------
+  // Its state is the one its dot reads (residents.js).
   function renderResident(households, resident, yr) {
-    const a = resident == null ? null : households.agents.find(x => x.id === resident);
-    if (!a) return residentEl.replaceChildren();
-    const at = a.hist[Math.min(Math.max(yr, a.joined), a.left ?? a.hist.length - 1)];
-    const status = yr < a.joined ? `Moves here in year ${a.joined}` : a.left !== null && a.left <= yr ? `Left in year ${a.left}` : a.joined ? `Moved in year ${a.joined}` : 'Lives here';
+    const a = residentState(households, resident);
+    const close = h('button', { class: 'resident__close', type: 'button', 'aria-label': 'Close resident card', onclick: () => scenario.set({ resident: null }) }, '×');
+    if (resident == null) return residentEl.replaceChildren();
+    if (!a) return residentEl.replaceChildren(h('section', { class: 'resident' }, h('header', { class: 'resident__head' }, h('h3', {}, 'Not in this scenario'), close),
+      h('p', { class: 'resident__story' }, `Resident ${resident} doesn't live in town under these policies.`)));
+    const at = a.hist[Math.min(Math.max(yr, a.joined), a.left ?? a.hist.length - 1)], dot = statusOf(a, yr);
+    const status = a.street ? 'Street resident · not in the model\'s counts' : yr < a.joined ? `Moves here in year ${a.joined}` : a.left !== null && a.left <= yr ? `Left in year ${a.left}` : a.joined ? `Moved in year ${a.joined}` : 'Lives here';
     residentEl.replaceChildren(h('section', { class: 'resident' },
       h('header', { class: 'resident__head' },
-        h('h3', {}, a.name),
-        h('button', { class: 'resident__close', type: 'button', 'aria-label': 'Close resident card', onclick: () => scenario.set({ resident: null }) }, '×')),
-      h('p', { class: 'resident__status' }, status),
+        h('h3', {}, dot && h('span', { class: 'resident__dot', style: { '--dot': STATUS[dot].color }, title: STATUS[dot].label, 'aria-label': STATUS[dot].label }), a.name),
+        close),
+      h('p', { class: 'resident__status' }, status, h('span', { class: 'resident__id' }, resident)),
       h('dl', { class: 'resident__facts' },
         h('dt', {}, 'Job'), h('dd', {}, a.student ? (a.work === 'campus' ? 'Student at UNC' : `Student; ${WORK[a.work].toLowerCase()}`) : WORK[a.work]),
         h('dt', {}, 'Home'), h('dd', {}, a.renter ? 'Renter' : 'Owner'),

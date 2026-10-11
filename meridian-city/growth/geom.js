@@ -98,6 +98,8 @@ export class Raster {
     const i = Math.floor(x) - this.x0, j = Math.floor(z) - this.z0;
     return i >= 0 && j >= 0 && i < this.w && j < this.h ? j * this.w + i : -1;
   }
+  /** The same land with none of the planner's claims (the land is shared, not copied). */
+  fresh() { return Object.assign(Object.create(Raster.prototype), this, { mark: new Uint8Array(this.w * this.h) }); }
   in(x, z) { const c = this.idx(x, z); return c < 0 ? 0 : this.inside[c]; }
   bits(x, z) { const c = this.idx(x, z); return c < 0 ? 255 : this.occ[c]; }
   marked(x, z) { const c = this.idx(x, z); return c < 0 ? 255 : this.mark[c]; }

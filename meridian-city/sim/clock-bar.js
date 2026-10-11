@@ -1,20 +1,19 @@
-// The playback toolbar: Pause, Play (1x), Fast (2x) and Faster (4x), the simulated date and speed beside them,
-// and a loading badge while the clock holds for a prediction. Keys: Space pauses or plays, 1, 2 and 4 play at
-// that speed. The map toolbar's pixel-icon buttons and glass plate, so retro-ui.css skins it like the rest.
-// The street's time of day (world/households.js, a day every couple of minutes, paused or playing) sits faintly in the
-// small line under the date, once street life has loaded (bar.setHour).
+// The playback toolbar: one Play/Pause toggle, Fast (2x) and Faster (4x) speed toggles, the simulated date and
+// speed beside them, and a loading badge while the clock holds for a prediction. The speed is the clock's own, so
+// it holds through pause and resume; picking one never plays or pauses, and pressing the lit one goes back to 1x.
+// Keys: Space plays or pauses, 1, 2 and 4 pick that speed. The map toolbar's pixel-icon buttons and glass plate,
+// so retro-ui.css skins it like the rest.
+// The date is the forecast's own (clock.js): it moves only while the simulation plays and holds still while paused.
 import { h } from '../policy/components.js';
-import { simClock, START_YEAR, onFrame, growthReport } from './scenario.js';
-import { clockLabel } from '../world/households.js';
+import { simClock, START_YEAR, growthReport } from './scenario.js';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const tri = x => `M${x} 2h1v5H${x}zM${x + 1} 3h1v3H${x + 1}zM${x + 2} 4h1v1H${x + 2}z`; // a 3x5 pixel play triangle
 const icon = (w, d) => `<svg viewBox="0 0 ${w} 9" style="width:${w * 2}px" aria-hidden="true"><path fill="currentColor" d="${d}"/></svg>`;
-const BUTTONS = [
-  { speed: 0, key: 'Space', label: 'Pause', svg: icon(9, 'M2 1h2v7H2zM5 1h2v7H5z') },
-  { speed: 1, key: '1', label: 'Play at 1× speed', svg: icon(9, 'M3 1h1v7H3zM4 2h1v5H4zM5 3h1v3H5zM6 4h1v1H6z') },
-  { speed: 2, key: '2', label: 'Fast play at 2× speed', svg: icon(9, tri(1) + tri(5)) },
-  { speed: 4, key: '4', label: 'Faster play at 4× speed', svg: icon(13, tri(1) + tri(5) + tri(9)) },
+const PLAY = icon(9, 'M3 1h1v7H3zM4 2h1v5H4zM5 3h1v3H5zM6 4h1v1H6z'), PAUSE = icon(9, 'M2 1h2v7H2zM5 1h2v7H5z');
+const SPEED_BUTTONS = [
+  { speed: 2, label: '2× speed', svg: icon(9, tri(1) + tri(5)) },
+  { speed: 4, label: '4× speed', svg: icon(13, tri(1) + tri(5) + tri(9)) },
 ];
 
 export const simDate = years => { // years since the start, as "Mar 2029"
@@ -23,28 +22,35 @@ export const simDate = years => { // years since the start, as "Mar 2029"
 };
 
 export function mountClockBar({ host = document.body, clock = simClock } = {}) {
-  const buttons = BUTTONS.map(b => h('button', {
-    class: 'tool-btn clock-btn', type: 'button', 'aria-label': b.label, title: `${b.label} (${b.key})`, 'aria-keyshortcuts': b.key === 'Space' ? 'Space' : b.key,
-    'aria-pressed': 'false', html: b.svg, onclick: () => (b.speed ? clock.play(b.speed) : clock.pause()),
+  // The toggle's name says what it does next (Play or Pause), so it has no pressed state of its own.
+  const toggle = h('button', { class: 'tool-btn clock-btn clock-toggle', type: 'button', 'aria-keyshortcuts': 'Space', onclick: () => clock.toggle() });
+  const speeds = SPEED_BUTTONS.map(b => h('button', {
+    class: 'tool-btn clock-btn clock-rate', type: 'button', 'aria-label': b.label, title: `${b.label} (${b.speed}; press again for 1×, or 1)`,
+    'aria-keyshortcuts': String(b.speed), 'aria-pressed': 'false', html: `${b.svg}<span class="clock-btn-text" aria-hidden="true">${b.speed}×</span>`,
+    onclick: () => clock.setSpeed(clock.get().speed === b.speed ? 1 : b.speed),
   }));
   const date = h('time', { class: 'clock-date' }), speed = h('span', { class: 'clock-speed' });
   const status = h('span', { class: 'clock-status', role: 'status', 'aria-live': 'polite' });
-  const time = h('span', { class: 'clock-time', title: 'Time of day on the street', hidden: true }); // not live: it changes every second
   const bar = h('div', { id: 'clock', class: 'plate clock', role: 'toolbar', 'aria-label': 'Simulation playback' },
-    buttons, h('div', { class: 'clock-readout' }, date, h('span', { class: 'clock-sub' }, time, speed, status)));
+    toggle, h('div', { class: 'clock-rates', role: 'group', 'aria-label': 'Playback speed' }, speeds), h('div', { class: 'clock-readout' }, date, h('span', { class: 'clock-sub' }, speed, status)));
   host.append(bar);
 
-  let said = '', unmet = 0, last = null;
-  // Homes the forecast's conversions ask for that the map couldn't place (no room or no way in): said, not forced in.
-  growthReport.subscribe(r => { unmet = r && !r.before ? r.unmet : 0; if (last) update(last); });
+  let said = '', unmet = 0, why = '', last = null;
+  // Homes the forecast's conversions ask for that no valid land could hold: said, with the constraint, not forced in.
+  growthReport.subscribe(r => { unmet = r && !r.before ? r.unmet : 0; why = unmet ? (r.constraints ?? []).join('\n') : ''; if (last) update(last); });
   clock.subscribe(update);
   function update(s) {
     last = s;
-    const active = s.playing ? s.speed : 0;
-    BUTTONS.forEach((b, i) => buttons[i].setAttribute('aria-pressed', String(b.speed === active)));
+    const next = s.playing ? 'Pause' : 'Play';
+    if (toggle.dataset.next !== next) {
+      toggle.dataset.next = next;
+      toggle.innerHTML = `${s.playing ? PAUSE : PLAY}<span class="clock-btn-text">${next}</span>`;
+      toggle.title = `${next} (Space)`;
+    }
+    SPEED_BUTTONS.forEach((b, i) => speeds[i].setAttribute('aria-pressed', String(b.speed === s.speed)));
     const years = s.before ? 0 : s.years, text = simDate(years); // "Show before" shows year 0, so its date
     if (date.textContent !== text) { date.textContent = text; date.dateTime = `${START_YEAR + Math.floor(years)}-${String(Math.floor(years * 12) % 12 + 1).padStart(2, '0')}`; }
-    speed.textContent = s.playing ? `${s.speed}×` : 'Paused';
+    speed.textContent = s.playing ? `${s.speed}×` : `Paused · ${s.speed}×`;
     const msg = s.error ? 'Forecast failed · Play retries'
       : s.loading ? 'Loading forecast…'
       : !s.playing && s.step >= s.steps ? 'End of the decade'
@@ -53,7 +59,7 @@ export function mountClockBar({ host = document.body, clock = simClock } = {}) {
     const line = [msg, note].filter(Boolean).join(' · ');
     if (line !== said) {
       said = line; status.textContent = line;
-      status.title = note ? 'The policy asks for more homes on its parcels than fit with a street frontage and room to build. They are counted as unmet, not drawn.' : '';
+      status.title = note ? why || 'The policy asks for more homes than valid land can hold. They are counted as unmet, not drawn.' : '';
     }
     bar.classList.toggle('is-playing', s.playing);
     bar.classList.toggle('is-loading', s.loading);
@@ -72,16 +78,7 @@ export function mountClockBar({ host = document.body, clock = simClock } = {}) {
     if (space && t.closest?.('button, a[href], summary') && !bar.contains(t)) return; // Space presses the focused control
     e.preventDefault();
     if (e.repeat) return;
-    if (space) clock.toggle(); else clock.play(n);
+    if (space) clock.toggle(); else clock.setSpeed(n);
   });
-  // The street's hour, in ten-minute steps so the text changes about once a second rather than every frame.
-  let hour = null;
-  onFrame(() => {
-    const now = hour?.();
-    if (now == null) return;
-    const text = clockLabel(Math.floor(now * 6) / 6);
-    if (time.textContent !== text) { time.textContent = text; time.hidden = false; }
-  });
-  bar.setHour = fn => { hour = fn; };
   return bar;
 }

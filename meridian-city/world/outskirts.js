@@ -1046,7 +1046,8 @@ function footbridge(br, kit, group) {
 // =====================================================================================================================
 // Build: terrain, structures, turbines and planting.
 // =====================================================================================================================
-export function buildOutskirts({ plan, scene, sprites, art, ground, grid, streetTrees = [], furniture = [] }) {
+// fit(item): the scale at which a plant clears every building with its crown, or 0 (land.js).
+export function buildOutskirts({ plan, scene, sprites, art, ground, grid, fit = it => it.scale ?? 1, streetTrees = [], furniture = [] }) {
   const { ext } = plan, group = new THREE.Group();
   group.name = 'outskirts';
   const terrain = makeTerrain(plan), { clearAt } = terrain, surface = terrainSurface(terrain), { groundAt } = surface;
@@ -1143,6 +1144,7 @@ export function buildOutskirts({ plan, scene, sprites, art, ground, grid, street
   const inGrid = (x, z) => grid.idx(x, z) >= 0;
   const open = (x, z, r) => (inGrid(x, z) ? grid.clear(x, z, r, BLOCK) : clearAt(x, z) > r + 4) && !turbines.some(t => Math.hypot(t.group.position.x - x, t.group.position.z - z) < 22);
   const claim = (x, z, r) => { if (inGrid(x, z)) grid.fill(x - r * .7, z - r * .7, x + r * .7, z + r * .7, OCC.decor); };
+  const plant = (list, item, r) => { if (!open(item.x, item.z, r) || !fit(item)) return false; list.push(item); claim(item.x, item.z, r); return true; };
   const trees = [], groves = [[], [], []], shrubs = [], flowers = [];
   const woodsAt = (x, z, d) => forest(x, z) - woodsThreshold(d, ext);
   // Single trees from just inside the map edge to 720 m out: woods, wood-edge shrubs, lone meadow trees and flowers.
@@ -1152,23 +1154,22 @@ export function buildOutskirts({ plan, scene, sprites, art, ground, grid, street
     if (d < ext - 40 || d > ext + 720) continue;
     const w = woodsAt(px, pz, d), roll = hash(px, pz, 102), y = groundAt(px, pz) - .15;
     if (w > 0) {
-      if (roll < .88 && open(px, pz, 2)) { trees.push({ x: px, y, z: pz, name: pickBy(TREE_KINDS.wood, hash(px, pz, 103)), scale: .85 + hash(px, pz, 104) * .4 }); claim(px, pz, 2); }
+      if (roll < .88) plant(trees, { x: px, y, z: pz, name: pickBy(TREE_KINDS.wood, hash(px, pz, 103)), scale: .85 + hash(px, pz, 104) * .4 }, 2);
     } else if (w > -.05) {
-      if (roll < .4 && open(px, pz, 1)) { shrubs.push({ x: px, y, z: pz, name: pickBy(['shrub', 'shrubWide', 'fern', 'boxwood'], hash(px, pz, 105)) }); claim(px, pz, 1); }
-    } else if (roll < (vnoise(px / 90, pz / 90, 130) > .8 ? .2 : .002) && open(px, pz, 2.5)) { // lone trees, mostly in a few clumps
-      trees.push({ x: px, y, z: pz, name: pickBy(TREE_KINDS.park, hash(px, pz, 106)), scale: .9 + hash(px, pz, 107) * .35 }); claim(px, pz, 2.5);
-    } else if (roll > .975 && d < ext + 450 && vnoise(px / 40, pz / 40, 131) > .6 && open(px, pz, 1)) { // wildflower drifts
-      (roll > .992 ? shrubs : flowers).push({ x: px, y, z: pz, name: roll > .992 ? pickBy(['rock', 'shrubYellow', 'shrubPink'], hash(px, pz, 108)) : pickBy(FLOWERS, hash(px, pz, 109)) }); claim(px, pz, 1);
+      if (roll < .4) plant(shrubs, { x: px, y, z: pz, name: pickBy(['shrub', 'shrubWide', 'fern', 'boxwood'], hash(px, pz, 105)) }, 1);
+    } else if (roll < (vnoise(px / 90, pz / 90, 130) > .8 ? .2 : .002)) { // lone trees, mostly in a few clumps
+      plant(trees, { x: px, y, z: pz, name: pickBy(TREE_KINDS.park, hash(px, pz, 106)), scale: .9 + hash(px, pz, 107) * .35 }, 2.5);
+    } else if (roll > .975 && d < ext + 450 && vnoise(px / 40, pz / 40, 131) > .6) { // wildflower drifts
+      plant(roll > .992 ? shrubs : flowers, { x: px, y, z: pz, name: roll > .992 ? pickBy(['rock', 'shrubYellow', 'shrubPink'], hash(px, pz, 108)) : pickBy(FLOWERS, hash(px, pz, 109)) }, 1);
     }
   }
-  for (const t of streetTrees) trees.push({ x: t.x, z: t.z, name: pickBy(TREE_KINDS[t.kind], hash(t.x, t.z, 1)), scale: .85 + hash(t.x, t.z, 2) * .3 });
+  trees.push(...streetTrees);
   // The parkway is tree-lined: a row along each verge, broken wherever a junction, stop, bridge or lamp needs the room.
   for (const [rx, rz] of plan.ring) {
     const [nx, nz] = outward(rx, rz);
     for (const side of [-1, 1]) {
       const off = ROAD_W.secondary / 2 + SIDEWALK + 3.4, x = rx + nx * side * off, z = rz + nz * side * off;
-      if (hash(x, z, 160) < .22 || !open(x, z, 2.6)) continue;
-      trees.push({ x, y: groundAt(x, z) - .1, z, name: pickBy(TREE_KINDS.street, hash(x, z, 161)), scale: .9 + hash(x, z, 162) * .25 }); claim(x, z, 2.6);
+      if (hash(x, z, 160) >= .22) plant(trees, { x, y: groundAt(x, z) - .1, z, name: pickBy(TREE_KINDS.street, hash(x, z, 161)), scale: .9 + hash(x, z, 162) * .25 }, 2.6);
     }
   }
   // Water's edge: reeds round the ponds and along the streams, lily pads on the ponds, ferns and rocks at each spring.
@@ -1194,7 +1195,7 @@ export function buildOutskirts({ plan, scene, sprites, art, ground, grid, street
     const px = x + hash(x, z, 110) * 25, pz = z + hash(x, z, 111) * 25, d = squareDist(px, pz);
     if (d < ext + 620 || d > far) continue;
     const w = woodsAt(px, pz, d);
-    if (w < .02 || !open(px, pz, 6)) continue;
+    if (w < .02 || !open(px, pz, 6) || !fit({ x: px, z: pz, name: 'groveDark', scale: 1.6 })) continue; // the widest stand
     // Mostly groves, with a big single tree now and then so the stands don't repeat like stamps.
     const y = groundAt(px, pz) - .4, k = hash(px, pz, 112);
     const name = k < .22 ? pickBy(['oakDark', 'pine', 'spruce', 'oak', 'amber'], hash(px, pz, 114)) : w > .12 ? 'groveDark' : k < .42 ? 'groveAutumn' : 'grove';

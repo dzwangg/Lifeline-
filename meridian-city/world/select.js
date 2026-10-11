@@ -80,7 +80,9 @@ export function mountSelection({ view, buildings, host = document.body, onSelect
 // A planned building (growth/): its homes, and how its parcel's homes compare with what the policy asked for.
 function growthFacts({ homes, occupied, plan }) {
   const out = [['Homes', occupied < homes ? `${occupied} of ${homes} filled` : String(homes)], [plan.parcels.length > 1 ? 'Block' : 'Parcel', `${plan.parcels.length > 1 ? `${plan.parcels.length} parcels` : plan.id} · ${plan.occupied} of ${plan.requested} homes`]];
-  if (plan.unmet) out.push(['Didn’t fit', `${plan.unmet} home${plan.unmet === 1 ? '' : 's'} (${plan.reason})`]);
+  const shared = (plan.annexes ?? []).reduce((n, a) => n + a.homes, 0);
+  if (shared) out.push(['Built nearby', `${shared} of its homes, on other land the policy built by then`]);
+  if (plan.unmet) out.push(['Didn’t fit', plan.constraint ?? `${plan.unmet} home${plan.unmet === 1 ? '' : 's'} (${plan.reason})`]);
   return out;
 }
 

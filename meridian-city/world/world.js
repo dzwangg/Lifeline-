@@ -2,7 +2,7 @@
 // Order matters: buildings and streets claim the ground first, then land cover, planting and furniture
 // fill what is left, so decorations never block roads, entrances or each other.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
-import { LOD, hash, pickBy } from './palette.js';
+import { LOD, pickBy } from './palette.js';
 import { Grid, Batch, OCC, mergeStatic } from './geometry.js';
 import { createView } from './view.js';
 import { detailAtlas, groundTextures, waterFrames as makeWaterFrames, setAnisotropy } from './textures.js';
@@ -14,6 +14,7 @@ import { buildLand } from './land.js';
 import { buildTraffic } from './traffic.js';
 import { mountSelection } from './select.js';
 import { planOutskirts, buildOutskirts } from './outskirts.js';
+import { Footprints } from './clearance.js';
 
 // Lets the loading bar repaint between stages: wait for a frame, then a task. A hidden tab gets no frames, so a
 // timer stands in rather than stalling the build.
@@ -34,15 +35,21 @@ export async function buildWorld({ container, osm, names = [], zones = [], progr
 
   stage('yields'); progress('Raising buildings…', .05); await tick();
   stage('buildings'); const buildings = buildBuildings({ osm, names, grid, details, parent: scene });
+  // Every footprint, so no tree is planted with its trunk or crown in a building (clearance.js). fit(item, min) is the
+  // largest scale from item.scale down to min at which a plant fits, or 0.
+  const footprints = new Footprints();
+  for (const m of buildings.meta) footprints.add(m.outer, m.height);
+  const fit = (it, min) => footprints.fitScale(it.x, it.z, art.sprites[it.name], it.scale ?? 1, min);
   stage('yields'); progress('Paving streets…', .35); await tick();
-  stage('streets'); const streets = buildStreets({ osm, grid, ground, parent: scene });
+  stage('streets'); const streets = buildStreets({ osm, grid, ground, parent: scene, fit });
   // The outskirts' roads, parking and hamlet houses go through the same builders as the city's, as a separate,
   // purely decorative set: none of it joins the street sim, building selection or the stats.
   stage('outskirts'); const plan = planOutskirts({ osm, grid, roads: streets.roads });
-  const outerStreets = buildStreets({ osm: { r: plan.roads, a: plan.areas }, grid, ground, parent: scene });
+  for (const b of plan.houses) footprints.add(b[4]); // the hamlets' houses, before their streets plant trees
+  const outerStreets = buildStreets({ osm: { r: plan.roads, a: plan.areas }, grid, ground, parent: scene, fit });
   const hamlets = buildBuildings({ osm: { b: plan.houses }, names: [], grid, details, parent: scene });
   stage('yields'); progress('Planting trees…', .55); await tick();
-  stage('land'); const land = buildLand({ osm, grid, ground, waterFrames: makeWaterFrames(), parent: scene });
+  stage('land'); const land = buildLand({ osm, grid, ground, waterFrames: makeWaterFrames(), parent: scene, fit });
   land.plantYards(buildings.meta);
   land.plantYards(hamlets.meta);
   land.fillOpen(buildings.meta, osm.ext);
@@ -52,13 +59,13 @@ export async function buildWorld({ container, osm, names = [], zones = [], progr
   stage('outskirts');
   const busStops = outerStreets.furniture.filter(f => f.name === 'busStop');
   const outskirts = buildOutskirts({
-    plan, scene, sprites, art, ground, grid, streetTrees: outerStreets.trees,
+    plan, scene, sprites, art, ground, grid, fit, streetTrees: outerStreets.trees,
     furniture: outerStreets.furniture.filter(f => f.name !== 'busStop' && !(f.name === 'bench' && busStops.some(b => Math.hypot(b.x - f.x, b.z - f.z) < 4))),
   });
   stage('land');
 
   // Sprite layers, each with its own level of detail.
-  const treeItems = [...land.trees, ...streets.trees.map(t => ({ ...t, name: pickBy(TREE_KINDS[t.kind], hash(t.x, t.z, 1)), scale: .85 + hash(t.x, t.z, 2) * .3 }))];
+  const treeItems = [...land.trees, ...streets.trees];
   const shadows = treeItems.map(t => ({ x: t.x + 1.4, y: .09, z: t.z - 1, name: 'shadow', scale: 2.8 * (t.scale ?? 1), phase: .5 }));
   sprites.layer(scene, shadows, { decal: true, transparent: true, opacity: .28, renderOrder: 1, name: 'tree shadows', minZoom: LOD.macro });
   sprites.layer(scene, treeItems, { name: 'trees', minZoom: LOD.trees });
@@ -96,21 +103,24 @@ export async function buildWorld({ container, osm, names = [], zones = [], progr
   let time = 0, simTime = 0;
   return {
     view, grid, buildings, streets, selection, zoneParts, lod: sprites.lod, timings, trafficReady, stats,
+    footprints, // every building footprint, for planting checks from outside (clearance.js)
     outskirts, // the scenery past the map: its plan, terrain heightAt and stats
     get traffic() { return traffic; },
     sprites, art, // the sprite system and its atlas, for layers added from outside (see WORLD.md)
     gridAt: (x, z) => grid.at(x, z),
-    // dt: real seconds, for the camera, inspection (the selection pulse) and street life (traffic, walkers, signals and
-    // the households' day, which run paused or playing). simDt: simulated seconds from the shared clock (0 while paused
-    // or holding), for the rest that moves: wind, water, turbines.
-    update(dt, simDt = dt) {
+    // dt: real seconds, for the camera and inspection (the selection pulse, picking, the walker card). simDt: simulated
+    // seconds from the shared clock (0 while paused or holding), for the rest that moves: wind, water, turbines.
+    // streetDt: seconds of street life (traffic, walkers and signals): real time while the clock
+    // plays, at any speed, and 0 while it is paused, so the street freezes with the city and resumes where it stopped.
+    update(dt, simDt = dt, streetDt = dt) {
       dt = Math.min(Math.max(dt, 0), .05); // animation timestamps can run slightly behind; never step backwards
       simDt = Math.max(simDt, 0);
+      streetDt = Math.min(Math.max(streetDt, 0), .05);
       time += dt; simTime += simDt;
       view.update(dt);
       const ppm = view.ppm;
       sprites.update(view.renderCam, simTime, ppm);
-      traffic?.update(dt, time, ppm); // street life runs in real time; the clock moves the years
+      traffic?.update(streetDt, time, ppm); // street life stops with the clock; the camera and picking do not
       landMeshes.update(Math.min(simDt, .2));
       outskirts.update(Math.min(simDt, .2));
       selection.update(time);

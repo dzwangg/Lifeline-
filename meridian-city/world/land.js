@@ -14,9 +14,12 @@ const COVER = { // OSM area kind → ground texture, height layer
 };
 const BLOCK = OCC.building | OCC.road | OCC.sidewalk | OCC.keepClear | OCC.decor | OCC.water | OCC.lot;
 
-export function buildLand({ osm, grid, ground, waterFrames, parent }) {
+// fit(item, min?): the largest scale, from item.scale down to min, at which a plant { x, z, name, scale? } clears every
+// building with its drawn crown, or 0 (clearance.js).
+export function buildLand({ osm, grid, ground, waterFrames, parent, fit = it => it.scale ?? 1 }) {
   const batches = new Batches(), r = seeded(2024);
   const trees = [], shrubs = [], flowers = [], props = [], fences = [];
+  const plants = new Set([trees, shrubs, flowers]);
 
   // ---------- cover ----------
   const covered = [];
@@ -48,7 +51,7 @@ export function buildLand({ osm, grid, ground, waterFrames, parent }) {
 
   // ---------- planting rules ----------
   const place = (x, z, rad, list, item) => {
-    if (!grid.clear(x, z, rad, BLOCK | OCC.zone)) return false;
+    if (!grid.clear(x, z, rad, BLOCK | OCC.zone) || (plants.has(list) && !fit(item))) return false;
     list.push(item);
     grid.fill(x - rad * .7, z - rad * .7, x + rad * .7, z + rad * .7, OCC.decor);
     return true;
@@ -83,8 +86,10 @@ export function buildLand({ osm, grid, ground, waterFrames, parent }) {
     });
   }
   for (let i = 0; i < osm.t.length; i += 2) { // individually mapped trees
-    const x = osm.t[i], z = osm.t[i + 1];
-    if (!(grid.at(x, z) & (OCC.zone | OCC.building | OCC.road))) { trees.push({ x, z, name: pickBy(TREE_KINDS.park, hash(x, z, 16)), scale: .95 + hash(x, z, 17) * .3 }); grid.fill(x - 1, z - 1, x + 1, z + 1, OCC.decor); }
+    const x = osm.t[i], z = osm.t[i + 1], tree = { x, z, name: pickBy(TREE_KINDS.park, hash(x, z, 16)), scale: .95 + hash(x, z, 17) * .3 };
+    if (grid.at(x, z) & (OCC.zone | OCC.building | OCC.road)) continue;
+    tree.scale = fit(tree, .6); // a mapped tree by a wall is drawn smaller rather than dropped
+    if (tree.scale) { trees.push(tree); grid.fill(x - 1, z - 1, x + 1, z + 1, OCC.decor); }
   }
 
   return {

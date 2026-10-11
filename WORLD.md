@@ -58,16 +58,14 @@ square. The camera position is recomputed from `target`, azimuth and zoom every 
 `view.target`, `view.lookAt()` and `view.zoomTo()`, not by setting `camera.position`.
 
 **Frame loop.** `world.update(dt, simDt)` runs once per frame. `dt` is real seconds, used for the camera, the
-selection pulse and street life (cars, walkers, signals and the households' day), so the map stays usable and the
+selection pulse and street life (cars, walkers and signals), so the map stays usable and the
 street keeps moving while the sim is paused. `simDt` is simulated seconds, used for the rest that moves: wind, water
 and turbines. It defaults to `dt`, so the world runs on real time when no clock is attached. In `index.html` the sim
 clock supplies it (see [The clock](#the-clock)).
 
 **Households on the street.** `world/households.js` turns the household model's run into walkers: the street sim adds
-one per household (`sim.addPed`), each with a look seeded from its id, and sends it where its day says
-(`sim.sendPed`): home, a campus or downtown door, 15-501's edge for Durham commuters (who are out of sight until
-evening), or a short walk near home for people who work from home. A day lasts `DAY_S` (150) real seconds and loops;
-`traffic.hour()` gives the hour and the clock bar shows it. A long trip shows only its two ends (`SHOW_M` at each).
+one per household (`sim.addPed`), each with a look seeded from its id, standing at its home. The street has no time
+of day: households move only when the forecast's year changes. A long trip shows only its two ends (`SHOW_M` at each).
 `sim/agent-layer.js` feeds it the shown year (newcomers walk in from the map's edge and leavers walk off it when
 playback steps into their year) and floats a rent-burden dot over each household's head, or at its home when zoomed
 out past the walkers.
@@ -292,12 +290,13 @@ store (the picked resident, the 15-501 view) doesn't bump it.
 
 **Animating on sim time.** `onFrame((dt, simDt) => …)` registers a per-frame callback on the shared loop. `simDt` is 0
 while paused or holding for a prediction. `index.html` runs the world with `onFrame((dt, simDt) => world.update(dt,
-simDt))`. Anything else that should freeze with the sim should use `simDt` the same way. Street life deliberately
-doesn't: it runs on `dt`, so the street's day goes on while a year is paused for inspection.
+simDt, playing ? dt : 0))`. Anything else that should freeze with the sim should use `simDt` the same way. Street life
+runs in real time at any speed while the clock plays and stops while it is paused, so cars, walkers and signals resume
+where they stopped; the camera, picking and the cards keep working while paused.
 
 **The clock bar** (`sim/clock-bar.js`, `mountClockBar()`) is a thin view over this. It subscribes and shows `simDate`,
-the speed and a status line (loading, failed, end of forecast, and how many new homes didn't fit), and faintly beside them
-the street's time of day once street life has loaded (`bar.setHour(traffic.hour)`). Its buttons call `pause()` and
+the speed and a status line (loading, failed, end of forecast, and how many new homes didn't fit). The date is the only
+time it shows: it advances with the forecast and holds while paused; there is no time-of-day clock. Its buttons call `pause()` and
 `play(1|2|4)`. Space calls `toggle()`, and 1, 2 and 4 call `play(n)`, except while typing or with a dialog open.
 `sim-plate.js` uses the same clock for its year slider (`seek`), "show before" checkbox (`setBefore`) and metrics
 (the shown year's, compared with the same year with no new policy, `shown.data.run.noPolicy`). The household layer
@@ -333,18 +332,23 @@ drawn by the city's own building code. Screenshots are in `docs/neighbourhood-gr
 
 | Module | Job |
 | --- | --- |
-| `units.js` | The demand mapping. A parcel asks for `(unitsPerAcre[to] − unitsPerAcre[from]) × acres` homes, as in `shared/sim.js`, rounded to whole homes per site (a wood, or one parking lot) by largest remainder. `summarize()` totals homes requested, placed (occupied), built capacity and unmet. |
-| `catalog.js` | The building types: detached houses and duplexes (`low_res`), townhouse rows and small apartments (`mid_res`), and apartments over shops (`mixed_use`). Each has sizes, floors, homes per building and the gentlest-first mixes the planner tries. |
+| `units.js` | The demand mapping. A parcel asks for `(unitsPerAcre[to] − unitsPerAcre[from]) × acres` homes, as in `shared/sim.js`, rounded to whole homes by largest remainder year by year, so the map's homes by any year are the sim's rounded total (nothing lost or counted twice). `summarize()` totals homes requested, placed (occupied), built capacity and unmet. |
+| `catalog.js` | The building types: detached houses and duplexes (`low_res`), townhouse rows and small apartments (`mid_res`), and apartments over shops (`mixed_use`). Each has sizes, floors, homes per building and the gentlest-first mixes the planner tries, and each zone state the types it permits at full stretch (`FILL`). |
 | `context.js` | A site's surroundings: the roads, footpaths and junctions near it, the neighbours' house setback, families and materials, and the palette new buildings draw from (three walls and three roofs, weighted toward the street's own materials and the Aero accents). |
-| `site-streets.js` | Local streets for land more than about 35 m from any street. Each leaves a road (never a trunk road) square to the site's grain, at least 25 m from any junction, or branches square off an earlier new street. Parallel streets are at least 56 m apart, and every street ends in a turning circle. A street is built whole the first time a plan uses it. |
-| `plan.js` | `planBlock()` plans the parcels of a site that convert to the same state in the same year. Lots are marched along each street that can serve them, and each footprint is squared to the street at its own lot (so curved roads fan). Buildings sit at the neighbours' setback, or deeper where the parcel starts further back, with a front path from every door. Types densify only as far as the homes need. No two neighbours share a complete design. What doesn't fit is `unmet`, with a `reason`. `clears(plan, x, z)` says which trees fall. |
-| `art.js`, `world-growth.js` | Meshes and orchestration. Buildings come from `buildings.style()`, two merged meshes per block, rising one after another through a per-vertex start time. Lawns, pads, paths and streets use the ground textures; scaffolds and planting are sprites. Plans and meshes are cached per forecast; the shown year's are planned at once, the rest in the background. |
+| `site-streets.js` | Local streets for land more than about 35 m from any street. Each leaves a road (never a trunk road) square to the site's grain, at least 25 m from any junction, or branches square off an earlier new street. Parallel streets are at least 56 m apart, and every street ends in a turning circle; none crosses a protected parcel. After the site's own streets come more for the parcels the forecast builds on that those leave unserved. A street is built whole the first time a plan uses it. |
+| `plan.js` | `planBlock()` plans the parcels of a site that convert to the same state in the same year. Lots are marched along each street that can serve them, and each footprint is squared to the street at its own lot (so curved roads fan). Buildings sit at the neighbours' setback, or deeper where the parcel starts further back, with a front path from every door. Capacity comes from a ladder climbed only as far as the homes need: the zone's mixes gentlest first, then full stretch (every type the zone permits, as large and tall as it allows, compact yards, and up to three rows along a street, the later ones reached by walks between the buildings in front), then courts (shared lanes from a kerb into land no street reaches, which may cross the site's unchanged, unprotected parcels but never build on them). No two neighbours share a complete design. What doesn't fit is `unmet`, with a `reason`. `clears(plan, x, z)` says which trees fall. |
+| `develop.js` | `createDevelopment()` plans a whole forecast year by year, so room for every home is reserved before anything is drawn and a year never moves what an earlier one built. Each block plans on its own land first; homes it still can't hold go on spare land of blocks of the same state built that year or before, its own site first, then the nearest within 600 m, and failing that on unconverted, unprotected land (forest, or untouched lots) of its own wood and then the nearest woods within 3 km (`plan.annexes`, `untouched`), felling only the trees in the way and rising in its own year. Homes nothing valid can hold stay `unmet`, with the exact `constraint` in words (the land, the zone's densest types, access, protected parcels, and the land nearby). |
+| `art.js`, `world-growth.js` | Meshes and orchestration. Buildings come from `buildings.style()`, two merged meshes per block, rising one after another through a per-vertex start time. Lawns, pads, paths, courts and streets use the ground textures; scaffolds and planting are sprites. Plans and meshes are cached per forecast; the years up to the shown one are planned at once, the rest in the background a block at a time. |
 
 Everything in `growth/` except `art.js` and `world-growth.js` is pure (no THREE, no DOM) and is tested in
-`tests/growth.test.js`. Plans read the base map's occupancy grid and never write to it; their choices are hashes of the
-site, street, side and lot, so a forecast always shows the same layout. The ledger is `city.growth.ledger(states)`, and
-`growthReport` in `sim/scenario.js` carries the shown year's totals. Clicking a new building shows its homes and its
-block's homes requested and placed.
+`tests/growth.test.js` and `tests/growth-develop.test.js` (the second on a dump of the real map round the corridor
+mid-rise card's parcels, `tests/fixtures/growth-corridor-midrise.json.gz`, where every home now has a valid place). Plans
+read the base map's occupancy grid and never write to it; their choices are hashes of the site, street, side and lot, so
+a forecast always shows the same layout. The ledger is `city.growth.ledger(states, from)`: homes requested (the sim's),
+completed, under construction, still planned for later years, unmet, and each short block's constraint. `growthReport`
+in `sim/scenario.js` carries the shown year's, and the clock bar's note of homes that didn't fit names the constraints
+in its tooltip. Clicking a new building shows its homes, its block's homes requested and placed, any built nearby, and
+why any didn't fit.
 
 Finished streets and front paths join the walkers' network through `walk.extend(paths, gate)` (`roadnet.js`). Routing
 and wandering skip an edge whose gate is closed, and `sim.addDoors()` makes new homes destinations, so walkers only use a

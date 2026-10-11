@@ -5,9 +5,10 @@
 // zebras and stop lines painted on the road.
 // People: individual walkers drawn from people-art.js: eight facing directions, idle and walking frames, ground
 // shadows, three levels of detail, and only the ones on screen are written to the instance buffers.
-// Click a walker to follow them and see where they are going. The sim's households walk here too (households.js):
-// the street sim adds them (addPed), they are drawn in the same layers, and clicking one opens its resident card
-// (onHousehold) instead of the walker card. Street life runs in real time, paused or playing (update()).
+// The sim's households walk here too (households.js, added with addPed), drawn in the same layers as the street's own
+// walkers. Only a household's walker carries a status dot (residentHeads, agent-layer.js) and opens a resident card
+// when clicked (onResident), with its income and bank; the other walkers are street life, with no dot and no card. Street life runs in real time
+// while the clock plays and holds still while it is paused (update()); picking and the cards work either way.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
 import { P, CAMERA, RENDER } from './palette.js';
 import { Batch, OCC } from './geometry.js';
@@ -17,7 +18,7 @@ import { buildRoadNet, buildWalkNet } from './roadnet.js';
 import { createStreetSim } from './street-sim.js';
 import { paintPeopleAtlas, LOOKS } from './people-art.js';
 import { createSpriteSystem } from './sprites.js';
-import { hourAt, pickWalker } from './households.js';
+import { pickWalker } from './households.js';
 
 // ---------- vehicle atlas: alpha 255 marks paintable body, 254 keeps the pixel's own colour ----------
 function vehicleAtlas() {
@@ -117,10 +118,12 @@ const OBSTACLE_R = { lamp: .3, hydrant: .25, bench: .8, busStop: 1.6, trafficLig
 export const PEOPLE_MIN_PPM = 2.4; // full walking detail: shadows, and local avoidance in the sim
 // Below that, down to PEOPLE_FAR_PPM, walkers still show as their smallest directional sprite (one texel to a render
 // pixel there), so busy streets read as busy; vehicles stay as their 3D models (a few pixels long) to VEHICLE_MIN_PPM.
-const PEOPLE_FAR_PPM = 1.2, VEHICLE_MIN_PPM = .3;
-// Ambient walkers, capped so the sim's households (a few hundred, near their homes) outnumber them there.
+export const PEOPLE_FAR_PPM = 1.2;
+const VEHICLE_MIN_PPM = .3;
+// Ambient walkers (street residents), capped so the sim's households (a few hundred, near their homes) outnumber them there.
 // HOUSEHOLD_SLOTS: room in the people layers for the households the street sim adds (the model makes ~350-450).
 const AMBIENT_MAX = 1200, HOUSEHOLD_SLOTS = 640;
+export const PEOPLE_MAX = AMBIENT_MAX + HOUSEHOLD_SLOTS; // walkers on screen at most: one status dot each
 
 // Cells whose centre lies on a drivable carriageway (not service drives, which cars in the sim never use).
 function roadRaster(lanes, ext) {
@@ -262,8 +265,8 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
   const q4 = new THREE.Quaternion(), UP = new THREE.Vector3(0, 1, 0), pos = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1), vp = new THREE.Matrix4();
   const MIRROR = [false, false, false, false, false, true, true, true], DIR_OF = [0, 1, 2, 3, 4, 3, 2, 1];
   const shadowS = art.sprites.shadow, ringS = art.sprites.ring, stretch = 1 / Math.cos(THREE.MathUtils.degToRad(CAMERA.elevationDeg));
-  let selected = null, focusAt = -1, visible = [];
-  const householdHeads = new Map(); // household id -> { x, y, z } of its walker's head this frame, for the rent dots (agent-layer.js)
+  let followed = null, focusAt = -1, visible = [];
+  const residentHeads = new Map(); // resident id -> { x, y, z } of its walker's head this frame, for the status dots (agent-layer.js)
 
   function drawVehicles(alpha, ppm) {
     const show = ppm >= VEHICLE_MIN_PPM;
@@ -279,7 +282,8 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
 
   function drawPeople(alpha, ppm, cam, time) {
     visible = [];
-    householdHeads.clear();
+    residentHeads.clear();
+    let selected = null;
     if (ppm < PEOPLE_FAR_PPM) { people.mesh.count = shadows.mesh.count = 0; ringLayer.mesh.count = 0; return; }
     const table = art.table[ppm >= 9 ? 'hi' : ppm >= 4.5 ? 'mid' : 'low'];
     // Camera axes on the ground, for choosing which of the eight facings to show.
@@ -305,12 +309,13 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
       shadows.mesh.setMatrixAt(n, m4.makeTranslation(x + .12, .085, z - .08));
       uvS.set(shadowS.uv, n * 4); szS[n * 3] = .95; szS[n * 3 + 1] = .5; szS[n * 3 + 2] = 0;
       visible.push(p, (cx + 1) / 2, (1 - cy) / 2);
-      if (p.owner != null) householdHeads.set(p.owner, { x, y: s.h * stretch, z });
+      if (p.owner != null && p.resident != null) residentHeads.set(p.resident, { x, y: s.h * stretch, z }); // households only
+      if (followed !== null && p.resident === followed) selected = p;
       n++;
     }
     people.mesh.count = shadows.mesh.count = n;
     for (const l of [people, shadows]) { l.mesh.instanceMatrix.needsUpdate = true; l.uv.needsUpdate = true; l.size.needsUpdate = true; }
-    if (selected) { // a gold ring under the followed walker
+    if (selected) { // a gold ring under the open resident's walker
       const x = selected.px + (selected.x - selected.px) * alpha, z = selected.pz + (selected.z - selected.pz) * alpha;
       ringLayer.mesh.setMatrixAt(0, m4.makeTranslation(x, .09, z));
       ringLayer.uv.array.set(ringS.uv, 0); ringLayer.size.array.set([1.5 + Math.sin(time * 5) * .1, .8, 0], 0);
@@ -339,97 +344,41 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
     sim.setFocus([Math.min(...xs) - M, Math.min(...zs) - M, Math.max(...xs) + M, Math.max(...zs) + M]);
   }
 
-  // ---------- picking a walker, and the person card ----------
-  const card = document.createElement('section');
-  card.className = 'retro-card building-card person-card';
-  card.hidden = true;
-  card.setAttribute('aria-live', 'polite');
-  card.innerHTML = '<header><h2 class="building-card__title"></h2><button type="button" class="retro-icon-btn" aria-label="Close person info">×</button></header>'
-    + '<p class="person-card__doing"></p><dl class="building-card__facts"></dl>'
-    + '<p class="person-card__note">Simulated street life: an illustrative walker, not counted in the model\'s population, housing or commute figures.</p>';
-  document.body.append(card);
-  const style = document.createElement('style');
-  style.textContent = '.person-card__doing { margin: 0 0 8px; font: 600 15px var(--ae-pixel, monospace); color: var(--ae-navy, #1c2c5e); }'
-    + ' .person-card__doing::before { content: ""; display: inline-block; width: 9px; height: 9px; margin-right: 7px; border: 2px solid currentColor; border-radius: 50%; background: var(--dot, #3fb6e8); }'
-    + ' .person-card__note { margin: 10px 0 0; font-size: 12px; line-height: 1.4; color: var(--ae-ink-soft, #42758a); }';
-  document.head.append(style);
-  card.querySelector('button').addEventListener('click', () => select(null));
-  let onSelect = () => {}, cardAt = -1;
-  function select(p) {
-    selected = p;
-    card.hidden = !p;
-    cardAt = -1;
-    if (p) onSelect(p);
-  }
-  const DOT = { walking: '#4fcf9a', approaching: '#ffd166', waiting: '#ff8a7a', crossing: '#3fb6e8', arriving: '#b39ddb' };
-  function activity(p) {
-    const label = p.dest?.label ?? 'somewhere nearby', stroll = !p.dest?.door;
-    switch (p.state) {
-      case 'approaching': return 'Approaching a crosswalk';
-      case 'waiting': return !p.cw?.signalized ? 'Waiting for a gap in traffic' : p.cw.walk === 'WALK' ? 'Waiting for turning cars to pass' : 'Waiting for the walk signal';
-      case 'crossing': return p.cw?.signalized ? 'Crossing with the walk signal' : 'Crossing the street';
-      case 'arriving': return p.route ? `Arriving at ${label}` : stroll ? 'Pausing for a moment' : `Arrived at ${label}`;
-      default: return stroll ? 'Out for a stroll' : `Walking to ${label}`;
-    }
-  }
-  function remaining(p) {
-    if (!p.route) return 0;
-    let d = 0, x = p.x, z = p.z;
-    for (let i = p.ri; i < p.route.length; i++) { d += Math.hypot(p.route[i].x - x, p.route[i].z - z); x = p.route[i].x; z = p.route[i].z; }
-    if (p.door) d += Math.hypot(p.door.x - x, p.door.z - z);
-    return d;
-  }
-  function updateCard(time) {
-    if (!selected || (cardAt >= 0 && time - cardAt < .25)) return;
-    cardAt = time;
-    const p = selected;
-    card.querySelector('.building-card__title').textContent = `Walker #${String(p.id).padStart(4, '0')}`;
-    const doing = card.querySelector('.person-card__doing');
-    doing.textContent = activity(p); doing.style.setProperty('--dot', DOT[p.state] ?? '#4fcf9a');
-    const facts = [
-      ['Heading to', p.dest?.label ?? '—'],
-      ['Distance left', p.route ? `${Math.round(remaining(p))} m` : '—'],
-      ['Walking pace', `${p.vPref.toFixed(1)} m/s`],
-      ['Trips so far', String(p.trips)],
-    ];
-    card.querySelector('.building-card__facts').replaceChildren(...facts.flatMap(([k, val]) => {
-      const dt = document.createElement('dt'), dd = document.createElement('dd');
-      dt.textContent = k; dd.textContent = val;
-      return [dt, dd];
-    }));
-  }
-  // A click within a few pixels of a walker selects them; the building picker skips clicks a walker claimed.
-  let down = null;
+  // ---------- picking a walker ----------
+  // Every walker is a resident (street-sim.js p.resident): clicking one opens its resident card (onResident), and a gold
+  // ring follows its walker while the card is open (follow).
   const canvas = view.renderer.domElement;
+  let down = null, onSelect = () => {}, onResident = () => {}, onPeople = () => {};
   canvas.addEventListener('pointerdown', e => { if (e.button === 0) down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
   /** The walker under the pointer, within a few pixels of its body: the nearest household if any is in range, else the
-   *  nearest ambient walker. */
+   *  nearest street resident. */
   function pickAt(clientX, clientY) {
     return pickWalker(visible, canvas.getBoundingClientRect(), clientX, clientY);
   }
-  let onHousehold = () => {};
   addEventListener('pointerup', e => {
-    // Another layer listening first (the sim's household markers) may have claimed the click: leave it, but forget the
-    // press. The event goes on either way, since the map's pan control needs the release.
+    // Another layer listening first (the status dots) may have claimed the click: leave it, but forget the press. The
+    // event goes on either way, since the map's pan control needs the release.
     if (e.defaultPrevented) { down = null; return; }
     if (!down || e.target !== canvas || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5 || performance.now() - down.t > 450) return;
     const best = pickAt(e.clientX, e.clientY);
     // Claim the click without stopping it: the map's pan control must still see the release, or it keeps dragging.
-    if (best) { e.preventDefault(); down = null; if (best.owner != null) { select(null); onHousehold(best.owner); } else select(best); }
-    else if (selected) select(null);
+    // Only households (the walkers with a dot) open a card; the other walkers open nothing.
+    if (best?.owner != null && best.resident != null) { e.preventDefault(); down = null; onSelect(best); onResident(best.resident); }
   }, true);
-  addEventListener('keydown', e => { if (e.key === 'Escape' && selected && !e.target.closest?.('[role="dialog"]')) select(null); });
 
   return {
-    sim, net, walk, onRoad, select, get selected() { return selected; },
+    sim, net, walk, onRoad,
     signalized: net.intersections.filter(ix => ix.signal).map(ix => [ix.x, ix.z]),
     count: { vehicles: sim.vehicles.length, people: sim.peds.length, signals: sim.signals.length },
+    /** fn(walker) when a walker is clicked, before its resident card opens. */
     onSelect(fn) { onSelect = fn; },
-    /** fn(household id) when a household's walker is clicked. */
-    onHousehold(fn) { onHousehold = fn; },
-    pickAt, householdHeads, doors,
-    /** The hour of the street's day (households.js DAY_S), which runs in real time. */
-    hour: () => hourAt(sim.time),
+    /** fn(resident id) when a walker is clicked. */
+    onResident(fn) { onResident = fn; },
+    /** The resident whose walker the gold ring follows, or null. */
+    follow(id) { followed = id ?? null; },
+    /** fn() each frame once the walkers are placed (residentHeads is current): the dots draw then, so they keep up. */
+    onPeopleDrawn(fn) { onPeople = fn; },
+    pickAt, residentHeads, doors,
     /** Where a walker's body is on screen, in client pixels (for tests and tooling). */
     screenOf(p) {
       const cam = view.renderCam, rect = canvas.getBoundingClientRect();
@@ -438,17 +387,19 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
       const cx = (v[0] * p.x + v[4] + v[8] * p.z + v[12]) / w, cy = (v[1] * p.x + v[5] + v[9] * p.z + v[13]) / w;
       return { x: rect.left + (cx + 1) / 2 * rect.width, y: rect.top + (1 - cy) / 2 * rect.height - 12 };
     },
-    /** dt real seconds: street life runs in real time, paused or playing (the year comes from the clock). */
+    /** dt: seconds of street life, 0 while the clock is paused; time: real seconds, for the card and the ring. */
     update(dt, time, ppm) {
-      sim.advance(dt);
-      sim.plan(3); // trip planning moves nobody, so it may run while paused
+      if (dt > 0) { // paused: no steps and no new routes, so every walker, car, signal and timer resumes as it stopped
+        sim.advance(dt);
+        sim.plan(3);
+      }
       if (focusAt < 0 || time - focusAt > .4) { focusAt = time; refocus(ppm); }
       const alpha = Math.min(1, sim.alpha);
       drawVehicles(alpha, ppm);
       drawSignals();
       drawPeople(alpha, ppm, view.renderCam, time);
-      sprites.update(view.renderCam, time, ppm);
-      updateCard(time);
+      onPeople();
+      sprites.update(view.renderCam, sim.time, ppm);
     },
   };
 }

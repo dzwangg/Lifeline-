@@ -358,7 +358,7 @@ export function createStreetSim({ net, walk, seed = 11, doors = [], obstacles = 
     const route = [start];
     let prev = from, cur = start;
     for (let k = 0; k < steps; k++) {
-      const opts = cur.adj.filter(l => l.to !== prev && (l.e.kind !== 'cross' || r() < .5));
+      const opts = cur.adj.filter(l => l.to !== prev && !(l.e.gate && !l.e.gate.open) && (l.e.kind !== 'cross' || r() < .5));
       if (!opts.length) break;
       const l = r.pick(opts);
       prev = cur; cur = l.to; route.push(cur);
@@ -374,7 +374,7 @@ export function createStreetSim({ net, walk, seed = 11, doors = [], obstacles = 
     let goal = null, door = null;
     for (let k = 0; k < 10 && !goal; k++) {
       let cand, dd;
-      if (list && r() < .7) { dd = r.pick(list); cand = dd.node; } else cand = r.pick(nodes);
+      if (list && r() < .7) { dd = r.pick(list); if (dd.gate && !dd.gate.open) { dd = null; continue; } cand = dd.node; } else cand = r.pick(nodes); // a door not built yet waits
       const dist = Math.hypot(cand.x - here.x, cand.z - here.z);
       if (cand !== here && dist > 50 && dist < 520) { goal = cand; door = dd ?? null; }
     }
@@ -656,6 +656,46 @@ export function createStreetSim({ net, walk, seed = 11, doors = [], obstacles = 
     step,
     /** Plan queued trips for up to `ms` milliseconds. Planning moves nobody, so it runs even while paused. */
     plan(ms = 4) { routeBudget(ms); },
+    /** Doors added after the start (new homes, growth/), each { x, z, label, gate }: a destination while gate.open. */
+    /**
+     * Some gates closed (walks and homes the shown year no longer has, growth/). Walkers already on their way stop at
+     * the last open node of their route instead of crossing a street that isn't there; one standing on a closed walk
+     * steps back to the nearest open node; and calls at homes that aren't built are dropped. Each then plans afresh.
+     */
+    gatesChanged() {
+      const shut = e => !e || (e.gate && !e.gate.open);
+      const usable = n => !!n && !n.dead && n.adj.some(l => !shut(l.e));
+      for (const p of peds) {
+        const doorShut = !!(p.door?.gate && !p.door.gate.open);
+        let cut = -1;
+        if (p.route) for (let i = Math.max(1, p.ri); i < p.route.length; i++) if (shut(pedEdge(p.route[i - 1], p.route[i]))) { cut = i; break; }
+        if (cut < 0 && !doorShut && usable(p.node)) continue;
+        if (doorShut) { p.door = null; p.doorLeg = false; if (p.dest) p.dest.door = null; }
+        if (cut > p.ri) { p.route = p.route.slice(0, cut); continue; } // walk on to the edge of the open network, then replan
+        if (cut < 0 && usable(p.node)) continue; // only the home closed: carry on, without calling there
+        // On the closed walk itself: back to the nearest node with an open way out.
+        let best = null, bd = Infinity;
+        walk.near(p.x, p.z, 60, n => { const d = (n.x - p.x) ** 2 + (n.z - p.z) ** 2; if (d < bd && usable(n)) { bd = d; best = n; } });
+        if (best) { jump(p, best.x, best.z); p.node = best; }
+        if (p.cw) { p.cw.peds.delete(p); p.cw = null; }
+        if (p.state === 'waiting' || p.state === 'crossing') setState(p, 'walking');
+        arrive(p);
+      }
+    },
+    /** Forgets the doors added under `gate` (homes no forecast shows any more). */
+    dropDoors(gate) {
+      for (const [comp, list] of doorsByComp) doorsByComp.set(comp, list.filter(d => d.gate !== gate));
+    },
+    addDoors(list) {
+      for (const d of list) {
+        let best = null, bd = 30 * 30;
+        walk.near(d.x, d.z, 30, n => { if (!bigComps.has(n.comp) || n.kind === 'kerb') return; const dd = (n.x - d.x) ** 2 + (n.z - d.z) ** 2; if (dd < bd) { bd = dd; best = n; } });
+        if (!best) continue;
+        d.node = best;
+        if (!doorsByComp.has(best.comp)) doorsByComp.set(best.comp, []);
+        doorsByComp.get(best.comp).push(d);
+      }
+    },
     /** Walkers inside [x0, z0, x1, z1] get full local avoidance; the rest just follow their routes. */
     setFocus(b) { focus = b; },
     nearestNode,

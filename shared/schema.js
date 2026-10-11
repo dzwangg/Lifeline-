@@ -122,7 +122,8 @@ export function validateSimResult(r) {
   ok(Number.isInteger(r.years) && r.years >= 0, 'years', 'must be a whole number');
   if (list(r.policies, 'policies')) r.policies.forEach((p, i) => {
     const path = `policies[${i}]`;
-    if (!obj(p, path, ['id', 'title', 'params'])) return;
+    if (!obj(p, path, ['id', 'title', 'params'], ['start'])) return;
+    if ('start' in p) ok(Number.isInteger(p.start) && p.start >= 0, `${path}.start`, 'must be a whole number of years');
     ok(isStr(p.id), `${path}.id`, 'must be a non-empty string');
     ok(isStr(p.title), `${path}.title`, 'must be a non-empty string');
     ok(isObj(p.params) && Object.values(p.params).every(isNum), `${path}.params`, 'must map param keys to numbers');

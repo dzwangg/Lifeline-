@@ -50,7 +50,7 @@ resident feature's owner.
 | Downtown storefront vacancy | about 24% of 321 spaces | Downtown Partnership survey (The News & Observer, August 2024); no newer count published |
 | Tree cover | 46.9% of the map area | NLCD Tree Canopy Cover 2021, still the newest on MRLC |
 | Property tax rate | 50.0¢ per $100 | FY2026–27 adopted budget |
-| Next revaluations | 2029 (then 2033) | Orange County: four-year cycle, last January 1, 2025 |
+| Next revaluations | 2029, then every four years to 2053 (assumed) | Orange County: four-year cycle, last January 1, 2025 |
 | Fed inflation path | 3.7, 2.3, 2.1, 2.0, 2.0 | FOMC Summary of Economic Projections, September 16, 2026 |
 | Recent inflation | CPI-U +3.4% (12 months to August 2026) | BLS, September 11, 2026 |
 

@@ -448,9 +448,9 @@
     "note": "Town's share of the cost of extra Chapel Hill Transit service, assuming added service is shared as today's is."
   },
   "lutiRevaluationYears": {
-    "value": [2029, 2033],
+    "value": [2029, 2033, 2037, 2041, 2045, 2049, 2053],
     "source": "Orange County, 2025 Property Revaluation: the 2025 revaluation is as of January 1, 2025 and the next is January 1, 2029, on a four-year cycle. https://orangecountync.gov/revaluation",
-    "note": "Years Orange County revalues property; each resets the base tax rate to revenue-neutral. 2033 assumes the four-year cycle continues."
+    "note": "Years Orange County revalues property; each resets the base tax rate to revenue-neutral. 2033 onward assume the four-year cycle continues, to the end of a three-decade game."
   },
   "lutiResidentialShareOfBase": {
     "value": 0.8,

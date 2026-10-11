@@ -57,10 +57,19 @@ test('new levers move the model the way they should', () => {
 test('drivers reach the full SimResult, which still validates; no drivers adds no field', () => {
   const plain = runCombined([], {}, zones, assumptions, baselines);
   assert.ok(!('drivers' in plain));
-  const hot = runCombined([], {}, zones, assumptions, baselines, undefined, { inflation: 6 });
+  const hot = runCombined([], {}, zones, assumptions, baselines, undefined, { drivers: { inflation: 6 } });
   assert.deepEqual(validateSimResult(hot), []);
   assert.deepEqual(hot.drivers, { inflation: 6 });
   assert.ok(hot.timeline.at(-1).metrics.medianRent > plain.timeline.at(-1).metrics.medianRent);
-  const m = runModels([], {}, zones, assumptions, baselines, { inflation: 6 });
+  const m = runModels([], {}, zones, assumptions, baselines, { drivers: { inflation: 6 } });
   assert.ok(m.inputs.incomeIndex.at(-1) > 1.5, 'household incomes follow the scenario’s inflation');
+});
+
+test('drivers hold over a three-decade game: every quarter of a 30-year run has numbers, and prices keep rising', () => {
+  for (const drivers of [{ inflation: 'fed' }, { inflation: 6, constructionCost: 20 }]) {
+    const s = model.simulate(mid, [], { seedEvents: false, drivers, quarters: 120 }).series;
+    assert.equal(s.length, 120);
+    assert.ok(s.every(row => ['rent', 'homeValue', 'netFiscal', 'priceIndex'].every(k => Number.isFinite(row[k]))), JSON.stringify(drivers));
+    assert.ok(s[119].rent > s[79].rent && s[79].rent > s[39].rent);
+  }
 });

@@ -234,3 +234,20 @@ test('pausing during the last year\'s construction and pressing Play finishes it
   r.clock.play(4);
   assert.equal(r.clock.get().step, 0, 'played out, so Play replays');
 });
+
+test('a game\'s next turn runs a decade further: it shows the decade\'s start, plays to its end, and replays from its start', async () => {
+  const r = rig();
+  await r.settle();
+  r.runs[1] = runScenario([], {}, zones, assumptions, baselines, 2 * YEARS);
+  r.clock.invalidate(1);
+  r.clock.setRange(YEARS, 2 * YEARS);
+  await r.settle();
+  assert.deepEqual([r.clock.get().steps, r.clock.get().shown.step, r.clock.get().playing], [2 * YEARS, YEARS, false]);
+  for (r.clock.play(4); r.clock.get().playing;) { await r.settle(); r.clock.tick(1 / 60); }
+  assert.equal(r.clock.get().shown.step, 2 * YEARS, 'played on to the new last year');
+  r.clock.play(4);
+  assert.equal(r.clock.get().step, YEARS, 'played out, so Play replays this decade, not the game');
+  r.clock.seek(3);
+  await r.settle();
+  assert.equal(r.clock.get().shown.step, 3, 'earlier decades can still be looked at');
+});

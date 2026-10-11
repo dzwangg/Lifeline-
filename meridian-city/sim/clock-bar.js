@@ -4,7 +4,7 @@
 // The street's time of day (world/households.js, a day every couple of minutes, paused or playing) sits faintly in the
 // small line under the date, once street life has loaded (bar.setHour).
 import { h } from '../policy/components.js';
-import { simClock, START_YEAR, onFrame } from './scenario.js';
+import { simClock, START_YEAR, onFrame, growthReport } from './scenario.js';
 import { clockLabel } from '../world/households.js';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -34,8 +34,12 @@ export function mountClockBar({ host = document.body, clock = simClock } = {}) {
     buttons, h('div', { class: 'clock-readout' }, date, h('span', { class: 'clock-sub' }, time, speed, status)));
   host.append(bar);
 
-  let said = '';
-  clock.subscribe(s => {
+  let said = '', unmet = 0, last = null;
+  // Homes the forecast's conversions ask for that the map couldn't place (no room or no way in): said, not forced in.
+  growthReport.subscribe(r => { unmet = r && !r.before ? r.unmet : 0; if (last) update(last); });
+  clock.subscribe(update);
+  function update(s) {
+    last = s;
     const active = s.playing ? s.speed : 0;
     BUTTONS.forEach((b, i) => buttons[i].setAttribute('aria-pressed', String(b.speed === active)));
     const years = s.before ? 0 : s.years, text = simDate(years); // "Show before" shows year 0, so its date
@@ -43,13 +47,18 @@ export function mountClockBar({ host = document.body, clock = simClock } = {}) {
     speed.textContent = s.playing ? `${s.speed}×` : 'Paused';
     const msg = s.error ? 'Forecast failed · Play retries'
       : s.loading ? 'Loading forecast…'
-      : !s.playing && s.step >= s.steps ? 'End of forecast'
+      : !s.playing && s.step >= s.steps ? 'End of the decade'
       : '';
-    if (msg !== said) { said = msg; status.textContent = msg; }
+    const note = unmet ? `${unmet.toLocaleString()} new home${unmet === 1 ? '' : 's'} didn't fit` : '';
+    const line = [msg, note].filter(Boolean).join(' · ');
+    if (line !== said) {
+      said = line; status.textContent = line;
+      status.title = note ? 'The policy asks for more homes on its parcels than fit with a street frontage and room to build. They are counted as unmet, not drawn.' : '';
+    }
     bar.classList.toggle('is-playing', s.playing);
     bar.classList.toggle('is-loading', s.loading);
     bar.classList.toggle('is-error', !!s.error);
-  });
+  }
 
   // Shortcuts, except while typing, using another control that takes the key, with the policy panel open,
   // or before the city has loaded (the page hides the toolbar until then).

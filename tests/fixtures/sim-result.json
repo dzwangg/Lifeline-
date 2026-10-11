@@ -7747,6 +7747,31 @@
       "source": "Orange County, 2025 Property Revaluation: the 2025 revaluation is as of January 1, 2025 and the next is January 1, 2029, on a four-year cycle. https://orangecountync.gov/revaluation"
     },
     {
+      "key": "lutiRevaluationYears.2",
+      "value": 2037,
+      "source": "Orange County, 2025 Property Revaluation: the 2025 revaluation is as of January 1, 2025 and the next is January 1, 2029, on a four-year cycle. https://orangecountync.gov/revaluation"
+    },
+    {
+      "key": "lutiRevaluationYears.3",
+      "value": 2041,
+      "source": "Orange County, 2025 Property Revaluation: the 2025 revaluation is as of January 1, 2025 and the next is January 1, 2029, on a four-year cycle. https://orangecountync.gov/revaluation"
+    },
+    {
+      "key": "lutiRevaluationYears.4",
+      "value": 2045,
+      "source": "Orange County, 2025 Property Revaluation: the 2025 revaluation is as of January 1, 2025 and the next is January 1, 2029, on a four-year cycle. https://orangecountync.gov/revaluation"
+    },
+    {
+      "key": "lutiRevaluationYears.5",
+      "value": 2049,
+      "source": "Orange County, 2025 Property Revaluation: the 2025 revaluation is as of January 1, 2025 and the next is January 1, 2029, on a four-year cycle. https://orangecountync.gov/revaluation"
+    },
+    {
+      "key": "lutiRevaluationYears.6",
+      "value": 2053,
+      "source": "Orange County, 2025 Property Revaluation: the 2025 revaluation is as of January 1, 2025 and the next is January 1, 2029, on a four-year cycle. https://orangecountync.gov/revaluation"
+    },
+    {
       "key": "lutiResidentialShareOfBase",
       "value": 0.8,
       "source": "PLACEHOLDER - needs citation"

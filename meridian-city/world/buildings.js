@@ -182,21 +182,21 @@ export function buildBuildings({ osm, names, grid, details, parent }) {
     return best;
   }
   const wallPoint = (e, t, out = .04) => [e.ax + e.ux * t + e.nx * out, e.az + e.uz * t + e.nz * out];
-  function door(db, e, t, w, h, region) {
+  function door(db, e, t, w, h, region, keep = true) {
     const [x0, z0] = wallPoint(e, t - w / 2), [x1, z1] = wallPoint(e, t + w / 2);
     decal(db, [[x0, 0, z0], [x1, 0, z1], [x1, h, z1], [x0, h, z0]], region);
     const [cx, cz] = wallPoint(e, t, 2.5); // keep the way in clear of trees and benches
-    grid.fill(cx - 2, cz - 2, cx + 2, cz + 2, OCC.keepClear);
+    if (keep) grid.fill(cx - 2, cz - 2, cx + 2, cz + 2, OCC.keepClear);
   }
-  function porch(db, e, t, H) {
-    const pw = Math.min(e.l * .6, 6), depth = 2, ry = Math.atan2(e.uz, e.ux);
+  function porch(db, e, t, H, pw = Math.min(e.l * .6, 6), keep = true) {
+    const depth = 2, ry = Math.atan2(e.uz, e.ux);
     const [cx, cz] = wallPoint(e, t, depth / 2);
     db.box(cx, cz, pw, .35, depth, 0, ry, WHITE, boxUv('concrete', 'porchFloor'));
     for (const s of [-1, 1]) { const [px, pz] = wallPoint(e, t + s * (pw / 2 - .2), depth - .2); db.box(px, pz, .22, 2.4, .22, .35, ry, WHITE, boxUv('postWhite')); }
     const [a0, b0] = wallPoint(e, t - pw / 2 - .15, 0), [a1, b1] = wallPoint(e, t + pw / 2 + .15, 0);
     const [c0, d0] = wallPoint(e, t - pw / 2 - .15, depth + .25), [c1, d1] = wallPoint(e, t + pw / 2 + .15, depth + .25);
     decal(db, [[c0, 2.65, d0], [c1, 2.65, d1], [a1, Math.min(3.15, H), b1], [a0, Math.min(3.15, H), b0]], 'porchRoof');
-    grid.fill(cx - pw / 2, cz - pw / 2, cx + pw / 2, cz + pw / 2, OCC.keepClear);
+    if (keep) grid.fill(cx - pw / 2, cz - pw / 2, cx + pw / 2, cz + pw / 2, OCC.keepClear);
   }
   function awnings(db, e, h) {
     const n = clamp(Math.floor(e.l / 6.5), 1, 5), colorKey = ['awningRed', 'awningGreen', 'awningBlue', 'awningGold', 'awningPlum'];
@@ -311,27 +311,34 @@ export function buildBuildings({ osm, names, grid, details, parent }) {
   }
 
   // ---------- one building ----------
-  OSM_LOOP: for (let i = 0; i < osm.b.length; i++) {
-    const [type, levels, heightTag, shop, rawOuter, ...rawHoles] = osm.b[i];
-    const outer = simplify(rawOuter), holes = rawHoles.map(h => simplify(h)).filter(h => h.length >= 6);
+  // The wall a building's front door goes on, given as an edge index (planned buildings, which know their street).
+  function edgeAt(outer, k) {
+    const n = outer.length / 2, ax = outer[2 * k], az = outer[2 * k + 1], bx = outer[2 * ((k + 1) % n)], bz = outer[2 * ((k + 1) % n) + 1], l = Math.hypot(bx - ax, bz - az);
+    return { score: 0, ax, az, bx, bz, l, nx: (az - bz) / l, nz: (bx - ax) / l, ux: (bx - ax) / l, uz: (bz - az) / l, mx: (ax + bx) / 2, mz: (az + bz) / 2 };
+  }
+  // Styles one footprint into a wall batch and a detail batch. spec: { outer, holes, type, levels, heightTag, shop, nm,
+  // landmark } for OSM footprints. Planned buildings (growth/) set planned and force their choices in spec.force:
+  // { fam, wall, roof, floors, roofShape: 'hip' | 'gable' | 'mansard' | 'flat', front: edge index, doors: count, porch,
+  // chimney, solar, balconies, door: atlas region, ground: ground-floor style, awnings }. Anything not forced is picked
+  // from the footprint's position hash, as for the OSM buildings. Planned buildings leave the occupancy grid alone.
+  // Returns the facts meta needs, or null for a footprint too small to draw.
+  function style(spec, wb, db) {
+    const { type = 'house', levels = 0, heightTag = 0, shop = 0, nm, landmark, planned = false, force: f = {} } = spec;
+    const outer = simplify(spec.outer), holes = (spec.holes ?? []).map(h => simplify(h)).filter(h => h.length >= 6);
     const roofOutline = simplify(outer, .8); // coarser outline for roofs, so small jogs do not block a hipped roof
-    if (outer.length < 6) continue;
+    if (outer.length < 6) return null;
     const A = area(outer);
-    if (A < 4) continue;
+    if (A < 4) return null;
     const [cx, cz] = centroid(outer), o = obb(outer);
-    const nm = named.get(i), landmark = nm && LANDMARKS.find(([re]) => re.test(nm.name))?.[1];
     const isChurch = landmark === 'church' || type === 'church' || type === 'chapel';
-    const fam = landmark === 'bellTower' ? 'campus' : isChurch ? 'civic' : familyOf(type, shop, A, levels);
+    const fam = f.fam ?? (landmark === 'bellTower' ? 'campus' : isChurch ? 'civic' : familyOf(type, shop, A, levels));
     const F = FAMILIES[fam], r = k => hash(cx, cz, k);
-    const wallKey = pickBy(F.walls, r(1)), roofKey = pickBy(F.roofs, r(2));
-    const floors = landmark === 'bellTower' ? 1 : storeys(fam, levels, A, r(3));
+    const wallKey = f.wall ?? pickBy(F.walls, r(1)), roofKey = f.roof ?? pickBy(F.roofs, r(2));
+    const floors = f.floors ?? (landmark === 'bellTower' ? 1 : storeys(fam, levels, A, r(3)));
     let H = heightTag || (fam === 'stadium' ? 11 : fam === 'shed' ? 3 : floors === 1 ? GF : GF + (floors - 1) * STOREY);
     if (landmark === 'bellTower') H = Math.max(H, 34);
     const upperFloors = Math.max(0, heightTag ? Math.max(1, Math.round((H - GF) / STOREY)) : floors - 1);
     const storeyH = upperFloors ? (H - GF) / upperFloors : STOREY;
-    const ck = chunkKey(cx, cz, CHUNK), wb = batches.at(`${ck}|wall`), db = batches.at(`${ck}|detail`);
-    batches.owner = meta.length;
-    wb.current = db.current = meta.length;
     const rings = [outer, ...holes], shade = .93 + r(4) * .1, col = tint(shade), foot = tint(shade * .78);
     let top = H;
 
@@ -341,14 +348,12 @@ export function buildBuildings({ osm, names, grid, details, parent }) {
       for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; db.box(cx + Math.cos(a) * rad, cz + Math.sin(a) * rad, .45, 4, .45, .35, a, WHITE, boxUv('trim')); }
       prism(db, cx, cz, rad + .4, 4.35, 5, 8, 'trim');
       top = dome(db, cx, cz, rad + .2, 5, { drum: 0, squash: .55 });
-      grid.fillRing(outer, OCC.building);
-      meta.push({ i, name: nm.name, family: 'civic', label: 'Landmark', type, floors: 0, height: top, area: A, outer, cx, cz });
-      continue OSM_LOOP;
+      return { outer, A, cx, cz, fam: 'civic', label: 'Landmark', floors: 0, top, H: undefined, wallKey, roofKey, door: undefined };
     }
 
     // Walls: a ground-floor band, then the upper storeys.
     const tower = landmark === 'bellTower'; // solid brick shaft below the belfry
-    const wallT = facadeTile(wallKey, tower ? 'none' : F.window, F.lit), groundT = groundTile(wallKey, tower ? 'none' : F.ground, tower ? 'none' : F.window, F.lit);
+    const wallT = facadeTile(wallKey, tower ? 'none' : F.window, F.lit), groundT = groundTile(wallKey, tower ? 'none' : f.ground ?? F.ground, tower ? 'none' : F.window, F.lit);
     const u0 = Math.floor(r(5) * 8) * 3;
     const groundTop = Math.min(H, GF);
     for (const ring of rings) band(wb, ring, 0, groundTop, groundT, TILE_M.ground.w, TILE_M.ground.h, 0, u0, foot, col);
@@ -358,36 +363,43 @@ export function buildBuildings({ osm, names, grid, details, parent }) {
     // A stadium footprint with a hole is an open bowl (seating on top); without one it is a covered arena
     // such as the Dean Smith Center, which gets a low hipped roof.
     const arena = fam === 'stadium' && !holes.length, pitch = arena ? .28 : F.pitch;
-    const pitched = arena || (F.pitch && !holes.length && (F.flatAbove == null || A <= F.flatAbove) && fam !== 'stadium' && landmark !== 'bellTower');
+    const pitched = f.roofShape ? f.roofShape !== 'flat' && !!F.pitch
+      : arena || (F.pitch && !holes.length && (F.flatAbove == null || A <= F.flatAbove) && fam !== 'stadium' && landmark !== 'bellTower');
     const roofT = arena ? roofTile(pickBy(['slate', 'charcoal', 'blueMetal'], r(2))) : fam === 'stadium' ? roofTile('seats') : roofTile(pitched ? roofKey : pickBy(['pearlDeck', 'pearlDeck', 'flatGravel'], r(2))), roofCol = tint(.92 + r(6) * .1);
     let roof = null;
     if (pitched && o) {
-      const rect = o.area / A < 1.2 && outer.length <= 12, over = fam === 'house' || fam === 'shed' ? .45 : .3;
-      if (rect) roof = hipRoof(wb, o, H, over, pitch, (fam === 'house' || fam === 'shed') && r(7) < .35, roofT, wallT, TILE_M.facade.w, storeyH * 4, GF, roofCol);
+      const rect = f.roofShape !== 'mansard' && o.area / A < 1.2 && outer.length <= 12, over = fam === 'house' || fam === 'shed' ? .45 : .3;
+      const gable = f.roofShape ? f.roofShape === 'gable' : (fam === 'house' || fam === 'shed') && r(7) < .35;
+      if (rect) roof = hipRoof(wb, o, H, over, pitch, gable, roofT, wallT, TILE_M.facade.w, storeyH * 4, GF, roofCol);
       else if (roofOutline.length >= 6) roof = mansard(wb, roofOutline, H, over, pitch, Math.min(o.hw * .9, fam === 'house' ? 5 : 8), roofT, roofCol);
     }
     if (!roof) { flatRoof(wb, db, rings, H, roofT, o, fam); if (fam !== 'stadium' && !landmark) roofExtras(wb, db, outer, H, o, F, r); }
     top = roof?.peak ?? H + .7;
     if (fam !== 'stadium' && fam !== 'shed' && !tower) cornice(db, outer, H);
-    if (roof?.slope && fam === 'house' && F.solar && r(13) < F.solar) slopeSolar(db, roof.slope);
+    if (roof?.slope && fam === 'house' && (f.solar ?? (F.solar && r(13) < F.solar))) slopeSolar(db, roof.slope);
 
     // Details: entrance, porch, awnings, chimney.
-    const e = frontEdge(outer);
+    const e = f.front != null ? edgeAt(outer, f.front) : frontEdge(outer);
     if (e && fam !== 'stadium') {
-      const t = e.l / 2;
+      const t = e.l / 2, doors = f.doors ?? 1, keep = !planned; // planned buildings leave the occupancy grid alone
       const doorW = fam === 'campus' || fam === 'civic' ? 3.2 : fam === 'shop' ? Math.min(2.8, e.l * .4) : fam === 'house' ? 1.5 : 2.6;
-      if (fam === 'shop') { door(db, e, t, doorW, 2.5, 'doorAqua'); awnings(db, e); }
-      else if (fam === 'campus' || fam === 'civic') door(db, e, t, doorW, 2.8, 'portico');
+      if (fam === 'shop') { door(db, e, t, doorW, 2.5, 'doorAqua', keep); awnings(db, e); }
+      else if (fam === 'campus' || fam === 'civic') door(db, e, t, doorW, 2.8, 'portico', keep);
       else if (fam === 'house') {
-        door(db, e, t, doorW, 2.5, pickBy(F.doors, r(8)));
-        if (F.porch && e.l >= 5.5 && r(9) < .6) porch(db, e, t, H);
-      } else if (fam !== 'shed' && fam !== 'industrial' && fam !== 'stadium') door(db, e, t, doorW, 2.5, pickBy(F.doors ?? ['doorAqua'], r(8)));
-      if (F.planters && r(14) < F.planters && e.l > doorW + 4) planters(db, e, t, doorW);
+        const region = f.door ?? pickBy(F.doors, r(8)), porched = f.porch ?? (F.porch && e.l >= 5.5 && r(9) < .6);
+        for (let k = 0; k < doors; k++) { // one door (and porch) per home along the front: duplexes and townhouse rows
+          const tk = e.l * (k + .5) / doors;
+          door(db, e, tk, doorW, 2.5, region, keep);
+          if (porched && e.l / doors >= 5.5) porch(db, e, tk, H, Math.min(e.l / doors * .6, 6), keep);
+        }
+      } else if (fam !== 'shed' && fam !== 'industrial' && fam !== 'stadium') door(db, e, t, doorW, 2.5, f.door ?? pickBy(F.doors ?? ['doorAqua'], r(8)), keep);
+      if (f.awnings) awnings(db, e);
+      if (F.planters && r(14) < F.planters && e.l > doorW + 4 && doors === 1) planters(db, e, t, doorW);
       if (F.canopy && e.l > 7) canopy(db, e, t);
-      if (F.balconies && upperFloors && r(15) < F.balconies) balconies(db, outer, e, upperFloors, storeyH);
+      if (F.balconies && upperFloors && (f.balconies ?? r(15) < F.balconies)) balconies(db, outer, e, upperFloors, storeyH);
       if (isChurch) top = Math.max(top, steeple(db, e, H));
     }
-    if (roof && o && F.chimney && r(11) < F.chimney) {
+    if (roof && o && F.chimney && (f.chimney ?? r(11) < F.chimney)) {
       const a = o.hl * .45 * (r(12) < .5 ? -1 : 1), x = o.cx + o.ux * a, z = o.cz + o.uz * a;
       db.box(x, z, .9, roof.ridgeY - H + 1.1, .9, H, Math.atan2(o.uz, o.ux), WHITE, boxUv('chimney', 'chimneyTop'));
     }
@@ -402,13 +414,39 @@ export function buildBuildings({ osm, names, grid, details, parent }) {
       top = H + 14;
     }
     if (landmark === 'dome' && o) top = dome(db, o.cx, o.cz, Math.min(o.hw, o.hl) * .38, top - .2);
+    return {
+      outer, A, cx, cz, fam, label: landmark && landmark !== 'church' ? 'Landmark' : FAMILY_LABEL[fam], wallKey, roofKey, H, top,
+      floors: fam === 'stadium' || landmark === 'bellTower' ? 0 : 1 + upperFloors, door: e && fam !== 'stadium' && fam !== 'shed' ? wallPoint(e, e.l / 2, 1.2) : null,
+    };
+  }
 
-    grid.fillRing(outer, OCC.building);
-    meta.push({ i, name: nm?.name ?? null, family: fam, label: landmark && landmark !== 'church' ? 'Landmark' : FAMILY_LABEL[fam], type, floors: fam === 'stadium' || landmark === 'bellTower' ? 0 : 1 + upperFloors, height: top, wall: H, area: A, outer, cx, cz, door: e && fam !== 'stadium' && fam !== 'shed' ? wallPoint(e, e.l / 2, 1.2) : null });
+  for (let i = 0; i < osm.b.length; i++) {
+    const [type, levels, heightTag, shop, rawOuter, ...rawHoles] = osm.b[i];
+    const outer = simplify(rawOuter);
+    if (outer.length < 6 || area(outer) < 4) continue;
+    const [cx, cz] = centroid(outer), nm = named.get(i), landmark = nm && LANDMARKS.find(([re]) => re.test(nm.name))?.[1];
+    // A landmark's own art (rotunda, belfry and spire, dome) goes in a batch the far-zoom detail cut leaves alone.
+    const ck = chunkKey(cx, cz, CHUNK), wb = batches.at(`${ck}|wall`), db = batches.at(`${ck}|${landmark ? 'landmark' : 'detail'}`);
+    batches.owner = meta.length;
+    wb.current = db.current = meta.length;
+    const s = style({ outer: rawOuter, holes: rawHoles, type, levels, heightTag, shop, nm, landmark }, wb, db);
+    grid.fillRing(s.outer, OCC.building);
+    meta.push({
+      i, name: nm?.name ?? null, family: s.fam, label: s.label, type, floors: s.floors, height: s.top, wall: s.H, area: s.A, outer: s.outer, cx: s.cx, cz: s.cz,
+      door: s.door, materials: { wall: s.wallKey, roof: s.roofKey },
+    });
   }
 
   // ---------- meshes ----------
   facadeTile('sidingCream', 'shutter'); facadeTile('brickRed', 'sill'); roofTile('plum'); roofTile('flatGravel'); // the sim's zone art
+  // Planned buildings (growth/) are houses and apartments, some over shops: paint their tiles now, after the city's own, so
+  // the city's tiles keep their places. style() repaints the texture if a later one adds a tile anyway.
+  for (const fam of ['house', 'apartment']) {
+    const F = FAMILIES[fam];
+    for (const w of F.walls) { facadeTile(w, F.window, F.lit); for (const g of [F.ground, 'storefront']) groundTile(w, g, F.window, F.lit); }
+    for (const k of F.roofs) roofTile(k);
+  }
+  roofTile('pearlDeck'); roofTile('garden');
   const wallMat = tilingMaterial(atlas.texture());
   const detailMat = new THREE.MeshPhongMaterial({ map: details.texture, vertexColors: true, alphaTest: .5, side: THREE.DoubleSide, specular: '#2a3540', shininess: 30 });
   const group = new THREE.Group(), pickables = [];
@@ -422,7 +460,13 @@ export function buildBuildings({ osm, names, grid, details, parent }) {
   }
   parent.add(group);
   return {
-    meta, group, pickables, wallMaterial: wallMat, atlasTile: key => atlas.tiles.get(key),
+    meta, group, pickables, wallMaterial: wallMat, detailMaterial: detailMat, atlasTile: key => atlas.tiles.get(key),
+    // Styles a planned building into the caller's batches, in the city's own art (see style() above).
+    style(spec, wb, db) {
+      const tiles = atlas.tiles.size, out = style({ ...spec, planned: true }, wb, db);
+      if (atlas.tiles.size !== tiles) wallMat.map.needsUpdate = true;
+      return out;
+    },
     setDetailVisible: v => { for (const m of group.children) if (m.userData.detail) m.visible = v; },
   };
 }

@@ -83,9 +83,12 @@ export function buildSchedule(policies, zoneIds, defaults = {}) {
 
 /**
  * The model's policies for the cards that have levers. A lever with `param` takes that param's value (clamped, default if unset).
+ * A card enacted in a later year (starts) has its timing pushed back by that many years: year y ends with quarter 4y - 1.
  * @param {PolicyCard[]} cards @param {Record<string, Record<string, number>>} params card id -> param key -> value
+ * @param {Record<string, number>} [starts] card id -> the year it is enacted (default 0)
  */
-export const cardPolicies = (cards, params = {}) => cards.filter(c => c.levers?.length).map(c => {
+export const cardPolicies = (cards, params = {}, starts = {}) => cards.filter(c => c.levers?.length).map(c => {
   const value = key => { const p = c.params.find(x => x.key === key); return Math.min(p.max, Math.max(p.min, params[c.id]?.[key] ?? p.default)); };
-  return { id: c.id, title: c.title, timing: c.timing, levers: c.levers.map(({ param, ...l }) => (param ? { ...l, value: value(param) } : l)) };
+  const start = starts[c.id] ?? 0, timing = start ? { ...c.timing, delayQuarters: (c.timing?.delayQuarters ?? 0) + 4 * start } : c.timing;
+  return { id: c.id, title: c.title, timing, levers: c.levers.map(({ param, ...l }) => (param ? { ...l, value: value(param) } : l)) };
 });

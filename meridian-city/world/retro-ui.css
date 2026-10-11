@@ -32,7 +32,7 @@ body { background: #7fd6f5 !important; font-family: var(--ae-body); }
   background: linear-gradient(180deg, #4fc3f2 0 50%, #8fe0fa 50% 78%, #6fd04a 78% 100%); color: #ffffff !important;
   text-shadow: 2px 2px 0 var(--ae-navy) !important; font: 600 18px var(--ae-pixel) !important; letter-spacing: .04em !important; text-transform: none !important;
 }
-h1, h2, h3, .pp-title, .pp-col__title, .pp-row__title, .building-card__title { font-family: var(--ae-pixel) !important; letter-spacing: .01em; }
+h1, h2, h3, .pp-title, .pp-col__title, .building-card__title { font-family: var(--ae-pixel) !important; letter-spacing: .01em; }
 
 /* ---------- HUD ---------- */
 #hud h1 { font-size: 20px; text-shadow: none !important; color: var(--ae-navy); }
@@ -61,12 +61,12 @@ h1, h2, h3, .pp-title, .pp-col__title, .pp-row__title, .building-card__title { f
 }
 .pp-btn--primary { color: #ffffff !important; }
 .pp-btn--quiet { background: linear-gradient(180deg, #ffffff 0 46%, #e3f6fc 46% 100%) !important; }
-.retro-icon-btn, .pp-close, .pp-slot__remove {
+.retro-icon-btn, .pp-close {
   flex: none; width: 28px; height: 28px; padding: 0 0 2px; cursor: pointer; font: 700 18px/1 var(--ae-pixel); color: #ffffff;
   background: linear-gradient(180deg, #ffd0e8 0 46%, var(--ae-pink) 46% 100%) !important; border: 2px solid var(--ae-navy) !important; border-radius: 9px !important;
   box-shadow: inset 0 2px 0 #ffffff, inset 0 -3px 0 var(--ae-pink-dark), 0 2px 0 var(--ae-navy) !important;
 }
-.pp-close svg, .pp-slot__remove svg { stroke: #ffffff !important; }
+.pp-close svg { stroke: #ffffff !important; }
 .tool-btn:focus-visible, .retro-icon-btn:focus-visible, .pp-btn:focus-visible, .pp-chip:focus-visible, .pp-card:focus-visible, .pp-slot__empty:focus-visible { outline: 3px solid var(--ae-gold) !important; outline-offset: 3px; }
 
 /* ---------- map toolbar ---------- */
@@ -129,13 +129,7 @@ h1, h2, h3, .pp-title, .pp-col__title, .pp-row__title, .building-card__title { f
 .pp-title { color: var(--ae-navy) !important; text-shadow: none !important; }
 .pp-sub { color: var(--ae-ink-soft) !important; text-shadow: none !important; }
 .pp-col { background: var(--ae-well) !important; border: 2px solid var(--ae-sky) !important; border-radius: 8px !important; box-shadow: inset 0 2px 0 #ffffff !important; }
-.pp-row { background: rgba(255, 255, 255, .7) !important; border: 2px solid #c8eef9 !important; border-radius: 8px !important; box-shadow: none !important; }
-.pp-row__dot { border-radius: 50% !important; box-shadow: 0 0 0 2px var(--ae-navy) !important; }
-.pp-sum { background: #ffffff !important; border-radius: 6px !important; box-shadow: none !important; }
-.pp-status { background: #e3f6fc !important; color: var(--ae-navy) !important; border-radius: 6px !important; box-shadow: none !important; }
-.pp-status.is-dirty { background: var(--ae-gold) !important; }
-.pp-scenario__input { color: var(--ae-aqua-dark) !important; font-family: var(--ae-pixel) !important; }
-.pp-search__input, .pp-scenario__input:focus {
+.pp-search__input {
   background: #ffffff !important; border: 2px solid var(--ae-navy) !important; border-radius: 10px !important; box-shadow: inset 0 2px 0 rgba(28, 44, 94, .12) !important; color: var(--ae-navy) !important;
 }
 .pp-card {
@@ -147,7 +141,6 @@ h1, h2, h3, .pp-title, .pp-col__title, .pp-row__title, .building-card__title { f
 .pp-card__orb { border-radius: 50% !important; box-shadow: 0 0 0 2px var(--ae-navy), inset 0 -4px 0 rgba(0, 0, 0, .18) !important; }
 .pp-card__orb::after { display: block !important; } /* keep the bubble highlight: it is pure Aero */
 .pp-card.is-armed { box-shadow: 0 0 0 3px var(--ae-gold), 0 0 0 5px var(--ae-navy), 0 6px 0 var(--ae-navy) !important; animation: none !important; }
-.pp-slot__empty { border: 2px dashed var(--cat) !important; border-radius: 10px !important; background: rgba(255, 255, 255, .55) !important; }
 .pp-slot.is-valid { box-shadow: 0 0 0 3px var(--ae-gold), 0 0 0 5px var(--ae-navy) !important; animation: none !important; }
 .pp-slot.is-over { box-shadow: 0 0 0 4px var(--ae-gold), 0 0 0 7px var(--ae-navy) !important; }
 .pp-library.is-valid { box-shadow: inset 0 0 0 3px var(--ae-gold) !important; }
@@ -160,18 +153,9 @@ h1, h2, h3, .pp-title, .pp-col__title, .pp-row__title, .building-card__title { f
 }
 
 /* ---------- sim panel ---------- */
-.sim__head h2 { font-size: 16px; color: var(--ae-navy); }
-.sim__toggle { padding: 3px 8px !important; font-size: 12px !important; }
-.sim-card { background: rgba(255, 255, 255, .7) !important; border: 2px solid #c8eef9; border-radius: 8px !important; }
-.sim-card h3 { font-family: var(--ae-pixel); }
-.sim-card__tradeoffs h4 { font-family: var(--ae-pixel) !important; letter-spacing: .02em !important; color: var(--ae-aqua-dark) !important; }
-.sim__slider input, .sim__check input { accent-color: var(--ae-aqua-dark) !important; }
-.sim__val, .sim-metric__value, .sim-metric__delta { font-family: var(--ae-pixel) !important; }
-.sim-metric { border-radius: 6px !important; }
-.sim-metric:hover, .sim-metric:focus-visible { background: rgba(255, 255, 255, .8) !important; }
-.sim-metric:focus-visible { box-shadow: 0 0 0 2px var(--ae-gold) !important; }
+/* Its layout, wells and controls live in sim/sim-plate.css, drawn in this palette; only the shared pieces are here. */
+.sim__toggle { padding: 3px 10px !important; font-size: 13px !important; }
 .sim-why__flag { background: var(--ae-gold) !important; color: var(--ae-navy) !important; border-radius: 4px !important; }
-.sim__cards:has(> .sim__empty:only-child) { overflow: visible; } /* a one-line message needs no scroller */
 
 /* ---------- phones ---------- */
 @media (max-width: 640px) {

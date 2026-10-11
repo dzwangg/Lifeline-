@@ -24,8 +24,9 @@ export const MODEL = {
   name: 'Chapel Hill Land-Use/Transport Interaction model',
   method: 'System-dynamics LUTI (MARS-style) · multinomial-logit location & mode choice · residual-land-value pro forma · paired Monte Carlo',
 };
-export const QUARTERS = 40;
-export const YEARS = Array.from({ length: QUARTERS }, (_, q) => BASE_YEAR + q / 4);
+export const QUARTERS = 40; // one decade, the default run; a game of turns runs a decade more per turn
+export const yearsOf = (quarters = QUARTERS) => Array.from({ length: quarters }, (_, q) => BASE_YEAR + q / 4);
+export const YEARS = yearsOf();
 
 const MODES = ['car', 'bus', 'bike', 'walk'];
 const KM_PER_MILE = 1.609344;
@@ -179,13 +180,13 @@ export function createModel(assumptions, baselines) {
 
   // Growth curves for one run. Without drivers they are the model's own rates; with them, every nominal rate moves with
   // the scenario's inflation, by its difference from the default (lutiCpi), one for one.
-  function growthCurves(p, drivers) {
+  function growthCurves(p, drivers, quarters = QUARTERS) {
     if (noDrivers(drivers)) {
       return { rent: q => grow(p.rentDrift, q), rentStep: () => grow(p.rentDrift, 1), value: q => grow(p.valueDrift, q),
         cost: q => grow(F.costDrift, q), cpi: q => grow(F.cpi, q), income: q => grow(F.incomeGrowth, q), price: q => grow(F.cpi, q) };
     }
-    const shift = Array.from({ length: QUARTERS + 1 }, (_, q) => inflationAt(drivers, F.cpi, Math.floor(q / 4)) - F.cpi);
-    const curve = rate => { const c = [1]; for (let q = 0; q < QUARTERS; q++) c.push(c[q] * Math.pow(1 + rate + shift[q], 0.25)); return q => c[Math.min(q, QUARTERS)]; };
+    const shift = Array.from({ length: quarters + 1 }, (_, q) => inflationAt(drivers, F.cpi, Math.floor(q / 4)) - F.cpi);
+    const curve = rate => { const c = [1]; for (let q = 0; q < quarters; q++) c.push(c[q] * Math.pow(1 + rate + shift[q], 0.25)); return q => c[Math.min(q, quarters)]; };
     const rent = curve(p.rentDrift);
     return { rent, rentStep: q => Math.pow(1 + p.rentDrift + shift[q], 0.25), value: curve(p.valueDrift), cost: curve(F.costDrift),
       cpi: curve(F.cpi), income: curve(F.incomeGrowth), price: curve(F.cpi) };
@@ -196,12 +197,13 @@ export function createModel(assumptions, baselines) {
   // landUse: homes the land-use sim's zone rules build, { unitsAdded: [quarter] → { zoneId: homes added so far }, treeCoverPct:
   // [quarter] } (see shared/combined.js). They join the stock at the start of each quarter, like completions.
   // drivers: scenario what-ifs (shared/luti/drivers.js), applied the same with and without policies.
-  function simulate(params, policies = [], { seedEvents = true, shock = null, landUse = null, drivers = null } = {}) {
+  // quarters: how long to run, from 2027 Q1.
+  function simulate(params, policies = [], { seedEvents = true, shock = null, landUse = null, quarters = QUARTERS, drivers = null } = {}) {
     const cal = calibrate(params); // calibrated to today, before any what-if, so a driver moves the town rather than its base year
     const p = { ...params };
     if (drivers?.uncJobsGrowth != null) p.tradableGrowth = drivers.uncJobsGrowth / 100;
     if (drivers?.regionalGrowth != null) p.regionalGrowth = drivers.regionalGrowth / 100;
-    const g = growthCurves(p, drivers), costShock = (drivers?.constructionCost ?? 0) / 100;
+    const g = growthCurves(p, drivers, quarters), costShock = (drivers?.constructionCost ?? 0) / 100;
     const schedule = buildSchedule(policies, ZID, { 'housing.parkingMinimum': F.parkingMinimum });
     const jps = p.jobsPerStorefront;
     const N0 = ZONES.map(z => TOWN.storefrontJobs * z.storefrontShare / jps);
@@ -245,7 +247,7 @@ export function createModel(assumptions, baselines) {
     start.netFiscal = start.propertyTax + start.salesTax;
     start.zones = ZONES.map((z, i) => ({ units: z.units, households: z.households, rent: rent0[i], commute: cal.travel0.zones[i].time * cal.timeScale }));
 
-    for (let q = 0; q < QUARTERS; q++) {
+    for (let q = 0; q < quarters; q++) {
       const L = schedule(q), year = BASE_YEAR + q / 4;
       const rateDelta = L['tax.rateDelta'];
       if (landUse) ZONES.forEach((z, i) => { // homes the zone rules finished this quarter

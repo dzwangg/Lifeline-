@@ -10,7 +10,7 @@ The scoring lives in [`shared/health.js`](../shared/health.js); the anchors live
 
 ## The problem
 
-Twenty-one numbers move over a decade. Some go up when things get better (jobs, homes, income), some go down (rent
+Twenty-two numbers move over a decade. Some go up when things get better (jobs, homes, income), some go down (rent
 burden, commute, carbon), and they are in different units — dollars, minutes, percentages, tonnes. Worse, most of them
 barely move in ten years no matter what the Council does: scored in absolute terms, the number would mostly measure
 Chapel Hill's starting position and sit near the same value whatever the player did.
@@ -54,7 +54,6 @@ can takes that line to 100 or 0, rather than nudging it by a point.
 | Jobs | a further 1.2% of the town's jobs |
 | Storefront businesses | 4.5% more storefronts |
 | Storefront vacancy | 1.8 points off the empty shopfronts |
-| Real median income | 2% more real income |
 | Town budget | a tenth of the Town's net position, about 5¢ on the rate |
 | Average commute | a quarter-minute, which almost nothing shifts |
 | Access to jobs | 5% more jobs within a normal commute |
@@ -70,8 +69,8 @@ can takes that line to 100 or 0, rather than nudging it by a point.
 Each half is the weighted mean of its own indicators; overall is the mean of the two halves, so the side with more
 indicators can't drown out the other.
 
-**Economy — is the town earning its living?** New homes a year, jobs, storefront businesses, storefront vacancy, real
-median household income, the Town's budget.
+**Economy — is the town earning its living?** New homes a year, jobs, storefront businesses, storefront vacancy, the
+Town's budget.
 
 **Residents — are the people here better off?** Rent burden (weight 2), households priced out (1.5), tree cover (1.5),
 tax burden (1.5), price to income, commute, access to jobs, bus ridership (0.5), car traffic (0.5), commute CO₂
@@ -88,10 +87,10 @@ why and not just the number.
 
 ### What it comes out at
 
-Doing nothing is 50 exactly. Realistic packages land between about 46 and 70 overall, and the halves move further: a
-full build-and-transit package reaches 80 on the economy, releasing the edge of town at its maximum drops residents to
-45 as the canopy goes, and a tax cut and sprawl together score 65 on the economy against 34 for residents — the whole
-point being that the two halves can disagree.
+Doing nothing is 50 exactly. Realistic packages land between about 32 and 69 overall, and the halves move further: a
+full build-and-transit package reaches 78.7 on the economy, releasing the edge of town at its maximum drops residents
+to 45.3 as the canopy goes, and a tax cut and sprawl together score 62.2 on the economy against 32.5 for residents —
+the whole point being that the two halves can disagree.
 
 ## Losing
 
@@ -100,17 +99,17 @@ is tempting for a real reason, and each costs more than it brings in. Scored at 
 
 | Policy | Default | Worst | What goes wrong |
 |---|---|---|---|
-| Require below-market homes in every new building | 39.4 | 32.4 | A steep set-aside with no density bonus is a cost on building with nothing given back; new homes a year falls to 0 |
-| Send new buildings back for more review | 45.7 | 39.3 | Months of hearings are about 1% of build cost each, and land in rents |
-| Impact fee on each new home | 47.0 | 43.7 | The Town's budget line climbs to 88 while the fee lands on buyers, about $1.60 of price per $1 charged |
-| Cut the charge for downtown parking | 48.6 | 44.4 | The economy holds at 50 while residents drop to 38: the Town's budget loses the fees and keeps the deck debt, and a more desirable downtown lifts home values, rents and the households priced out |
-| Bring back parking minimums | 46.0 | 40.3 | Already in the library. The worst single setting in the game |
-| Property tax cut of 10¢ | — | 49.0 | Economy 59.5, residents 38.4. The halves disagree more than anywhere else |
+| Require below-market homes in every new building | 39.3 | **32.3** | A steep set-aside with no floor area given back is a cost on building with nothing in return; new homes a year falls to 0 |
+| Send new buildings back for more review | 45.8 | 39.6 | The model charges each month of review as carrying cost, 4% of a home's cost a year, and it lands in rents |
+| Impact fee on each new home | 47.9 | 44.2 | The Town's budget line climbs to 88 while the fee lands on buyers, about $1.60 of price per $1 charged |
+| Cut the charge for downtown parking | 47.4 | 41.8 | Residents drop to 38: the Town loses the fees and keeps the deck debt, and a more desirable downtown lifts home values, rents and the households priced out |
+| Bring back parking minimums | 46.3 | 40.5 | Already in the library, and the worst of the ones that were |
+| Property tax cut of 10¢ | — | 46.1 | Economy 53.8, residents 38.4. The halves disagree more than anywhere else |
 
 The two-sided ones are the point. A tax cut reads well on the economy and badly for residents; a tax **rise** is the
-mirror of it (43.6 against 64.2). Grants score 70–79 on the economy and 43–46 for residents, because the growth they
-buy arrives as traffic and rent. Nothing in the library is good on both halves at once except building homes near
-transit.
+mirror of it (46.4 against 64.2). The growth that grants and new homes buy arrives as traffic and rent, so almost
+nothing is good on both halves at once — upzoning near transit (68.1 and 55.6) and infill in the town core (76.7 and
+53.0) are the exceptions, and a full build-and-transit package reaches 68.7 overall.
 
 ### A limit worth knowing
 
@@ -151,7 +150,6 @@ decade has to be legible against the one before it, so the goalposts stay still.
 | Jobs | −1.0%/yr | +2.0%/yr | Target: the long-run US rate (BLS, 100 years of CES). Floor: within the range of shrinking large counties (BLS QCEW) |
 | Storefront businesses | −15% | +15% | **Our choice**, mirroring jobs; storefronts follow local spending |
 | Storefront vacancy | 30% | 5% | Target: the natural retail vacancy rate (San Francisco Fed). Floor: past the Chicago Loop's 28.5%, the worst big-city downtown |
-| Real median income | −5% | +20% | The best and worst decades in the US series (FRED real median household income). The median US decade, +8.1%, scores 52 |
 | Town budget | flat in cash | +26% | Ten years of 2.3% inflation: the Town's money has to keep pace with prices |
 | Average commute | 40 min | 15 min | Target: where peer college towns sit. Floor: approaching the worst US county (the Bronx, 43.9) and past the hour a day people have long put up with (Marchetti) |
 | Access to jobs | −10% | +20% | **Our choice**: a fifth more jobs within a normal commute is a real gain |
@@ -178,9 +176,13 @@ Three measurement choices worth knowing, because each one moves its score by a l
 - **It does not fake healthcare, schools or crime.** The models don't simulate them, so the score doesn't pretend to.
   An earlier draft had a police/crime lever and it was cut; adding a number the model can't move would make the score
   look more complete than it is.
-- **It does not score context numbers.** Median rent, median home value, households, affordable homes added and tax
-  revenue stay in the panel but out of the score: a rising home value is good for owners and bad for first buyers, and
-  rent is already measured against income by rent burden.
+- **It does not score context numbers.** Median rent, median home value, households, affordable homes added, tax
+  revenue and median household income stay in the panel but out of the score. A rising home value is good for owners
+  and bad for first buyers; rent is already measured against income by rent burden; and median income is the sharpest
+  case of all — no card in the library changes what anyone earns, so against the no-policy town it moves only with who
+  is still living here. Scoring it made displacement read as an economic gain: a deep tax cut that forced out 171 extra
+  households scored 88 on "real income", and the economy half's sentence read *Better on real income*. It is context
+  now, to be read beside households priced out.
 - **It is not a forecast.** It scores one central run. CH-LUTI's 200-run range is still shown per indicator; the score
   is a reading of the middle of it.
 

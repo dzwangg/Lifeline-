@@ -2,11 +2,15 @@
    Translucent sky-glass panels with navy pixel borders and a hard-edged gloss band, glossy bubble buttons,
    aqua and lime accents. Loaded after the panel stylesheets, so it re-skins their components without
    changing behaviour. Headings, buttons and numbers use Pixelify Sans; body text stays in a clear face. */
+/* Digits only. Pixelify Sans draws 5 almost exactly like 8, which is unreadable on a score, so 0-9 come from Overpass
+   Mono and every letter stays in the pixel face. The range stops at the digits on purpose: pulling '.' and ',' in too
+   widened every period and comma in the skin. The file is Overpass Mono's 600 cut, so it is declared at 600. */
 @font-face {
   font-family: 'AeroDigits';
-  src: local('Overpass Mono'), local('OverpassMono-Regular'), local('Overpass Mono Regular'),
+  src: local('Overpass Mono SemiBold'), local('OverpassMono-SemiBold'), local('Overpass Mono'),
        url(https://fonts.gstatic.com/s/overpassmono/v21/_Xm5-H86tzKDdAPa-KPQZ-AC_COcRycquHlL6EUKpXz0VOvcT3IqP6o.woff2) format('woff2');
-  unicode-range: U+0030-0039, U+002E, U+002C;
+  unicode-range: U+0030-0039;
+  font-weight: 600;
   font-display: swap;
 }
 
@@ -17,8 +21,6 @@
   --ae-pink: #ff7fbf; --ae-pink-dark: #d94a92; --ae-gold: #ffd23f;
   --ae-glass-top: rgba(255, 255, 255, .9); --ae-glass-bot: rgba(214, 246, 255, .84);
   --ae-well: rgba(255, 255, 255, .62);
-  /* Pixelify Sans draws 5 almost exactly like 8, which is unreadable on a score. AeroDigits re-points 0-9 at Overpass
-     Mono (already loaded for the page) and leaves every letter in the pixel face. */
   --ae-pixel: 'AeroDigits', 'Pixelify Sans', 'Silkscreen', ui-monospace, monospace;
   --ae-body: 'Mukta', 'Segoe UI', sans-serif;
   /* the page's own tokens, re-pointed so older rules pick up the palette */

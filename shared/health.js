@@ -109,4 +109,3 @@ export function summarise(indicators, limit = 2) {
   return up.length ? `Better on ${names(up)}.` : `Worse on ${names(down)}.`;
 }
 
-export { scoreAgainst as compareRuns };

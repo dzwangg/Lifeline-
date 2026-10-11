@@ -64,7 +64,8 @@ export interface Metrics {
   // city-health indicators (shared/indicators.js): rentBurden and carShare are fractions, jobAccess an index (1 = today),
   // commuteCO2 tonnes a year
   rentBurden?: number; priceToIncome?: number; affordableHomes?: number; carShare?: number; jobAccess?: number; commuteCO2?: number;
-  // realIncome: median household income in year-0 dollars; taxBurden: property tax on the median home ÷ median income
+  // realIncome: median household income in year-0 dollars (context: it moves with who still lives here, not with earnings)
+  // taxBurden: the whole property tax bill on the median home — Town, county and school district — over median OWNER income
   realIncome?: number; taxBurden?: number;
 }
 

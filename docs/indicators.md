@@ -22,13 +22,15 @@ scorecard for US places (housing, transportation, environment, opportunity).
 |---|---|---|---|
 | Housing affordability | Can people afford a home here? | ★ renters paying 30%+ of income on rent · ★ home price to income · median rent · homes · ★ income-restricted homes added | lower · lower · lower · higher · higher |
 | Staying put | Can the people who live here stay? | households priced out · households | lower · context |
-| Local economy | Are there jobs and a lively downtown? | jobs · storefront businesses · downtown storefront vacancy · median home value | higher · higher · lower · context |
+| Local economy | Are there jobs and a lively downtown? | jobs · storefront businesses · downtown storefront vacancy · median home value · ★ median household income | higher · higher · lower · context · context |
 | Getting around | Can people reach work easily? | average commute · ★ access to jobs · bus ridership · car traffic | lower · higher · higher · lower |
 | Environment | Is the town getting greener or dirtier? | tree cover · ★ commute CO₂ · ★ commuters driving | higher · lower · lower |
-| Town finances | Can the Town pay for its services? | town budget impact · property tax revenue | higher · context |
+| Town finances | Can the Town pay for its services? | town budget impact · property tax revenue · ★ tax burden | higher · context · lower |
 
 "Context" numbers are worth seeing but are neither good nor bad by themselves. A rising home value makes owners richer
-and first homes dearer, and more households is just growth. A rating should not score them.
+and first homes dearer, and more households is just growth. Median household income is the subtlest of them: no policy
+card changes what anyone earns, so against a no-policy town it moves only with who is still living here, and it rises
+when the poorest households are forced out. A rating should not score any of them.
 
 ### Why each new one
 
@@ -59,5 +61,7 @@ already shows.
 ## The health rating
 
 Built: the score that reads these indicators is [health-score.md](health-score.md). It uses the `score` block on each
-indicator — which half it belongs to, the basis it is read in, the anchors that score 0 and 100, and its weight.
+indicator — which half it belongs to, the basis it is read in, the **swing** the score is built on, and its weight.
+(The `target` and `floor` anchors sit in the same block but the scorer does not read them; see
+[`health-score.md`](health-score.md).)
 Indicators with no `score` block are context and stay out of the number.

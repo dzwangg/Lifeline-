@@ -214,9 +214,11 @@ constants at the top of `sim/zone-layer.js`. Parcels a forecast converts in a la
 year comes; converted ones get the gold one.
 
 **Guided views** (`sim/focus.js`): `scenario.focus` is `null`, `'road'` (15-501 and its corridor parcels) or
-`'changes'` (the parcels converting next, by group). The camera flies there and back with `view.lookAt`, `zoomTo` and
-`rotate`. Applying a card with zone rules frames the parcels it converts, Play frames the changes when no view is on,
-and a changes view follows the conversions as the years play. `?demo` adds a "Demo scenario" button to the sim panel.
+`'changes'` (the parcels converting next). The camera flies there and back with `view.lookAt`, `zoomTo` and `rotate`.
+A changes view never zooms out past `LOD.furniture` (1.25 px/m), where every sprite layer draws, so it shows the felling
+and building rather than the far-out fills. It frames the window that holds the most of next year's conversions, and
+moves on, cluster by cluster, once they are built. Applying a card with zone rules frames the parcels it converts, and
+Play frames the changes when no view is on. `?demo` adds a "Demo scenario" button to the sim panel.
 
 **The before/after wipe** (`sim/wipe.js`): `view.split` (0 to 1 from the left, or `null`) draws the frame in two
 passes. Objects on layer 1 draw left of the split, objects on layer 2 right of it, and layer 0 on both; with no split,

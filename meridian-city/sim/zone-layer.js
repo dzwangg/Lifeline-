@@ -17,7 +17,8 @@ const STRIDE = 6; // a slot is x, z, rotation, width, height, depth
 // A conversion takes CONSTRUCT simulated years (about 2.7 s at 1x). Its steps, as shares of that time: each tree
 // falls at its own moment in FELL (taking FELL_FOR), stumps are cleared at CLEARED, the soil shows during DIRT, scaffolds
 // stand during SCAFFOLD (going up and down over POP), buildings rise during RISE, and new trees grow during GROW.
-const CONSTRUCT = .9, FELL = [0, .3], FELL_FOR = .06, CLEARED = .5, DIRT = [.15, .95], SCAFFOLD = [.3, .95], POP = .04, RISE = [.42, .9], GROW = [.5, .95];
+export const CONSTRUCT = .9; // shared with focus.js, which moves on once a conversion is done
+const FELL = [0, .3], FELL_FOR = .06, CLEARED = .5, DIRT = [.15, .95], SCAFFOLD = [.3, .95], POP = .04, RISE = [.42, .9], GROW = [.5, .95];
 const SCAFFOLD_W = 8; // metres: the scaffold sprite's drawn width, scaled to each building
 const HOUSE_TINTS = ['#ffffff', '#f3e6d0', '#e3ecd8', '#f0dfe6', '#dfe8f0'].map(c => new THREE.Color(c));
 const BLOCK_TINTS = ['#ffffff', '#f0e2cf', '#e6dcd2', '#f5ead8'].map(c => new THREE.Color(c));

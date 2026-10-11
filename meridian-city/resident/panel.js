@@ -175,7 +175,7 @@ export async function mountResidentPanel({ launch }) {
     head.replaceChildren(orb({ id: r.id, name: r.name, type: r.type }, true), h('div', { class: 'mr-who__text' },
       h('h3', {}, r.name), h('p', {}, r.id === 'you' ? `You rent ${ZONE[r.zone]}${r.mode === 'none' ? ' and work from home' : ` and get to work ${MODE[r.mode]}`}.`
         : `${TYPE[r.type]}. ${r.tenure === 'owner' ? 'Owns a home' : 'Rents'} ${ZONE[r.zone]} and ${WORK[r.work]}${r.work === 'remote' || !MODE[r.mode] ? '' : `, ${MODE[r.mode]}`}.`),
-      r.id !== 'you' && h('button', { type: 'button', class: 'mr-link', onclick: () => { hide(); scenario.set({ resident: r.id }); } }, 'Find on the map')));
+      r.id !== 'you' && h('button', { type: 'button', class: 'mr-link', onclick: () => { hide(); scenario.set({ resident: r.id }); dispatchEvent(new CustomEvent('prosperia:find', { detail: { id: r.id } })); } }, 'Find on the map')));
 
     // budget: a month in the chosen year, side by side
     const rows = [['Take-home pay', 'pay', 1], ['Housing', 'housing', -1], ['Commute', 'commute', -1], ['Everything else', 'basket', -1], ['Left over', 'net', 1]];

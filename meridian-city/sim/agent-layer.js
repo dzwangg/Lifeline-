@@ -187,6 +187,36 @@ export function mountAgentLayer({ world, osm, zones }) {
     if (run) syncWalkers(false);
   });
 
+  // Finding a resident ("Find on the map" in Meet the residents, the 'prosperia:find' event): the camera zooms in and
+  // flies to their walker (or their home while the walker is out of sight, in Durham or between a trip's ends), then
+  // keeps them in frame for a few seconds as they walk, until the player drags the map.
+  const FIND_MS = 1200, KEEP_S = 4, FIND_LEVEL = 6;
+  let seek = null;
+  const whereIs = id => {
+    const p = world.traffic?.sim.peds.find(q => q.resident === id && !q.removed && !(q.hidden > 0));
+    if (p) return [p.x, p.z];
+    const i = agents.findIndex(a => a.resident === id);
+    return i >= 0 ? pos[i] : null;
+  };
+  addEventListener('prosperia:find', e => {
+    const id = e.detail?.id;
+    if (id == null || !whereIs(id)) return;
+    view.zoomTo(Math.max(view.level, FIND_LEVEL));
+    seek = { id, x0: view.target.x, z0: view.target.z, p: 0, kept: 0 };
+  });
+  dom.addEventListener('pointerdown', () => { seek = null; }); // the player takes the camera back
+  onFrame(dt => {
+    if (!seek) return;
+    const at = whereIs(seek.id);
+    if (!at) { seek = null; return; }
+    if (seek.p < 1) {
+      seek.p = Math.min(1, seek.p + dt * 1000 / FIND_MS);
+      const p = seek.p, e = p < .5 ? 2 * p * p : 1 - (2 - 2 * p) ** 2 / 2;
+      view.lookAt(seek.x0 + (at[0] - seek.x0) * e, seek.z0 + (at[1] - seek.z0) * e);
+    } else if ((seek.kept += dt) < KEEP_S) view.lookAt(at[0], at[1]);
+    else seek = null;
+  });
+
   onFrame(() => {
     if (households) households.update(world.traffic.hour());
     if (run && view.ppm !== drawnPpm && !onHeads()) draw(); // at the homes, the dots change size with the zoom

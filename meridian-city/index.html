@@ -169,6 +169,7 @@ import { buildWorld } from './world/world.js';
 import { ZOOMS, DEFAULT_ZOOM } from './world/palette.js';
 import { zonesReady, mountZoneLayer } from './sim/zone-layer.js';
 import { mountAgentLayer } from './sim/agent-layer.js';
+import { mountEffectsLayer } from './sim/effects-layer.js';
 import { mountFocus } from './sim/focus.js';
 import { mountWipe } from './sim/wipe.js';
 import { mountBubbles } from './world/aero.js';
@@ -197,6 +198,7 @@ try {
 progress('Placing households…', .88); await frame();
 let t = performance.now();
 mountZoneLayer({ world, zones: ZONES });
+mountEffectsLayer({ world, zones: ZONES }); // what every other policy puts on the street (sim/effects-layer.js)
 mountAgentLayer({ world, osm: OSM, zones: ZONES });
 mountFocus({ world, osm: OSM, zones: ZONES });
 mountWipe({ world });

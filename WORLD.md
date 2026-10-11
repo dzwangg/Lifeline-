@@ -324,6 +324,23 @@ Predictions come from `predict(version, step)` in `scenario.js`, which currently
 forecast backend could answer the same call. Add `?latency=ms` to the page URL to simulate a slow backend and watch the
 clock hold.
 
+## Policy effects on the street
+
+Housing zone rules build neighbourhoods (zone-layer.js, "Planned development" below). Every other policy shows through
+`sim/effects-layer.js`, from `run.effects`: `shared/effects.js` `effectSeries()` turns each forecast into a count per
+effect kind per year, and the sim worker sends it with the run. Each lever in `shared/luti/levers.js` feeds at least one
+kind (`tests/effects.test.js` checks this), so drafted cards show too. Things the town builds or charges (bike lanes,
+meters, a civic project) follow the cards' lever schedule; what people and businesses do (shops reopening, homes
+selling, cyclists, building) is CH-LUTI's central run against the same run without the cards, summed so far for
+flows. A kind shows only when one of the cards pulls a lever that feeds it, so the map credits each item to a card.
+
+Each kind has a fixed, ranked list of spots (door fronts, open ground beside buildings, kerbs, forest edges, bike
+routes), so items appear in the same places in every year and forecast. A year the clock plays into brings the new ones
+in one by one over the year; a seek shows its year at once. Items draw on layer 2 only, so the wipe's year-0 side has
+none. Signs and props are sprites in `sprite-art.js` (openSign, forLease, nowHiring, sold, forSale, crane, parkingLot,
+…); cyclists and buses at stops are vehicles from `traffic.vehicleMesh(kind, count)`, moved by the layer itself, not
+the street sim. Hovering an item names the cards behind it. `?debug` exposes `world.effects` (`counts()`, `state`).
+
 ## Planned development
 
 `meridian-city/growth/` turns the sim's parcel conversions into neighbourhoods that extend the streets around them,

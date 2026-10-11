@@ -51,7 +51,7 @@ function strip(b, r, o0, o1, y, c, uvMode, tile = 1) {
 
 // Walks a polyline in steps, calling f(x, z, ux, uz, s) except within `trim` metres of either end
 // when that end is a junction.
-function along(r, step, trimStart, trimEnd, f, start = 0) {
+export function along(r, step, trimStart, trimEnd, f, start = 0) {
   let total = 0;
   for (let i = 0; i + 2 < r.length; i += 2) total += Math.hypot(r[i + 2] - r[i], r[i + 3] - r[i + 1]);
   let s0 = 0;

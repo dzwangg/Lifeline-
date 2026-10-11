@@ -244,6 +244,91 @@ export function spriteAtlas() {
     for (const j of [6, 14, 22]) { p.rect(x, y + j, 40, 1, P.woodLight); p.rect(x, y + j + 1, 40, 1, P.wood); }
     outline(p, x - 1, y - 1, 42, 26);
   });
+  // ---------- what policies put on the street (sim/effects-layer.js, shared/effects.js) ----------
+  // A 3x5 pixel font for the few words signs carry.
+  const GLYPH = {
+    A: '010101111101101', B: '110101110101110', D: '110101101101110', E: '111100110100111', F: '111100110100100', G: '011100101101011',
+    H: '101101111101101', I: '111010010010111', L: '100100100100111', N: '101111111111101', O: '010101101101010', P: '110101110100100',
+    R: '110101110101101', S: '011100010001110', W: '101101111111101', $: '010111110011111', '!': '010010010000010',
+  };
+  const text = (x, y, s, c) => { for (const ch of s) { const g = GLYPH[ch]; if (g) for (let k = 0; k < 15; k++) if (g[k] === '1') p.set(x + k % 3, y + Math.floor(k / 3), c); x += 4; } };
+  const post = (x, y, h, c = '#7a8288') => p.rect(x, y, 1, h, c);
+  // A board on a post: w x h px board in `bg`, a one-pixel `edge` band, `word` in `fg`, the post below to the ground.
+  const board = (name, w, word, bg, fg, edge = bg, postH = 6) => add(name, w + 2, 7 + postH, (x, y) => {
+    post(x + Math.floor(w / 2) + 1, y + 7, postH);
+    p.rect(x, y, w + 2, 7, edge); p.rect(x + 1, y + 1, w, 5, bg);
+    text(x + 1 + Math.floor((w - (word.length * 4 - 1)) / 2), y + 1, word, fg);
+    outline(p, x - 1, y - 1, w + 4, 9 + postH);
+  });
+  board('openSign', 17, 'OPEN', '#1d2b3a', '#6dff8a', '#2f4a3a');
+  board('forLease', 21, 'LEASE', P.paper, '#c8322a', '#c8322a');
+  board('nowHiring', 25, 'HIRING', P.goldLight, P.ink, P.goldDark);
+  board('forSale', 17, 'SALE', P.paper, '#c8322a', '#c8322a', 5);
+  board('sold', 17, 'SOLD', '#2f5f8f', P.paper, '#1f3f6a', 5);
+  board('parkSign', 9, 'P$', '#2f5f8f', P.paper, P.paper, 8);
+  board('freePark', 5, 'P', '#3f9136', P.paper, P.paper, 8);
+  board('fastTrack', 17, 'FAST', '#3f9136', P.paper, '#25803a', 4);
+  board('trainingSign', 21, 'JOBS!', '#2a78b4', P.goldLight, '#1f5f8f');
+  // Bunting over a new shop's door: pennants on a line, and a small NEW plate.
+  add('grandOpening', 24, 9, (x, y) => {
+    const C = ['#c8322a', P.goldLight, '#3f9fd8', '#6fd04a', P.blossom];
+    p.rect(x, y, 24, 1, '#5e3a22');
+    for (let i = 0; i < 6; i++) { const c = C[i % C.length]; for (let j = 0; j < 3; j++) p.rect(x + i * 4 + j, y + 1, 3 - j * 2 > 0 ? 3 - j * 2 : 1, 1, c), p.rect(x + i * 4 + 1, y + 1 + j, 1, 1, c); }
+    p.rect(x + 5, y + 4, 14, 5, P.gold); text(x + 6, y + 4, 'NEW', '#c8322a'); text(x + 18 - 3, y + 4, '!', '#c8322a');
+    outline(p, x - 1, y - 1, 26, 11);
+  });
+  add('affordableFlag', 10, 22, (x, y) => { // a teal flag with a house on it
+    post(x, y, 22, '#5e666b');
+    p.rect(x + 1, y + 1, 9, 7, '#1fae9a'); p.rect(x + 1, y + 1, 9, 1, '#5fe0cc');
+    p.rect(x + 4, y + 4, 3, 3, P.paper); p.set(x + 5, y + 2, P.paper); p.rect(x + 4, y + 3, 3, 1, P.paper); p.set(x + 5, y + 6, '#1fae9a');
+    outline(p, x - 1, y - 1, 12, 24);
+  });
+  add('permitPending', 18, 9, (x, y) => { // a sawhorse barrier in orange and white
+    for (let i = 0; i < 18; i++) { p.set(x + i, y, (i >> 1) % 2 ? P.paper : '#ff7a1a'); p.set(x + i, y + 1, (i >> 1) % 2 ? P.paper : '#ff7a1a'); p.set(x + i, y + 2, (i >> 1) % 2 ? '#d8d2c6' : '#d95f12'); }
+    for (const lx of [1, 15]) { p.rect(x + lx, y + 3, 1, 6, '#5e3a22'); p.rect(x + lx + 1, y + 3, 1, 6, '#5e3a22'); }
+    outline(p, x - 1, y - 1, 20, 11);
+  });
+  add('parkingMeter', 3, 9, (x, y) => { p.rect(x, y, 3, 3, '#5e666b'); p.set(x + 1, y + 1, '#9fd0e6'); p.rect(x + 1, y + 3, 1, 6, '#3a3a3a'); outline(p, x - 1, y - 1, 5, 11); });
+  add('zoningNotice', 13, 15, (x, y) => { // a public notice: taller buildings allowed here
+    post(x + 3, y + 9, 6); post(x + 9, y + 9, 6);
+    p.rect(x, y, 13, 9, '#ff9f1a'); p.rect(x + 1, y + 1, 11, 7, P.paper);
+    p.rect(x + 2, y + 4, 3, 4, P.charcoal); p.rect(x + 6, y + 2, 3, 6, P.charcoal); p.rect(x + 10, y + 5, 1, 3, P.charcoal); p.set(x + 7, y + 1, '#c8322a');
+    outline(p, x - 1, y - 1, 15, 17);
+  });
+  add('aidBanner', 26, 9, (x, y) => { // a community aid office's banner: a heart
+    p.rect(x, y, 26, 9, '#e46aae'); p.rect(x + 1, y + 1, 24, 7, '#ff9ed6');
+    const H = '0110110111111111111101111100011100000100'; // 8 x 5 heart
+    for (let k = 0; k < 40; k++) if (H[k] === '1') p.set(x + 9 + k % 8, y + 2 + Math.floor(k / 8), '#c02e5c');
+    outline(p, x - 1, y - 1, 28, 11);
+  });
+  add('forestSign', 15, 13, (x, y) => { // "protected forest": a carved wooden sign with a pine
+    post(x + 2, y + 7, 6, P.woodDark); post(x + 12, y + 7, 6, P.woodDark);
+    p.rect(x, y, 15, 8, P.wood); p.rect(x + 1, y + 1, 13, 6, P.woodLight);
+    for (let j = 0; j < 5; j++) p.rect(x + 7 - Math.floor(j / 2), y + 1 + j, 1 + 2 * Math.floor(j / 2), 1, P.pineDark); p.set(x + 7, y + 6, P.woodDark);
+    outline(p, x - 1, y - 1, 17, 15);
+  });
+  add('fence', 12, 5, (x, y) => { for (const fx of [0, 11]) p.rect(x + fx, y, 1, 5, P.woodDark); p.rect(x, y + 1, 12, 1, P.woodLight); p.rect(x, y + 3, 12, 1, P.wood); });
+  add('serviceCut', 9, 13, (x, y) => { // a bus stop sign crossed out
+    post(x + 4, y + 7, 6); p.rect(x, y, 9, 7, P.paper); p.rect(x + 2, y + 2, 5, 3, '#2f5f8f');
+    for (let k = 0; k < 7; k++) { p.set(x + 1 + k, y + k, '#c8322a'); p.set(x + 7 - k, y + k, '#c8322a'); }
+    outline(p, x - 1, y - 1, 11, 15);
+  });
+  add('civicBanner', 30, 9, (x, y) => { p.rect(x, y, 30, 9, P.goldDark); p.rect(x + 1, y + 1, 28, 7, P.gold); text(x + 3, y + 2, 'NEW', P.ink); text(x + 16, y + 2, 'OPEN', P.ink); outline(p, x - 1, y - 1, 32, 11); });
+  // A tower crane: a lattice mast, a jib with a hook, and a counterweight.
+  add('crane', 34, 72, (x, y) => {
+    const Y1 = P.gold, Y2 = P.goldDark, mx = x + 12;
+    for (let j = 8; j < 70; j++) { p.set(mx, y + j, Y1); p.set(mx + 3, y + j, Y2); if (j % 4 === 0) p.rect(mx, y + j, 4, 1, Y2); p.set(mx + 1 + (j % 4 > 1 ? 1 : 0), y + j, Y2); }
+    p.rect(x, y + 6, 34, 2, Y1); p.rect(x, y + 8, 34, 1, Y2); for (let i = 0; i < 34; i += 3) p.set(x + i, y + 7, Y2);
+    p.rect(x + 1, y + 9, 6, 4, P.charcoal); p.rect(mx - 1, y + 2, 6, 4, P.charcoalLight); p.rect(mx, y + 3, 4, 2, P.glassLight);
+    p.rect(x + 28, y + 9, 1, 18, '#3a3a3a'); p.rect(x + 27, y + 27, 3, 2, '#3a3a3a');
+    p.rect(mx - 2, y + 69, 8, 3, P.stoneDark);
+    outline(p, x - 1, y - 1, 36, 74);
+  });
+  // Flat on the ground (decal): a small parking lot, its stalls striped in white.
+  add('parkingLot', 40, 26, (x, y) => {
+    p.rect(x, y, 40, 26, P.asphalt); p.rect(x, y, 40, 1, P.curb); p.rect(x, y + 25, 40, 1, P.curb); p.rect(x, y, 1, 26, P.curb); p.rect(x + 39, y, 1, 26, P.curb);
+    for (let i = 3; i < 38; i += 6) { p.rect(x + i, y + 2, 1, 9, P.lineWhite); p.rect(x + i, y + 15, 1, 9, P.lineWhite); }
+  });
   add('shadow', 16, 8, (x, y) => { for (let j = 0; j < 8; j++) for (let i = 0; i < 16; i++) { const d = ((i - 7.5) / 8) ** 2 + ((j - 3.5) / 4) ** 2; if (d < 1 && (d < .55 || (i + j) % 2)) p.set(x + i, y + j, '#000000'); } });
 
   // ---------- people: two-frame walk cycle ----------

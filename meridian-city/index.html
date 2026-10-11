@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;800&family=Overpass+Mono:wght@400;600&family=Mukta:wght@400;600;700;800&family=Pixelify+Sans:wght@400;600;700&display=swap">
 <link rel="stylesheet" href="policy/policy-panel.css">
 <link rel="stylesheet" href="sim/sim-plate.css">
+<link rel="stylesheet" href="policy/ask-bar.css">
 <link rel="stylesheet" href="world/retro-ui.css">
 <link rel="stylesheet" href="world/start-screen.css">
 <style>
@@ -120,6 +121,7 @@ import { cardsReady, panelPolicies, demoMode } from './sim/scenario.js';
 import { CATEGORIES, slotsOf } from './policy/policies.js';
 import { mountSimPlate } from './sim/sim-plate.js';
 import { mountClockBar } from './sim/clock-bar.js';
+import { mountAskBar } from './policy/ask-bar.js';
 import { createGame } from './sim/turns.js';
 
 const cards = await cardsReady; // policy cards from data/policies/ join the hardcoded policies in the panel
@@ -144,6 +146,7 @@ store.subscribe(showCount);
 game.subscribe(showCount);
 window.policyStore = store; // the simulation reads store.getState().applied once it models effects
 mountClockBar(); // starts paused, so policies can be set up before Play
+mountAskBar({ store, cards, game }); // before the sim plate, so cards drafted on an earlier visit are in the deck
 mountSimPlate({ policyStore: store, cards, game });
 // ?forecast adds the forecast dock (meridian-city/forecast/: the backend's forecasts, or its precomputed demos when no
 // server answers) and its housing markers on the map. Opt-in while the dock is new, so the default page is unchanged.
@@ -192,7 +195,6 @@ progress('Placing households…', .88); await frame();
 let t = performance.now();
 mountZoneLayer({ world, zones: ZONES });
 mountAgentLayer({ world, osm: OSM, zones: ZONES });
-world.trafficReady.then(traffic => $('clock').setHour(traffic.hour)); // the street's time of day, under the date (clock-bar.js)
 mountFocus({ world, osm: OSM, zones: ZONES });
 mountWipe({ world });
 timings.simLayers = Math.round(performance.now() - t);

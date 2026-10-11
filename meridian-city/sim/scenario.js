@@ -49,7 +49,8 @@ export const DECADE = 10, TURNS = 3; // a forecast is a decade; a game is three 
 // household picked on the map; focus and focusZones, the guided view (focus.js): null, 'road' or 'changes', and the
 // parcels a 'changes' view frames (null: all the forecast converts); wipe, the before/after split screen is on;
 // luti, CH-LUTI's 200-run ranges and "why" traces (shared/luti/run.js runScenario).
-let state = { cards: [], params: {}, years: DECADE, starts: {}, version: 0, result: null, resident: null, focus: null, focusZones: null, wipe: false, luti: null };
+// drivers: scenario what-ifs (shared/luti/drivers.js), set by a prompt; an input like cards and params.
+let state = { cards: [], params: {}, drivers: {}, years: DECADE, starts: {}, version: 0, result: null, resident: null, focus: null, focusZones: null, wipe: false, luti: null };
 const listeners = new Set();
 export const scenario = {
   get: () => state,
@@ -57,7 +58,7 @@ export const scenario = {
   set(patch) {
     // View state (a picked resident, the camera) keeps the forecast, and so does re-sending the same cards.
     const ids = cards => cards.map(c => c.id).join();
-    const input = ('cards' in patch && ids(patch.cards) !== ids(state.cards)) || 'params' in patch
+    const input = ('cards' in patch && ids(patch.cards) !== ids(state.cards)) || 'params' in patch || 'drivers' in patch
       || ('years' in patch && patch.years !== state.years) || ('starts' in patch && JSON.stringify(patch.starts) !== JSON.stringify(state.starts));
     state = { ...state, ...patch, version: state.version + (input ? 1 : 0) };
     listeners.forEach(fn => fn(state));
@@ -113,7 +114,7 @@ function rerun() {
 }
 async function send(version) { // the worker job for the current inputs
   const [zones, assumptions, baselines] = await dataReady;
-  if (version === state.version) runSim({ version, cards: state.cards, params: state.params, years: state.years, starts: state.starts, zones, assumptions, baselines });
+  if (version === state.version) runSim({ version, cards: state.cards, params: state.params, drivers: state.drivers, years: state.years, starts: state.starts, zones, assumptions, baselines });
 }
 // One run at a time in the worker; while it is busy only the newest request waits, and older answers are dropped.
 const simWorker = new Worker(new URL('./sim-worker.js', import.meta.url), { type: 'module' });
@@ -131,7 +132,7 @@ simWorker.onmessage = async ({ data: { version, run, luti, error } }) => {
   runFor(version).resolve(run);
   scenario.set({ result: run.result });
   const [, assumptions, baselines] = await dataReady;
-  runLuti({ ...luti, assumptions, baselines });
+  runLuti({ ...luti, version, assumptions, baselines });
 };
 simWorker.onerror = e => {
   simBusy = false;
@@ -150,7 +151,8 @@ export const predict = async (version, step) => {
 };
 
 // CH-LUTI runs 2 × 200 simulations (about a second), in a worker. While one run is busy only the newest request waits,
-// and a result that a newer request has made stale is dropped.
+// and a result that a newer request has made stale is dropped, as is one for an older version of the scenario (other
+// cards, sliders or what-ifs), so ranges and traces never sit beside results they weren't run for.
 const lutiWorker = new Worker(new URL('./luti-worker.js', import.meta.url), { type: 'module' });
 let lutiBusy = false, lutiNext = null;
 function runLuti(job) {
@@ -161,7 +163,7 @@ function runLuti(job) {
 lutiWorker.onmessage = ({ data }) => {
   lutiBusy = false;
   if (lutiNext) { const job = lutiNext; lutiNext = null; return runLuti(job); }
-  scenario.set({ luti: data });
+  if (data.version === state.version) scenario.set({ luti: data });
 };
 lutiWorker.onerror = e => { lutiBusy = false; console.warn('CH-LUTI did not run, so its metrics stay empty.', e); };
 rerun(); // the baseline, before any card is applied

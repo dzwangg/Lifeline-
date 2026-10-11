@@ -35,6 +35,13 @@ const METRICS = {
   netFiscal: { meaning: "the Town's yearly budget net of policy costs: tax revenue minus programme costs and the cost of serving added residents, in dollars", label: 'the town budget, net', fmt: n => `$${fmtNum(n / 1e6, { maximumFractionDigits: 1 })} million` },
   transitRidership: { meaning: 'bus trips a year', label: 'bus trips a year', plural: true, fmt: about },
   trafficIndex: { meaning: 'peak car traffic, in percent above year 0', label: 'car traffic', fmt: n => `${fmtNum(n, { maximumFractionDigits: 1 })}% above year 0`, pct: true, toInput: v => Math.round((v - 1) * 1000) / 10 },
+  // city-health indicators (shared/indicators.js)
+  rentBurden: { meaning: 'share of renter households paying 30% or more of their income in rent, in percent', label: 'renters paying 30% or more of income in rent', fmt: n => `${fmtNum(n, { maximumFractionDigits: 1 })}%`, pct: true, toInput: v => Math.round(v * 1000) / 10 },
+  priceToIncome: { meaning: 'median home value divided by median household income (years of income a home costs)', label: 'home price to income', fmt: n => `${fmtNum(n, { maximumFractionDigits: 1 })} years of income` },
+  affordableHomes: { meaning: 'income-restricted homes added by policy, renting below market', label: 'income-restricted homes', plural: true, fmt: about },
+  carShare: { meaning: 'share of commuters who drive, in percent', label: 'commuters driving', fmt: n => `${fmtNum(n, { maximumFractionDigits: 1 })}%`, pct: true, toInput: v => Math.round(v * 1000) / 10 },
+  jobAccess: { meaning: 'jobs residents can reach in a typical commute, in percent above year 0', label: 'access to jobs', fmt: n => `${fmtNum(n, { maximumFractionDigits: 1 })}% above year 0`, pct: true, toInput: v => Math.round((v - 1) * 1000) / 10 },
+  commuteCO2: { meaning: 'carbon dioxide from car commutes to, from and within town, in tonnes a year', label: 'commute CO2', fmt: n => `${about(n)} tonnes a year` },
 };
 // The panel's six headline metrics: the template recap covers these, and Gemini is told to focus on them.
 const HEADLINE = ['medianRent', 'pricedOut', 'housingUnits', 'treeCoverPct', 'avgCommuteMin', 'netFiscal'];

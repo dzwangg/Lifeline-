@@ -8,7 +8,7 @@ export function createPolicyStore({
   categories = CATEGORIES,
   policies = POLICIES,
   slots = SLOTS,
-  scenarioName = 'Chapel Hill–Durham baseline',
+  scenarioName = 'My Chapel Hill plan',
 } = {}) {
   const policyById = new Map(policies.map(p => [p.id, p]));
   const slotById = new Map(slots.map(s => [s.id, s]));

@@ -17,7 +17,34 @@ A draft is used only when all of these hold:
 - At its default params it changes at least one metric over 10 years. A card with protect rules may instead block a conversion by a catalog card, since protecting land changes nothing on its own.
 - Its title, summary, pros and cons contain no numbers from outside the card's settings or the idea, and no evaluative words.
 
-A failed draft gets one retry, with the problems fed back to Gemini. Param defaults are clamped onto their sliders. Evidence is kept only when it is copied from an existing card.
+A failed draft gets one retry, with the problems fed back to Gemini. Param defaults are clamped onto their sliders. Evidence is kept only when it is copied from an existing card. A lever set past what a town could plausibly do (`LEVER_LIMITS` in `shared/luti/levers.js`, for example ±25¢ on the tax rate or at most 3× bus service) fails the checks too.
+
+### Asking the city (Gemini, in the game)
+
+The "Ask the city" bar (`meridian-city/policy/ask-bar.js`) sends whatever the player types to `POST /api/ask` with `{ prompt, active, drivers }`, where `active` lists the applied cards and their slider values and `drivers` the current what-ifs. Gemini decides what the prompt is, and the page applies the answer at once:
+
+| Kind | What comes back | What the page does |
+|---|---|---|
+| `policy` | a card, drafted and checked exactly as above, then capped to `LEVER_LIMITS` and refused if its costliest year passes half the general fund | adds it to the deck, puts it in its category's first empty slot (or the first slot), applies it, and keeps it in the browser, signed |
+| `adjust` | `[{ cardId, param, value }]` for applied cards, clamped to each slider | moves those sliders |
+| `scenario` | `drivers` (below), clamped to their bounds | sets the what-ifs |
+| `question` | a short answer, with no forecast | shows it |
+| `refuse` | `{ kind, reason, alternative }`: `outside_area`, `sets_outcome`, `coercive`, `beyond_powers`, `impossible_scale`, `not_modeled`, `not_policy` | shows why, and what to try instead |
+
+Some prompts never reach Gemini. Acting on a place outside Chapel Hill ("unlock Durham", "build homes in Carrboro") or expanding the map is refused. So is forcing people out or in ("force 20,000 residents to leave"), or decreeing a number the simulator computes ("set rent to $900"). Plain what-ifs ("what if inflation is 6%?", "use the Fed's inflation projection", "UNC grows 3% a year", "construction costs rise 20%") are read without Gemini, so they work with no API key. Every answer can be undone. Answers are cached per server instance by prompt, applied cards and drivers.
+
+### Scenario drivers (what-ifs)
+
+Drivers (`shared/luti/drivers.js`) change the world around the town rather than town policy, so they apply to the no-policy run and the policy run alike, and a policy is still compared with doing nothing under the same conditions.
+
+| Driver | Unit | Bounds | What it does |
+|---|---|---|---|
+| `inflation` | % a year, or `"fed"` | -2 to 15 | One rate that market rents, home values, incomes, construction and land costs, and the Town's sales tax, service and transit costs all follow. The model's own growth rates carry `lutiCpi` (2.3%); a driver shifts each by its difference, one for one. `"fed"` follows the FOMC's September 2026 median PCE projection: 3.7%, 2.3%, 2.1%, then 2.0%. Policy dollar amounts stay as written, so inflation erodes them. |
+| `uncJobsGrowth` | % a year | -5 to 6 | Replaces the growth of UNC, health and office jobs. |
+| `regionalGrowth` | % a year | -3 to 6 | Replaces the growth of households looking to live in the area. |
+| `constructionCost` | % change | -30 to 60 | Shifts building costs once, for example tariffs. |
+
+The results dashboard lists the active what-ifs (each with a button to clear it) and can show dollar amounts in today's dollars, divided by the inflation since year 0.
 
 `signature` is an HMAC of the card made with `CARD_SIGNING_KEY`. `/api/narration` reads a player card's text only when the card comes back with a valid signature and still validates; any other player card is narrated by the template as "a proposed policy". The page keeps player cards in localStorage (`meridian-city/policy/player-cards.js`).
 
@@ -92,12 +119,28 @@ A lever is an input of the CH-LUTI model (`shared/luti/`): the town economy, tra
 | `housing.subsidyPerUnit` | dollars per new home | sum |
 | `housing.subsidyCap` | dollars a year | sum |
 | `housing.farMultiplier` | times today's floor area, zoned | product |
-| `housing.parkingMinimum` | spaces per new home, zoned | the lowest; never raises today's minimum |
+| `housing.parkingMinimum` | spaces per new home, zoned | the highest; never lowers today's (none since January 2026, so builders build the market's 0.85 a home) |
 | `housing.planningCost` | dollars, once | sum, paid in the start quarter |
 | `tax.rateDelta` | cents per $100 of value | sum |
 | `tax.storefrontVacancyTax` | % of value a year | sum |
 | `transit.serviceMultiplier` | times today's bus service | product |
 | `transport.protectedBikeKm` | km | sum |
+| `housing.inclusionaryPct` | % of new homes that rent below market | sum (at most 90%) |
+| `housing.impactFee` | dollars per new home | sum |
+| `housing.approvalMonths` | months of permit approval, negative is faster | sum |
+| `transit.busSpeedMultiplier` | times today's bus speed in town (bus lanes, signal priority) | product |
+| `transport.parkingPriceDelta` | dollars a day at Town-run parking downtown | sum |
+| `budget.annualCost` | dollars a year, for a programme the model has no other lever for | sum |
+| `budget.oneTimeCost` | dollars, once | sum, paid in the start quarter |
+
+These economic and social levers are **prompt-only**: no catalog card uses them, but a card Gemini drafts from a prompt can.
+The household model applies them to households one by one.
+
+| Lever | Unit | Adds up across cards how |
+|---|---|---|
+| `assistance.rentHouseholds`, `assistance.rentMonthly` | households; dollars a month each | sum. A pair (social): rental assistance paying each household's rent above 30% of its income, up to the monthly amount. Places go to the non-student renters paying the most of their income in rent; a household keeps its place while it lives here |
+| `assistance.cashHouseholds`, `assistance.cashMonthly` | households; dollars a month each | sum. A pair (social): monthly cash added to income, placed the same way |
+| `workforce.trainees` | residents trained a year | sum (economic). Places go to the lowest-income non-student renters; from the year after, their income is 20% higher (Katz et al. 2022: 12-34%). $23,135 each (Year Up's net cost) |
 
 ```json
 "params": [{ "key": "cents_per_100", "label": "Change to the rate", "min": -10, "max": 10, "default": -4, "unit": "¢ per $100" }],
@@ -178,7 +221,7 @@ Only the `SimResult` returned directly by `runScenario` carries the aggregate re
 - **One growth path.** With no policy, CH-LUTI grows the town: homes from construction calibrated to the 2015-2025 Census Building Permits Survey (about 334 a year), households from the 2010-2020 Census household growth (`lutiRegionalGrowth`) and job growth. The household model gets the same homes and fills the town to CH-LUTI's household count, so both models grow alike.
 - **Rent and commute** are CH-LUTI's (rents include regional rent inflation). Each simulated household's rent and commute follow CH-LUTI's path for its zone, and incomes grow as CH-LUTI's do (`lutiIncomeGrowth`).
 - **Priced out** counts households living in town in year 0 that have left by the shown year. Each year a renter may leave, with a chance that grows with how far their rent burden has risen above 30% since they arrived (`agentLeaveRate`), so it follows rent rising faster than income. Newcomers can leave too (they fade out on the map) but aren't counted.
-- **Homes** are today's 23,713, plus that growth, plus the homes your zone rules build (each parcel feeds the CH-LUTI zone it lies in, a quarter of each year's homes per quarter), plus homes lever cards add. New homes can crowd out a little other building, so the total can rise less than a card's own homes.
+- **Homes** are today's 23,581, plus that growth, plus the homes your zone rules build (each parcel feeds the CH-LUTI zone it lies in, a quarter of each year's homes per quarter), plus homes lever cards add. New homes can crowd out a little other building, so the total can rise less than a card's own homes.
 - **Property tax revenue** is homes × `medianHomeValue` × (`propertyTaxRate` + the tax card's change), in today's dollars. The town budget line uses the same number.
 - **The household model** places your rules' homes by parcel: corridor parcels in a corridor zone (no extra trip on 15-501), other `map_edge` parcels at the edge (they commute over 15-501), the rest (core woods and parking lots) downtown. CH-LUTI's other new homes go by its zone: east and south to the edge, the rest in town. For CH-LUTI, `map_edge` and corridor parcels feed its east or south zone (the 15-501 side), the others the zone they lie in.
 - **Changes in points.** Tree cover, storefront vacancy and car traffic deltas also carry `changePts`, the change in percentage points, as the panel shows them.
@@ -186,7 +229,7 @@ Only the `SimResult` returned directly by `runScenario` carries the aggregate re
 
 ## How CH-LUTI runs levers
 
-CH-LUTI simulates 40 quarters from 2027 in five zones, and 40 more for each later turn of a game (`meridian-city/sim/turns.js`), where a card enacted in a later turn starts in that decade: its timing counts from the decade's first quarter, and its zone rules from the decade's first year. The `SimResult` uses its run at central parameters. It also runs 200 times with its uncertain parameters drawn from their ranges, with and without the active cards' levers and zone-rule homes, which gives the range the middle 80% of changes fall in (P10 to P90) and a "why" trace; the page keeps these but doesn't show them (`DETAILS` in `meridian-city/sim/sim-plate.js`). Its year 0 is `data/baselines.json`: homes, population, median gross rent, mean commute and median home value. Its unsourced constants are the `luti*` entries in `data/assumptions.json`. See `shared/luti/model.js`.
+CH-LUTI simulates 40 quarters from 2027 in five zones, and 40 more for each later turn of a game (`meridian-city/sim/turns.js`), where a card enacted in a later turn starts in that decade: its timing counts from the decade's first quarter, and its zone rules from the decade's first year. The `SimResult` uses its run at central parameters. It also runs 200 times with its uncertain parameters drawn from their ranges, with and without the active cards' levers and zone-rule homes, which gives the range the middle 80% of changes fall in (P10 to P90) and a "why" trace; the results dashboard (`meridian-city/sim/sim-plate.js`) shows both. Scenario drivers apply to all of these runs. Its year 0 is `data/baselines.json`: homes, population, median gross rent, mean commute and median home value. Its unsourced constants are the `luti*` entries in `data/assumptions.json`. See `shared/luti/model.js`.
 
 ## capParam
 

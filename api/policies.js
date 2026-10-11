@@ -17,7 +17,7 @@ import { AI_PAUSED, aiLimiter, badNumbers, clientIp, evaluativeWords, gemini, ha
 import { ZONE_STATES, matchesWhere, validateCard } from '../shared/schema.js';
 import { runCombined, runModels } from '../shared/combined.js';
 import { runScenario } from '../shared/sim.js';
-import { LEVERS } from '../shared/luti/levers.js';
+import { LEVERS, LEVER_LIMITS } from '../shared/luti/levers.js';
 import { ZONES as LUTI_ZONES, ZONE_IDS as LUTI_ZONE_IDS } from '../shared/luti/data.js';
 import { CATEGORIES, ICONS } from '../meridian-city/policy/policies.js';
 
@@ -40,7 +40,7 @@ export function loadContext() {
 const S = { type: 'STRING' }, N = { type: 'NUMBER' }, I = { type: 'INTEGER' }, list = items => ({ type: 'ARRAY', items });
 const one = values => ({ type: 'STRING', enum: values });
 const obj = (properties, required = Object.keys(properties)) => ({ type: 'OBJECT', properties, required });
-const CARD_SCHEMA = obj({
+export const CARD_SCHEMA = obj({
   id: S, title: S, summary: S, category: one(CATEGORIES.map(c => c.id)), icon: one(Object.keys(ICONS)),
   decider: obj({ body: S, how: list(S) }),
   params: list(obj({ key: S, label: S, min: N, max: N, default: N, unit: S, step: N }, ['key', 'label', 'min', 'max', 'default', 'unit'])),
@@ -61,7 +61,7 @@ const evidenceLibrary = catalog => [...new Map([...catalog.values()].flatMap(c =
 
 // Kept short, since every draft pays for it in input tokens: the woods' 30 tags as one line, examples without their
 // evidence and with one step, pro and con each, and the evidence as numbered claims without URLs.
-function systemPrompt({ zones, catalog }) {
+export function systemPrompt({ zones, catalog }) {
   const cards = [...catalog.values()], all = [...new Set(zones.flatMap(z => z.tags))].sort();
   const acres = tag => Math.round(zones.filter(z => z.tags.includes(tag)).reduce((n, z) => n + z.areaAcres, 0));
   const woods = all.filter(t => /^wood-\d+$/.test(t));
@@ -79,11 +79,11 @@ What the simulator can represent, and nothing else:
 1. zoneRules change mapped parcels. Today each parcel is either forest or a parking lot. where is "all" or "tag:<tag>" with one of these tags: ${tags.join('; ')}. Woods: map_edge is forest at the town's edge on the 15-501 side, corridor is forest within 150 m of 15-501, and wood-NN are the woods inside town. Parking lots (OpenStreetMap): parking is every lot, near_campus a lot within 100 m of a UNC, dormitory or hospital building, downtown a lot within 100 m of the Franklin Street shops.
    - A conversion rule { where, from, to, ratePerYear, capParam?, protect: "" } turns matching parcels in state from ("forest" or "parking") into to (low_res, mid_res, mixed_use, parking or transit_station) over 10 years. ratePerYear is the share of the matching parcels converted each year (above 0, at most 1). capParam names a param (in acres) that caps the acres converted. A param in acres is only used through a rule's capParam. Write each rule once: one per tag and change.
    - A protect rule { where, protect, from: "", to: "", ratePerYear: 0 } keeps every matching parcel in that state while the card is applied: no card converts it. With nothing else converting it, it changes no number on its own; it matters alongside cards that would build there.
-2. levers set one of these town-wide or zone-level inputs of the land-use and transport model: ${levers.join('; ')}. A lever takes a fixed "value" or a "param" (a slider the player sets), never both. An amount adds to today (0 = no change), a multiplier scales today (1 = no change), a cap limits today's value. Values are signed and used as is: a cut or reduction is a negative amount (a 3¢ tax cut is -3), and a param that feeds a lever is that value, so its label, range and default use the same sign. Give each lever a direction, "increase" or "decrease": what the idea asks for that input, from its own words. Zoned levers may list zones from: ${LUTI_ZONES.map(z => `${z.id} (${z.label})`).join(', ')}; without zones they apply everywhere.
+2. levers set one of these town-wide or zone-level inputs of the land-use and transport model: ${levers.join('; ')}. A lever takes a fixed "value" or a "param" (a slider the player sets), never both. An amount adds to today (0 = no change), a multiplier scales today (1 = no change), a cap limits today's value, a floor sets a minimum. Values are signed and used as is: a cut or reduction is a negative amount (a 3¢ tax cut is -3), and a param that feeds a lever is that value, so its label, range and default use the same sign. Give each lever a direction, "increase" or "decrease": what the idea asks for that input, from its own words. Zoned levers may list zones from: ${LUTI_ZONES.map(z => `${z.id} (${z.label})`).join(', ')}; without zones they apply everywhere.
 3. timing ({ delayQuarters, phaseInQuarters }, whole quarters) says when the levers start and how long they take to reach full effect.
 
 Rules:
-- Represent the idea with the zoneRules and levers that match what it asks for. Put each part the simulator cannot represent (for example rent limits, affordability requirements, tenant rules, programmes with no lever) in "unmodeled", in a few plain words each. Never stand in an unrelated mechanism for a part you cannot represent.
+- Represent the idea with the zoneRules and levers that match what it asks for. Rental assistance or cash paid to households uses the assistance levers in pairs (how many households and how much each a month); job training uses workforce.trainees. Put each part the simulator cannot represent (for example rent limits, tenant rules, programmes with no lever) in "unmodeled", in a few plain words each. Never stand in an unrelated mechanism for a part you cannot represent.
 - If no part of the idea can be represented, set card to null and give unsupportedReason, one plain sentence on why.
 - Each param's default is what the idea asks for ("double" is 2×, "cut 3 cents" is -3), and at its defaults the card must change something: an amount's default is not 0 and a multiplier's is not 1. Each param has min < max, a default between them, and a unit; use a step when the range is not whole numbers.
 - title and summary describe only what the card models, in plain words. Keep the title under 6 words.
@@ -149,7 +149,7 @@ function zoneRules(rules, params) {
 
 /**
  * Levers whose value goes another way than the direction Gemini declared for them. A lever's value is its fixed value or its
- * param's default; amounts compare with 0, multipliers with 1, and caps can only lower.
+ * param's default; amounts compare with 0, multipliers with 1, caps can only lower and floors can only raise.
  * @param {object[]} levers the reply's levers, with direction @param {PolicyCard} card the tidied card
  */
 export function directionErrors(levers, card) {
@@ -158,9 +158,9 @@ export function directionErrors(levers, card) {
     if (!def || !Number.isFinite(value)) return []; // validateCard explains it
     if (l.direction !== 'increase' && l.direction !== 'decrease') return [`levers[${i}].direction: must be "increase" or "decrease", as the idea asks`];
     const none = def.kind === 'multiplier' ? 1 : 0;
-    const actual = def.kind === 'cap' ? 'decrease' : value > none ? 'increase' : value < none ? 'decrease' : 'no change';
+    const actual = def.kind === 'cap' ? 'decrease' : def.kind === 'floor' ? 'increase' : value > none ? 'increase' : value < none ? 'decrease' : 'no change';
     if (actual === l.direction) return [];
-    const does = def.kind === 'cap' ? 'this lever can only lower it' : `${value} ${def.unit} would ${actual === 'no change' ? 'leave it unchanged' : `${actual} it`}`;
+    const does = def.kind === 'cap' ? 'this lever can only lower it' : def.kind === 'floor' ? 'this lever can only raise it' : `${value} ${def.unit} would ${actual === 'no change' ? 'leave it unchanged' : `${actual} it`}`;
     return [`levers[${i}]: the idea asks to ${l.direction} ${def.label.toLowerCase()}, but ${does}${l.param ? ` (the default of param ${l.param})` : ''}`];
   });
 }
@@ -170,6 +170,7 @@ export function checkCard(card, idea, { zones, assumptions, baselines, catalog, 
   const errors = validateCard(card);
   if (errors.length) return errors;
   if (catalog.has(card.id)) errors.push(`id: "${card.id}" is taken by an existing card`);
+  errors.push(...limitErrors(card));
   for (const [i, rule] of (card.zoneRules ?? []).entries()) {
     const state = 'protect' in rule ? rule.protect : rule.from;
     if (!zones.some(z => matchesWhere(rule.where, z) && z.state === state)) errors.push(`zoneRules[${i}]: no ${state} parcel matches ${rule.where}`);
@@ -190,6 +191,24 @@ export function checkCard(card, idea, { zones, assumptions, baselines, catalog, 
   if (!protects || end(builders) === end([...builders, card]))
     errors.push(`(card): at its default params it changes no metric over 10 years${protects ? ', and its protect rules block no other card' : ''}`);
   return errors;
+}
+
+// Levers that do nothing without a partner: a per-home construction subsidy is paid out of its yearly budget.
+const PAIRS = [['housing.subsidyPerUnit', 'housing.subsidyCap'], ['assistance.rentHouseholds', 'assistance.rentMonthly'], ['assistance.cashHouseholds', 'assistance.cashMonthly']];
+const PAIRED = Object.fromEntries(PAIRS.flatMap(([a, b]) => [[a, b], [b, a]]));
+
+/** Levers set past what a town could plausibly do (LEVER_LIMITS): a fixed value outside the limits, or a param whose range
+ *  leaves them; and levers missing the partner they need to do anything. */
+export function limitErrors(card) {
+  const used = new Set((card.levers ?? []).map(l => l.lever));
+  const unpaired = [...used].filter(id => PAIRED[id] && !used.has(PAIRED[id])).map(id => `levers: ${id} does nothing without ${PAIRED[id]} (${LEVERS[PAIRED[id]].label.toLowerCase()}); add it`);
+  return unpaired.concat((card.levers ?? []).flatMap((l, i) => {
+    const lim = LEVER_LIMITS[l.lever];
+    if (!lim) return [];
+    const p = l.param ? card.params.find(x => x.key === l.param) : null;
+    const [lo, hi] = p ? [p.min, p.max] : [l.value, l.value];
+    return lo < lim[0] || hi > lim[1] ? [`levers[${i}]: ${LEVERS[l.lever].label.toLowerCase()} must stay between ${lim[0]} and ${lim[1]} ${LEVERS[l.lever].unit}${p ? ` (param ${p.key} runs ${p.min} to ${p.max})` : ` (got ${l.value})`}`] : [];
+  }));
 }
 
 const fail = (status, error, extra = {}) => Object.assign(new Error(error), { status, extra });

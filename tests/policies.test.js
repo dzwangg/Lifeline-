@@ -236,12 +236,12 @@ test('direction: "raise property tax 3 cents" passes at +3 in one call, and is r
   });
 });
 
-test('direction: multipliers compare with 1, caps can only lower, and a missing direction is asked for', () => {
+test('direction: multipliers compare with 1, floors (parking required) can only raise, and a missing direction is asked for', () => {
   const card = { params: [] };
-  assert.deepEqual(directionErrors([{ lever: 'transit.serviceMultiplier', value: 2, direction: 'increase' }, { lever: 'housing.parkingMinimum', value: 0.5, direction: 'decrease' }], card), []);
+  assert.deepEqual(directionErrors([{ lever: 'transit.serviceMultiplier', value: 2, direction: 'increase' }, { lever: 'housing.parkingMinimum', value: 1, direction: 'increase' }], card), []);
   assert.match(directionErrors([{ lever: 'transit.serviceMultiplier', value: 0.8, direction: 'increase' }], card)[0], /would decrease it/);
   assert.match(directionErrors([{ lever: 'transit.serviceMultiplier', value: 1, direction: 'increase' }], card)[0], /leave it unchanged/);
-  assert.match(directionErrors([{ lever: 'housing.parkingMinimum', value: 2, direction: 'increase' }], card)[0], /can only lower it/);
+  assert.match(directionErrors([{ lever: 'housing.parkingMinimum', value: 0.5, direction: 'decrease' }], card)[0], /can only raise it/);
   assert.match(directionErrors([{ lever: 'tax.rateDelta', value: -3 }], card)[0], /levers\[0\]\.direction: must be/);
 });
 

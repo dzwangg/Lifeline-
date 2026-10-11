@@ -1,17 +1,20 @@
 // The sim plate: the results dashboard docked on the right. For the shown year (the shared clock, clock.js) it shows each
-// metric as a tile (its value, its change against no new policy, CH-LUTI's 80% range and a sparkline), then the picked
-// metric in detail: the change and the level over the years, why it changed (CH-LUTI's trace), which card did it and where.
+// city-health indicator (shared/indicators.js) as a tile, grouped by the question it answers: its value, its change
+// against no new policy, CH-LUTI's 80% range and a sparkline. Then the picked one in detail: today's value and benchmarks,
+// the change and the level over the years, why it changed (CH-LUTI's trace), which card did it and where.
 // Also here: the game's turn (turns.js) and its End decade button, the applied cards' sliders, decider and tradeoffs, the
-// resident picked on the map, the guided views, and the assumptions and sources. Values are the combined SimResult's
-// central run (shared/combined.js); ranges, traces and per-card and per-zone splits come from CH-LUTI's 200 paired runs
-// (shared/luti/run.js), once they arrive.
+// resident picked on the map, the guided views, the what-ifs set by a prompt, and the assumptions and sources. Values are
+// the combined SimResult's central run (shared/combined.js); ranges, traces and per-card and per-zone splits come from
+// CH-LUTI's 200 paired runs (shared/luti/run.js), once they arrive.
 import { h, cls, GlassButton } from '../policy/components.js';
 import { scenario, simClock, dataReady, devMode, demoMode, stubOn, stubAuto, START_YEAR, DECADE } from './scenario.js';
 import { VARIABLES, explain, MODEL } from '../../shared/luti/run.js';
 import { LEVERS } from '../../shared/luti/levers.js';
+import { INDICATORS, PILLARS } from '../../shared/indicators.js';
 import { createModel } from '../../shared/luti/model.js';
 import { paramRanges } from '../../shared/luti/params.js';
 import { ZONES as LUTI_ZONES, SOURCES } from '../../shared/luti/data.js';
+import { describeDrivers, priceIndex } from '../../shared/luti/drivers.js';
 import { paramStep } from '../../shared/schema.js';
 
 // Colour each change by whether it helps most people (green) or hurts (red). false shows every change in one neutral ink.
@@ -36,37 +39,34 @@ const FMT = {
   index: v => fixed(v, 3),
   dec: v => fixed(v, 1),
   cents: v => `${fixed(v, 1)}¢`,
+  ratio: v => `${fixed(v, 1)}×`,
+  per1000: v => `${fixed(v, v < 10 ? 2 : 1)} /1k`,
+  tonnes: v => `${fixed(v / 1e3, 1)}k t`,
 };
 const sign = v => (v > 0 ? '+' : v < 0 ? '−' : '');
 // A change: points for shares, percent for indexes, else the unit; "(+x%)" when withPct. Never "−0".
 function fmtChange(fmt, d, base, withPct = false) {
   if (fmt === 'pct' || fmt === 'pctRaw') { const pts = fixed(Math.abs(fmt === 'pct' ? d * 100 : d), fmt === 'pct' ? 1 : 2); return `${+pts ? sign(d) : ''}${pts} pts`; }
   if (fmt === 'index') { const p = fixed(Math.abs(d / (base || 1)) * 100, 1); return `${+p ? sign(d) : ''}${p}%`; }
-  const a = Math.abs(d), body = fmt === 'int' && a < 10 && a >= .05 ? fixed(a, 1) : (FMT[fmt] ?? FMT.dec)(a);
+  const a = Math.abs(d), body = fmt === 'int' && a < 10 && a >= .05 ? fixed(a, 1) : fmt === 'ratio' && a < 1 ? `${fixed(a, 2)}×` : (FMT[fmt] ?? FMT.dec)(a);
   if (!/[1-9]/.test(body)) return body;
   return `${sign(d)}${body}${withPct && base && fmt !== 'usdm' && fmt !== 'cents' ? ` (${sign(d)}${fixed(Math.abs(d / base) * 100, 1)}%)` : ''}`;
 }
 
-// The page's metrics, in tile order. key: the SimResult metric; luti: the CH-LUTI variable behind it (its ranges, trace and
-// splits); model: which model computes it; better: the direction that helps most people (null: neither); zone: CH-LUTI's
-// per-zone field for "Where".
-const METRICS = [
-  { key: 'medianRent', label: 'Median rent', fmt: 'usd', luti: 'rent', better: -1, zone: 'rent', model: 'CH-LUTI' },
-  { key: 'housingUnits', label: 'Homes', fmt: 'int', luti: 'housingUnits', better: 1, zone: 'units', model: 'CH-LUTI, with the homes the zone rules build' },
-  { key: 'pricedOut', label: 'Priced out (est.)', fmt: 'int', better: -1, model: 'the household model',
-    title: 'Households living here in year 0 that have moved away because their rent rose faster than their income. An estimate.' },
-  { key: 'households', label: 'Households (est.)', fmt: 'int', better: null, model: 'the household model' },
-  { key: 'jobs', label: 'Jobs in town', fmt: 'int', luti: 'jobs', better: 1, model: 'CH-LUTI' },
-  { key: 'businesses', label: 'Storefront businesses', fmt: 'int', luti: 'businesses', better: 1, zone: 'businesses', model: 'CH-LUTI' },
-  { key: 'storefrontVacancy', label: 'Downtown storefront vacancy', fmt: 'pct', luti: 'storefrontVacancy', better: -1, zone: 'storefrontVacancy', model: 'CH-LUTI' },
-  { key: 'transitRidership', label: 'Bus ridership', fmt: 'millions', luti: 'transitRidership', better: 1, model: 'CH-LUTI' },
-  { key: 'avgCommuteMin', label: 'Average commute', fmt: 'min', luti: 'commuteTime', better: -1, model: 'CH-LUTI' },
-  { key: 'trafficIndex', label: 'Car traffic', fmt: 'index', luti: 'trafficIndex', better: -1, model: 'CH-LUTI' },
-  { key: 'treeCoverPct', label: 'Tree cover', fmt: 'pctRaw', better: 1, model: 'the land-use rules' },
-  { key: 'homeValue', label: 'Median home value', fmt: 'usdk', luti: 'homeValue', better: null, model: 'CH-LUTI' },
-  { key: 'taxRevenue', label: 'Property tax revenue', fmt: 'usdm', luti: 'propertyTax', better: 1, model: 'CH-LUTI' },
-  { key: 'netFiscal', label: 'Town budget impact', fmt: 'usdm', luti: 'netFiscal', better: 1, diffOnly: true, model: 'CH-LUTI' },
-];
+// The page's metrics are the city-health indicators, in pillar order. luti: the CH-LUTI variable behind one, in the same
+// units, for its ranges, trace and per-card splits (none for the household model's, or where the units differ); zone: its
+// per-zone field for "Where". better: 1 or -1, the direction that helps most people (null: context, neither).
+const LUTI_OF = {
+  medianRent: ['rent', 'rent'], housingUnits: ['housingUnits', 'units'], affordableHomes: ['affordableHomes'], jobs: ['jobs'],
+  businesses: ['businesses', 'businesses'], storefrontVacancy: ['storefrontVacancy', 'storefrontVacancy'], homeValue: ['homeValue'],
+  avgCommuteMin: ['commuteTime'], jobAccess: ['accessIndex'], transitRidership: ['transitRidership'], trafficIndex: ['trafficIndex'],
+  commuteCO2: ['commuteCO2'], carShare: ['carShare'], netFiscal: ['netFiscal'], taxRevenue: ['propertyTax'],
+};
+const METRICS = INDICATORS.map(i => ({
+  key: i.key, label: i.short ?? i.label, fullLabel: i.label, fmt: i.fmt, pillar: i.pillar, diffOnly: i.diffOnly, title: i.why,
+  better: i.better === 'higher' ? 1 : i.better === 'lower' ? -1 : null, luti: LUTI_OF[i.key]?.[0], zone: LUTI_OF[i.key]?.[1],
+  model: i.model.split(':')[0], today: i.today, benchmarks: i.benchmarks ?? [],
+}));
 const OTHER_MODEL = new Set(['households', 'population', 'rentBurden']); // CH-LUTI's own; the page shows the household model's
 function tone(m, d, lo, hi, base) {
   const rel = Math.abs(base) > 1e-9 ? Math.abs(d / base) : Math.abs(d);
@@ -177,8 +177,11 @@ const timing = ({ delayQuarters: d, phaseInQuarters: p }) => `Starts after ${qua
 
 export async function mountSimPlate({ policyStore, cards, game, host = document.body }) {
   const [, assumptions, baselines] = await dataReady;
-  const cardById = new Map(cards.map(c => [c.id, c]));
-  const ui = { metric: null, picked: false, active: [], confirming: false, expanded: false };
+  // cards is live: the ask bar (policy/ask-bar.js) adds the cards it drafts
+  const cardById = { get: id => cards.find(c => c.id === id), has: id => cards.some(c => c.id === id) };
+  const ui = { metric: null, picked: false, active: [], real: false, confirming: false, expanded: false };
+  let sliding = false; // a slider here is moving, so the sliders needn't be rebuilt
+  const cpi = assumptions.lutiCpi.value;
 
   // ---------- skeleton ----------
   const kicker = h('p', { class: 'rp-kicker' });
@@ -198,9 +201,11 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
   const turnRow = h('div', { class: 'rp-turn', 'aria-live': 'polite' });
   const demoBtn = demoMode && h('button', { class: 'sim__road sim__demo', type: 'button', onclick: runDemo }, 'Demo scenario');
   const meta = h('p', { class: 'rp-meta' });
+  const driverChips = h('div', { class: 'rp-chips rp-drivers' });
+  const realIn = h('input', { type: 'checkbox', onchange: () => { ui.real = realIn.checked; drawn = []; render(); } });
   const settings = h('details', { class: 'rp-settings' });
   const residentEl = h('div', { class: 'sim__resident', 'aria-live': 'polite' });
-  const tiles = h('div', { class: 'rp-tiles', role: 'list', 'aria-label': 'Metrics, with their change against no new policy' });
+  const tiles = h('div', { class: 'rp-groups', 'aria-label': 'City-health indicators, with their change against no new policy' });
   const detail = h('section', { class: 'rp-detail', 'aria-live': 'polite' });
   const assume = h('details', { class: 'rp-assume' }, h('summary', {}, 'Assumptions, sources and checks'));
   const dlBtn = h('button', { class: 'rp-dl', type: 'button', onclick: download }, 'Download scenario and results (JSON)');
@@ -213,12 +218,13 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
     h('div', { class: 'rp-time' }, playBtn, yearIn, when),
     h('div', { class: 'rp-views' },
       h('label', { class: 'sim__check' }, beforeIn, 'Show before (year 0)'),
+      h('label', { class: 'sim__check', title: 'Divide dollar amounts by inflation since year 0' }, realIn, 'In today’s dollars'),
       changesBtn, roadBtn, wipeBtn,
       demoBtn),
     meta, settings, scroll);
   const plate = h('section', { class: 'plate sim rp', 'aria-label': 'Policy simulation results' },
     h('header', { class: 'rp-head' },
-      h('div', { class: 'rp-head__text' }, kicker, title, chips),
+      h('div', { class: 'rp-head__text' }, kicker, title, chips, driverChips),
       h('div', { class: 'rp-head__actions' }, expandBtn, toggle)),
     body);
   host.append(plate);
@@ -264,6 +270,7 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
       })
       : [h('span', { class: 'rp-empty' }, !cards.length ? 'No policies yet.' : 'Apply a policy card in the Policies panel to simulate it.')]),
       ...(other.length ? [h('span', { class: 'rp-empty' }, `Not simulated yet: ${other.join(', ')}.`)] : []));
+    renderDrivers();
     const planned = active.filter(c => enactedIn(c.id) === null);
     settings.hidden = !active.length;
     settings.replaceChildren(h('summary', {}, planned.length === active.length ? `Adjust your policies (${active.length})` : `Your policies (${planned.length} this decade, ${active.length - planned.length} in force)`),
@@ -352,7 +359,13 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
     renderResident(run.households, resident, y);
   }
   simClock.subscribe(render);
+  let paramsSeen = scenario.get().params, driversSeen = scenario.get().drivers;
   scenario.subscribe(s => {
+    if (s.params !== paramsSeen) { // a change from the ask bar, not a slider here: show the new values on the sliders
+      paramsSeen = s.params;
+      if (!sliding) settings.replaceChildren(h('summary', {}, `Adjust your policies (${ui.active.length})`), h('div', { class: 'sim__list' }, ui.active.map(Card)));
+    }
+    if (s.drivers !== driversSeen) { driversSeen = s.drivers; renderDrivers(); }
     for (const [btn, focus, label] of [[changesBtn, 'changes', 'Show changes'], [roadBtn, 'road', 'View 15-501']]) {
       btn.textContent = s.focus === focus ? 'Back' : label;
       btn.setAttribute('aria-pressed', String(s.focus === focus));
@@ -364,17 +377,22 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
 
   // A metric's yearly values from the central run, its no-policy values, and CH-LUTI's yearly P10–P90 change (null before
   // CH-LUTI has run, or for metrics from the other models). Year y ends with CH-LUTI's quarter 4y − 1; year 0 is today.
-  // CH-LUTI's runs for an older set of cards, or a shorter game, are not shown while the new ones run.
-  // A declaration, not a const: render() can run as soon as the clock subscription above fires.
+  // CH-LUTI's runs for an older version of the scenario (other cards, sliders or what-ifs), or a shorter game, are not shown
+  // while the new ones run. A declaration, not a const: render() can run as soon as the clock subscription above fires.
   function lutiCurrent() {
-    return luti && luti.policies.join() === ui.active.filter(c => c.levers?.length).map(c => c.id).join()
+    return luti && luti.version === scenario.get().version && luti.policies.join() === ui.active.filter(c => c.levers?.length).map(c => c.id).join()
       && luti.years.length === 4 * (run.result.timeline.length - 1);
   }
+  const MONEY = new Set(['usd', 'usdk', 'usdm', 'usdb']);
+  // "In today's dollars" divides every dollar amount by the price level at the shown year: the charts and tiles (series,
+  // below) and the dollars in the detail panel's trace and per-policy bars, so one panel never mixes the two.
+  const real = (v, fmt) => (ui.real && MONEY.has(fmt) ? v / priceIndex(scenario.get().drivers, cpi, run.result.timeline.length - 1)[y] : v);
   function series(m) {
-    const pol = run.result.timeline.map(t => t.metrics[m.key]), base = run.noPolicy.timeline.map(t => t.metrics[m.key]);
+    const deflate = ui.real && MONEY.has(m.fmt) ? priceIndex(scenario.get().drivers, cpi, run.result.timeline.length - 1) : null, at = (v, i) => (deflate ? v / deflate[i] : v);
+    const pol = run.result.timeline.map((t, i) => at(t.metrics[m.key], i)), base = run.noPolicy.timeline.map((t, i) => at(t.metrics[m.key], i));
     const diff = pol.map((v, i) => v - base[i]);
     const d = lutiCurrent() && m.luti && luti.diff[m.luti];
-    const band = d ? { lo: diff.map((_, i) => (i ? d.p10[4 * i - 1] : 0)), hi: diff.map((_, i) => (i ? d.p90[4 * i - 1] : 0)) } : null;
+    const band = d ? { lo: diff.map((_, i) => (i ? at(d.p10[4 * i - 1], i) : 0)), hi: diff.map((_, i) => (i ? at(d.p90[4 * i - 1], i) : 0)) } : null;
     return { pol, base, diff, band };
   }
   function pickMetric() { // open on whatever moved most by the last year
@@ -390,7 +408,12 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
 
   // ---------- tiles ----------
   function renderTiles() {
-    tiles.replaceChildren(...METRICS.map(m => {
+    tiles.replaceChildren(...PILLARS.map(p => h('section', { class: 'rp-pillar', 'aria-label': p.label },
+      h('h3', { class: 'rp-pillar__title' }, p.label, h('span', {}, p.question)),
+      h('div', { class: 'rp-tiles', role: 'list' }, METRICS.filter(m => m.pillar === p.id).map(tile)))));
+  }
+  function tile(m) {
+    {
       const { pol, base, diff, band } = series(m), d = diff[y], lo = band && y ? band.lo[y] : null, hi = band && y ? band.hi[y] : null;
       const t = tone(m, d, lo, hi, base[y]);
       const spread = lo != null && fmtChange(m.fmt, lo, base[y]) !== fmtChange(m.fmt, hi, base[y]); // when every run agrees there is no range to show
@@ -408,7 +431,7 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
           h('span', { class: 'rp-sr' }, `, ${word}`)),
         h('span', { class: 'rp-tile__range' }, t !== 'flat' && spread ? `range ${fmtChange(m.fmt, lo, base[y])} to ${fmtChange(m.fmt, hi, base[y])}` : ' '),
         sparkline(diff, band, y));
-    }));
+    }
   }
 
   // ---------- detail ----------
@@ -417,8 +440,12 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
     const { pol, base, diff, band } = series(m), q = 4 * y - 1, fit = ui.expanded ? detail.clientWidth : 0;
     const short = v => fmtChange(m.fmt, v, null);
     const kids = [
-      h('h3', { class: 'rp-h3' }, m.label, h('span', {}, ` · ${yearLabel(y)}`)),
+      h('h3', { class: 'rp-h3' }, m.fullLabel, h('span', {}, ` · ${yearLabel(y)}`)),
       h('p', { class: 'rp-lede' }, summary(m, diff, base, band)),
+      (m.today || m.benchmarks.length > 0) && h('div', { class: 'rp-today' },
+        m.today && h('span', { class: 'rp-bench is-today' }, h('b', {}, 'Today'), m.today.text),
+        m.benchmarks.map(b => h('span', { class: 'rp-bench' }, h('b', {}, b.label), b.text))),
+      h('p', { class: 'rp-note' }, m.title, m.today ? ` Today's value: ${m.today.source}.` : ''),
       h('h4', { class: 'rp-h4' }, 'Change vs. no new policy'),
       h('div', { class: 'rp-legend' }, h('span', { class: 'rp-key is-policy' }), 'Central estimate', band && [h('span', { class: 'rp-swatch' }), '80% of runs fall in the band']),
       lineChart({ title: `${m.label}: change vs. no new policy`, y, zero: true, fit, series: [{ label: 'change', kind: 'policy', values: diff, band }],
@@ -439,8 +466,9 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
       h('p', { class: 'rp-note' }, 'Traced through CH-LUTI at central assumptions. Each line is a model variable; branches that barely moved are left out.'));
     if (lutiCurrent() && m.luti && y && luti.perPolicy.length > 1) {
       const lb = luti.baseline[m.luti].p50[q];
+      const pf = VARIABLES[m.luti]?.fmt ?? 'dec';
       kids.push(h('h4', { class: 'rp-h4' }, 'Which policy did it'), barList(luti.perPolicy.map(pp => ({
-        label: cardById.get(pp.id)?.title ?? pp.title, value: pp.diff[q][m.luti], text: fmtChange(VARIABLES[m.luti]?.fmt ?? 'dec', pp.diff[q][m.luti], lb),
+        label: cardById.get(pp.id)?.title ?? pp.title, value: pp.diff[q][m.luti], text: fmtChange(pf, real(pp.diff[q][m.luti], pf), real(lb, pf)),
       })), 'Effect of each policy on its own'),
       h('p', { class: 'rp-note' }, 'Each card run on its own in CH-LUTI at central assumptions; together they can add up to more or less than the sum.'));
     }
@@ -476,15 +504,24 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
   function whyTree(node) {
     const item = (n, depth) => {
       const v = VARIABLES[n.id] ?? { label: n.id }, f = v.fmt ?? 'dec';
+      const delta = real(n.delta, f), base = real(n.base, f);
       const kids = n.children.filter(c => !OTHER_MODEL.has(c.id)).sort((a, b) => Math.abs(b.rel) - Math.abs(a.rel)).slice(0, 3);
       return h('li', { class: 'rp-why__item' },
         h('span', { class: 'rp-why__row' },
           h('span', { class: 'rp-why__arrow', 'aria-hidden': 'true' }, n.delta > 0 ? '▲' : '▼'),
           h('span', { class: 'rp-why__label' }, v.label),
-          h('span', { class: 'rp-why__delta' }, fmtChange(f, n.delta, n.base), depth && f !== 'pct' && f !== 'index' && Math.abs(n.base) > 1e-9 ? ` (${sign(n.rel)}${fixed(Math.abs(n.rel * 100), 1)}%)` : '')),
+          h('span', { class: 'rp-why__delta' }, fmtChange(f, delta, base), depth && f !== 'pct' && f !== 'index' && Math.abs(base) > 1e-9 ? ` (${sign(n.rel)}${fixed(Math.abs(n.rel * 100), 1)}%)` : '')),
         kids.length > 0 && h('ul', { class: 'rp-why__kids' }, kids.map(c => item(c, depth + 1))));
     };
     return h('ul', { class: 'rp-why' }, item(node, 0));
+  }
+
+  // What-ifs from the ask bar, each with a button that clears it.
+  function renderDrivers() {
+    const d = scenario.get().drivers ?? {};
+    driverChips.replaceChildren(...Object.keys(d).filter(k => d[k] != null).map(k => h('span', { class: 'rp-chip rp-chip--driver' },
+      `What-if · ${describeDrivers({ [k]: d[k] })[0]}`,
+      h('button', { type: 'button', class: 'rp-chip__x', 'aria-label': `Clear this what-if`, onclick: () => { const next = { ...scenario.get().drivers }; delete next[k]; scenario.set({ drivers: next }); } }, '×'))));
   }
 
   // ---------- applied cards: sliders, decider, tradeoffs ----------
@@ -512,7 +549,9 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
       h('input', { type: 'range', min: p.min, max: p.max, step: paramStep(p), value, disabled: locked, oninput: e => {
         const v = +e.target.value, params = scenario.get().params;
         out.textContent = show(v);
+        sliding = true;
         scenario.set({ params: { ...params, [card.id]: { ...params[card.id], [p.key]: v } } });
+        sliding = false;
         onChange(scenario.get().params[card.id]);
       } }));
   }

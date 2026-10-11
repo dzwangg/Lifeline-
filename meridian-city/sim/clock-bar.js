@@ -1,11 +1,8 @@
-// The playback toolbar: Pause, Play (1x), Fast (2x) and Faster (4x), the simulated date and speed beside them,
-// and a loading badge while the clock holds for a prediction. Keys: Space pauses or plays, 1, 2 and 4 play at
+// The playback toolbar: Pause, Play (1x), Fast (2x) and Faster (4x), the simulated month and year and the speed beside
+// them, and a loading badge while the clock holds for a prediction. Keys: Space pauses or plays, 1, 2 and 4 play at
 // that speed. The map toolbar's pixel-icon buttons and glass plate, so retro-ui.css skins it like the rest.
-// The street's time of day (world/households.js, a day every couple of minutes, paused or playing) sits faintly in the
-// small line under the date, once street life has loaded (bar.setHour).
 import { h } from '../policy/components.js';
-import { simClock, START_YEAR, onFrame, growthReport } from './scenario.js';
-import { clockLabel } from '../world/households.js';
+import { simClock, START_YEAR, growthReport } from './scenario.js';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const tri = x => `M${x} 2h1v5H${x}zM${x + 1} 3h1v3H${x + 1}zM${x + 2} 4h1v1H${x + 2}z`; // a 3x5 pixel play triangle
@@ -29,9 +26,8 @@ export function mountClockBar({ host = document.body, clock = simClock } = {}) {
   }));
   const date = h('time', { class: 'clock-date' }), speed = h('span', { class: 'clock-speed' });
   const status = h('span', { class: 'clock-status', role: 'status', 'aria-live': 'polite' });
-  const time = h('span', { class: 'clock-time', title: 'Time of day on the street', hidden: true }); // not live: it changes every second
   const bar = h('div', { id: 'clock', class: 'plate clock', role: 'toolbar', 'aria-label': 'Simulation playback' },
-    buttons, h('div', { class: 'clock-readout' }, date, h('span', { class: 'clock-sub' }, time, speed, status)));
+    buttons, h('div', { class: 'clock-readout' }, date, h('span', { class: 'clock-sub' }, speed, status)));
   host.append(bar);
 
   let said = '', unmet = 0, last = null;
@@ -74,14 +70,5 @@ export function mountClockBar({ host = document.body, clock = simClock } = {}) {
     if (e.repeat) return;
     if (space) clock.toggle(); else clock.play(n);
   });
-  // The street's hour, in ten-minute steps so the text changes about once a second rather than every frame.
-  let hour = null;
-  onFrame(() => {
-    const now = hour?.();
-    if (now == null) return;
-    const text = clockLabel(Math.floor(now * 6) / 6);
-    if (time.textContent !== text) { time.textContent = text; time.hidden = false; }
-  });
-  bar.setHour = fn => { hour = fn; };
   return bar;
 }

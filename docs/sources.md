@@ -2,7 +2,7 @@
 
 These are proposed sourced values for every `PLACEHOLDER` or `VERIFY` entry in `data/assumptions.json` and `data/baselines.json`, plus coefficients for the agent model. Nothing here has been applied to the data files yet.
 
-Researched 2026-10-10.
+Researched 2026-10-10. Most of these have since been applied. For the October 11 check of every starting value against the newest sources (ACS 2020–2024, the FY2026–27 budget, the 2025 population estimate), see [fact-check.md](fact-check.md).
 
 **Applies** says how closely the source describes Chapel Hill:
 - **direct**: measured for Chapel Hill, or for the map area.

@@ -1,11 +1,13 @@
 // The full SimResult the panel and the narration pipeline use: the land-use sim, CH-LUTI and the household model, run in
 // that order, with each metric taken from one model:
 //   land-use sim (shared/sim.js)    tree cover, and the homes its zone rules build
-//   CH-LUTI (shared/luti/)          homes: today's 23,713 plus its growth from permit trends, the zone rules' homes and the
+//   CH-LUTI (shared/luti/)          homes: today's 23,581 plus its growth from permit trends, the zone rules' homes and the
 //                                   lever cards' homes; median rent and commute; property tax revenue (our formula: homes ×
 //                                   median home value × rate, with the tax card's change); jobs, businesses, storefront
 //                                   vacancy, home value, town budget, bus ridership, car traffic
-//   household model (agents.js)     households and priced out (year-0 households who have left), and the map's households,
+//                                   home price to income, income-restricted homes, car share, job access, commute CO2
+//   household model (agents.js)     households, priced out (year-0 households who have left) and rent burden (after any
+//                                   rental assistance, cash or job training), and the map's households,
 //                                   whose rents and commutes follow CH-LUTI's for their zone
 // All run at central assumptions; shared/luti/run.js adds CH-LUTI's ranges. Deltas compare the last year (10, or later in a
 // game of turns) with the same models run with no new policy, so the town's growth isn't put down to the policy.
@@ -13,8 +15,9 @@ import { runScenario } from './sim.js';
 import { averageRuns, homesByYear } from './agents.js';
 import { createModel } from './luti/model.js';
 import { cardPolicies } from './luti/levers.js';
-import { ZONES as LUTI_ZONES, ZONE_IDS } from './luti/data.js';
+import { ZONES as LUTI_ZONES, ZONE_IDS, TOWN } from './luti/data.js';
 import { toLocal } from './geo.js';
+import { noDrivers } from './luti/drivers.js';
 
 /** @typedef {import('./types').PolicyCard} PolicyCard @typedef {import('./types').Zone} Zone @typedef {import('./types').SimResult} SimResult
  *  @typedef {import('./types').Assumptions} Assumptions @typedef {import('./types').Baselines} Baselines */
@@ -24,7 +27,8 @@ const round1 = v => Math.round(v * 10) / 10, round2 = v => Math.round(v * 100) /
 // 15-501, like the edge and the corridor; north (the MLK corridor) doesn't, so it counts as in town.
 const LUTI_OF = { downtown: ['downtown', 'north'], campus: ['campus'], edge: ['east', 'south'], corridor: ['east', 'south'] };
 const AGENT_ZONE = { downtown: 'downtown', north: 'downtown', campus: 'campus', east: 'edge', south: 'edge' }; // where CH-LUTI's own homes go
-const POINTS = { treeCoverPct: 1, storefrontVacancy: 100, trafficIndex: 100 }; // metrics whose change is also given in points, x this
+// metrics whose change is also given in points, x this
+const POINTS = { treeCoverPct: 1, storefrontVacancy: 100, trafficIndex: 100, rentBurden: 100, carShare: 100, jobAccess: 100 };
 
 /**
  * The CH-LUTI zone a parcel's homes feed. Map-edge and corridor parcels are on the 15-501 side, so east or south; the others
@@ -71,12 +75,13 @@ const indexOf = (run, key, y, zone) => {
  * luti is CH-LUTI's central run (api/resident-bank.js reads owners' tax rate and home value from it).
  * years: how long to run (a decade more per turn of a game); starts: card id -> the year it is enacted (default 0).
  * @param {PolicyCard[]} cards @param {Record<string, Record<string, number>>} params @param {Zone[]} zones
- * @param {Assumptions} assumptions @param {Baselines} baselines @param {{ years?: number, starts?: Record<string, number> }} [game]
+ * drivers: scenario what-ifs (shared/luti/drivers.js), applied to the run with and without policies alike.
+ * @param {Assumptions} assumptions @param {Baselines} baselines @param {{ years?: number, starts?: Record<string, number>, drivers?: object }} [game]
  */
-export function runModels(cards, params, zones, assumptions, baselines, { years = 10, starts = {} } = {}) {
+export function runModels(cards, params, zones, assumptions, baselines, { years = 10, starts = {}, drivers = null } = {}) {
   const raw = runScenario(cards, params, zones, assumptions, baselines, years, starts), landUse = landUseInputs(raw, zones, assumptions);
   const model = createModel(assumptions, baselines), policies = cardPolicies(cards, params, starts);
-  const luti = model.simulate(model.midParams(), policies, { landUse, seedEvents: false, quarters: 4 * years });
+  const luti = model.simulate(model.midParams(), policies, { landUse, seedEvents: false, quarters: 4 * years, drivers });
   // The household model gets every new home: the zone rules' by parcel, CH-LUTI's other homes by its zone.
   const inputs = {
     homes: homesByYear(raw, zones, assumptions).map((rules, y) => {
@@ -87,7 +92,28 @@ export function runModels(cards, params, zones, assumptions, baselines, { years 
     households: raw.timeline.map((_, y) => atYear(luti, y).households - luti.start.households),
     ...Object.fromEntries(['rent', 'commute'].map(key => [key, raw.timeline.map((_, y) => Object.fromEntries(Object.keys(LUTI_OF).map(z => [z, indexOf(luti, key, y, z)])))])),
     traffic: raw.timeline.map((_, y) => atYear(luti, y).trafficIndex),
+    // with scenario drivers, incomes follow the scenario's inflation (CH-LUTI's index as each year ends, so year y has y full
+    // years of growth, as the household model's own rate gives it); without, the household model's own rate
+    ...(!noDrivers(drivers) && { incomeIndex: raw.timeline.map((_, y) => (y ? luti.series[4 * y - 1].incomeIndexEnd : 1)) }),
   };
+  // Help paid to households and job training act on households one by one, so the household model applies them. The
+  // household model works a year at a time, so each count is the mean of the year's four quarters: a programme that starts
+  // in the last quarter serves a quarter of the households (and trains a quarter of the people) that year, which is what it
+  // is paid for. Monthly amounts are per served household, so they are the level, not the mean. affordableHomes is a stock,
+  // so it is the count standing at the year's end.
+  const meanOverYear = (y, f) => (y ? [4, 3, 2, 1].reduce((s, back) => s + f(luti.series[4 * y - back]), 0) / 4 : 0);
+  const helpAt = y => {
+    const L = y ? luti.series[4 * y - 1] : null;
+    const rentHouseholds = meanOverYear(y, r => r.rentHelpHouseholds), cashHouseholds = meanOverYear(y, r => r.cashHouseholds);
+    return { rentHouseholds, cashHouseholds, trainees: meanOverYear(y, r => r.trainees),
+      rentMonthly: rentHouseholds > 0 ? meanOverYear(y, r => r.rentHelpHouseholds * r.rentHelpMonthly) / rentHouseholds : 0,
+      cashMonthly: cashHouseholds > 0 ? meanOverYear(y, r => r.cashHouseholds * r.cashMonthly) / cashHouseholds : 0,
+      // finished income-restricted homes, for renters under 80% of the town's median household income (a stand-in for HUD's
+      // area median income, which inclusionary rules use)
+      affordable: L?.affordableHomes ?? 0, incomeLimit: 0.8 * TOWN.medianHouseholdIncome };
+  };
+  const ys = raw.timeline.map((_, y) => y);
+  if (ys.some(y => { const h = helpAt(y); return h.rentHouseholds * h.rentMonthly > 0 || h.cashHouseholds * h.cashMonthly > 0 || h.trainees > 0 || h.affordable > 0; })) inputs.help = ys.map(helpAt);
   const averages = averageRuns(inputs, assumptions, baselines);
   const timeline = raw.timeline.map((t, y) => {
     const L = atYear(luti, y), h = averages[y];
@@ -95,14 +121,17 @@ export function runModels(cards, params, zones, assumptions, baselines, { years 
       ...t,
       metrics: {
         housingUnits: Math.round(L.housingUnits), medianRent: Math.round(L.rent), treeCoverPct: t.metrics.treeCoverPct, avgCommuteMin: round1(L.commuteTime),
-        taxRevenue: Math.round(L.propertyTax), households: h.households, pricedOut: h.pricedOut,
+        taxRevenue: Math.round(L.propertyTax), households: h.households, pricedOut: h.pricedOut, rentBurden: h.rentBurden,
         jobs: Math.round(L.jobs), businesses: Math.round(L.businesses), storefrontVacancy: round4(L.storefrontVacancy), homeValue: Math.round(L.homeValue),
         netFiscal: Math.round(L.netFiscal), transitRidership: Math.round(L.transitRidership), trafficIndex: round4(L.trafficIndex),
+        // indicators for the city-health framework (shared/indicators.js)
+        priceToIncome: round2(L.homeValue / (TOWN.medianHouseholdIncome * L.incomeIndex)),
+        affordableHomes: Math.round(L.affordableHomes), carShare: round4(L.carShare), jobAccess: round4(L.accessIndex), commuteCO2: Math.round(L.commuteCO2),
       },
     };
   });
   const changed = zones.some(z => raw.timeline.at(-1).zoneStates[z.id] !== z.state);
-  return { result: { ...raw, timeline }, inputs, averages, policies, landUse: changed ? landUse : null, luti };
+  return { result: { ...raw, timeline, ...(!noDrivers(drivers) && { drivers }) }, inputs, averages, policies, landUse: changed ? landUse : null, luti, drivers };
 }
 
 /**
@@ -123,5 +152,5 @@ export function withDeltas(result, none) {
 }
 
 /** The full SimResult for some cards. @returns {SimResult} */
-export const runCombined = (cards, params, zones, assumptions, baselines, none = runModels([], {}, zones, assumptions, baselines).result) =>
-  withDeltas(runModels(cards, params, zones, assumptions, baselines).result, none);
+export const runCombined = (cards, params, zones, assumptions, baselines, none, opts = {}) =>
+  withDeltas(runModels(cards, params, zones, assumptions, baselines, opts).result, none ?? runModels([], {}, zones, assumptions, baselines, { years: opts.years, drivers: opts.drivers }).result);

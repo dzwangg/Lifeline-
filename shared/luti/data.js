@@ -13,10 +13,9 @@ export const SOURCES = {
   lodes: { label: 'U.S. Census Bureau, LEHD LODES 8 (2002–2023), workplace & residence area characteristics', url: 'https://lehd.ces.census.gov/data/' },
   bps: { label: 'U.S. Census Bureau, Building Permits Survey, annual place files 2015–2025', url: 'https://www2.census.gov/econ/bps/Place/South%20Region/' },
   zillow: { label: 'Zillow Research, ZORI (rent) and ZHVI (home value), Chapel Hill city series: growth rates only (rentDrift, valueDrift)', url: 'https://www.zillow.com/research/data/' },
-  budget26: { label: 'Town of Chapel Hill FY2025–26 adopted budget (The Local Reporter / Daily Tar Heel coverage)', url: 'https://thelocalreporter.press/chapel-hill-town-council-votes-on-2025-26-budget/' },
-  budget25: { label: 'Town of Chapel Hill FY2024–25 budget ordinance (general fund revenue estimates)', url: 'https://townofchapelhill.org/home/showpublisheddocument/56362/638617386443170000' },
-  transit: { label: 'Chapel Hill Transit, 2025 annual ridership (Wikipedia, citing NTD)', url: 'https://en.wikipedia.org/wiki/Chapel_Hill_Transit' },
-  downtown: { label: 'Chapel Hill Downtown Partnership informal survey of 321 downtown commercial spaces (~24% vacant)', url: 'https://downtownchapelhill.com/news' },
+  budget27: { label: 'Town of Chapel Hill FY2026–27 adopted budget, five-year projections for the major operating funds', url: 'https://www.chapelhillnc.gov/files/assets/town/v/1/bmd/documents/budgets/26-27-budget-development/26-27-adopted-budget/04-projections.pdf' },
+  transit: { label: 'FTA National Transit Database, monthly ridership, Chapel Hill Transit (NTD ID 40051), September 2025–August 2026', url: 'https://data.transportation.gov/resource/8bui-9xvu.json?ntd_id=40051' },
+  downtown: { label: 'Chapel Hill Downtown Partnership survey of 321 downtown commercial spaces: about 24% vacant (The News & Observer, August 7, 2024; the newest count)', url: 'https://www.aol.com/happening-franklin-street-businesses-moving-095500737.html' },
 };
 
 export const BASE_YEAR = 2027; // the simulation's first quarter is 2027 Q1; data vintages run 2023–2026
@@ -43,13 +42,13 @@ export const TOWN = {
   jobsHistory: { 2002: 41744, 2008: 47903, 2014: 48817, 2019: 53412, 2021: 48991, 2023: 54322 }, // LODES
   storefrontJobs: 9229,           // LODES: retail 3,196 + food & lodging 3,978 + other services 1,258 + arts 797
   permitsPerYear: { 2015: 361, 2016: 126, 2017: 548, 2018: 718, 2019: 65, 2020: 151, 2021: 450, 2022: 200, 2023: 739, 2024: 159, 2025: 155 }, // BPS units
-  transitRidership: 4.3053e6,     // Chapel Hill Transit, 2025
-  // Budget, FY2025–26 adopted: $164M all funds, general fund $94.88M, transit fund $36.48M, 50.0¢ per $100 (revenue-neutral was 44.2¢).
-  generalFund: 94.883e6,
-  transitFund: 36.482e6,
-  // derived: the budget priced 1.2¢ at $1,485,658 and 2.2¢ at $2,946,237, so one cent ≈ $1.29M and the taxable base ≈ $12.9B.
-  taxBase: 12.9e9,
-  salesTax: 24.1e6,               // derived: FY2024–25 ordinance estimate $22.99M, FY26 collections ran ~5% above projections
+  transitRidership: 4.3717e6,     // NTD: unlinked trips, bus 4,295,364 + demand response, September 2025–August 2026
+  // Budget, FY2026–27 adopted (June 10, 2026): $170.0M all funds, general fund $99.76M, transit fund $35.95M, 50.0¢ per $100
+  // (general 38.1, debt 6.6, transit 5.3), unchanged from FY2025–26.
+  generalFund: 99.76e6,
+  transitFund: 35.946e6,
+  taxBase: 14.174e9,              // assessed valuation, real and personal property, FY2026–27 (one cent = $1.41M collected)
+  salesTax: 23.258e6,             // local option sales taxes, FY2026–27 adopted estimate
   downtownStorefronts: 321,
   downtownStorefrontVacancy: 0.24,
 };

@@ -32,7 +32,7 @@
 <body>
 <main>
 <h1>Sources</h1>
-<p class="lede">Every number the Prosperia simulator takes from its data files, with its value, source and links. 75 are marked <span class="flag">PLACEHOLDER</span> or <span class="flag">VERIFY</span>: not yet citable. <a href="./">Back to the simulator</a>.</p>
+<p class="lede">Every number the Prosperia simulator takes from its data files, with its value, source and links. 72 are marked <span class="flag">PLACEHOLDER</span> or <span class="flag">VERIFY</span>: not yet citable. <a href="./">Back to the simulator</a>.</p>
 <h2>Observed baselines</h2>
 <p class="note"><code>data/baselines.json</code></p>
 <div class="scroll"><table>
@@ -40,33 +40,33 @@
 <tbody>
 <tr>
   <th scope="row"><code>medianGrossRent</code></th>
-  <td>1,483 <span class="unit">(2023)</span></td>
-  <td>Median gross rent, ACS 2019-2023 5-year estimates, U.S. Census Bureau QuickFacts: Chapel Hill town, North Carolina</td>
-  <td></td>
+  <td>1,613 <span class="unit">(2024)</span></td>
+  <td>Median gross rent, ACS 2020-2024 5-year estimates (table B25064), U.S. Census Bureau: Chapel Hill town, North Carolina.<p class="note">The newest town-level survey: Chapel Hill (about 62,000 people) is too small for 1-year ACS estimates, and the 2021-2025 5-year release comes in December 2026. Earlier vintage: $1,483 (2019-2023).</p></td>
+  <td><a href="https://censusreporter.org/data/table/?table=B25064&amp;geo_ids=16000US3711800">censusreporter.org</a></td>
 </tr>
 <tr>
   <th scope="row"><code>meanCommuteMin</code></th>
-  <td>19.6 <span class="unit">(2023)</span></td>
-  <td>Mean travel time to work (minutes), ACS 2019-2023 5-year estimates, U.S. Census Bureau QuickFacts: Chapel Hill town, North Carolina</td>
-  <td></td>
+  <td>19.5 <span class="unit">(2024)</span></td>
+  <td>Mean travel time to work = aggregate minutes (B08013) / workers who did not work from home (B08303), ACS 2020-2024 5-year, Chapel Hill town: 19.52 minutes.</td>
+  <td><a href="https://censusreporter.org/data/table/?table=B08013&amp;geo_ids=16000US3711800">censusreporter.org</a></td>
 </tr>
 <tr>
   <th scope="row"><code>medianHomeValue</code></th>
-  <td>576,500 <span class="unit">(2023)</span></td>
-  <td>Median value of owner-occupied housing units, ACS 2019-2023 5-year estimates, U.S. Census Bureau QuickFacts: Chapel Hill town, North Carolina</td>
-  <td></td>
+  <td>613,700 <span class="unit">(2024)</span></td>
+  <td>Median value of owner-occupied housing units, ACS 2020-2024 5-year estimates (table B25077), Chapel Hill town, North Carolina.</td>
+  <td><a href="https://censusreporter.org/data/table/?table=B25077&amp;geo_ids=16000US3711800">censusreporter.org</a></td>
 </tr>
 <tr>
   <th scope="row"><code>population</code></th>
-  <td>61,960 <span class="unit">(2020)</span></td>
-  <td>2020 Decennial Census, Chapel Hill town, North Carolina</td>
-  <td></td>
+  <td>63,565 <span class="unit">(2025)</span></td>
+  <td>U.S. Census Bureau, Vintage 2025 population estimates for cities and towns (SUB-EST2025), Chapel Hill town, NC, July 1, 2025 (Orange County part 60,643 + Durham County part 2,922).<p class="note">2020 Census count: 61,960. ACS 2020-2024 (household population 50,403 + group quarters 11,204): 61,607.</p></td>
+  <td><a href="https://www2.census.gov/programs-surveys/popest/datasets/2020-2025/cities/totals/sub-est2025_37.csv">www2.census.gov</a></td>
 </tr>
 <tr>
   <th scope="row"><code>housingUnits</code></th>
-  <td>23,713 <span class="unit">(2020)</span></td>
-  <td>U.S. Census Bureau, 2020 Census Redistricting Data (P.L. 94-171), Table H1 &quot;Occupancy Status&quot;, Chapel Hill town, NC: 22,118 occupied and 1,595 vacant.<p class="note"><a href="#note-housingunits">Research note</a></p></td>
-  <td><a href="https://data.census.gov/table/DECENNIALPL2020.H1?g=160XX00US3711800">data.census.gov</a></td>
+  <td>23,581 <span class="unit">(2024)</span></td>
+  <td>Housing units, ACS 2020-2024 5-year estimates (table B25001), Chapel Hill town, NC: 21,189 occupied and 2,392 vacant (B25002).<p class="note">Same survey as the households, renters and incomes in shared/luti/data.js, so vacancy is measured consistently. The Census Bureau publishes no newer count of homes for towns (its housing-unit estimates stop at counties). 2020 Census: 23,713. Building permits since (Census BPS): 151 in 2020, 450 in 2021, 200 in 2022, 739 in 2023, 159 in 2024, 155 in 2025 and 109 in January-August 2026.</p><p class="note"><a href="#note-housingunits">Research note</a></p></td>
+  <td><a href="https://censusreporter.org/data/table/?table=B25001&amp;geo_ids=16000US3711800">censusreporter.org</a></td>
 </tr>
 <tr>
   <th scope="row"><code>treeCoverPct</code></th>
@@ -96,8 +96,8 @@
 <tr>
   <th scope="row"><code>propertyTaxRate</code></th>
   <td>0.005</td>
-  <td>Town of Chapel Hill FY2025-26 property tax rate: 50.0 cents per $100 of assessed value.</td>
-  <td></td>
+  <td>Town of Chapel Hill FY2026-27 adopted budget: 50.0 cents per $100 of assessed value (General Fund 38.1, Debt Service 6.6, Transit 5.3), unchanged from FY2025-26.</td>
+  <td><a href="https://www.chapelhillnc.gov/files/assets/town/v/1/bmd/documents/budgets/26-27-budget-development/26-27-adopted-budget/04-projections.pdf">chapelhillnc.gov</a></td>
 </tr>
 <tr>
   <th scope="row"><code>canopyMinPct</code></th>
@@ -125,8 +125,8 @@
 </tr>
 <tr>
   <th scope="row"><code>agentScale</code></th>
-  <td>79</td>
-  <td>Derived: 23,713 housing units (2020 Census, see housingUnits) / 300 simulated households.</td>
+  <td>70.63</td>
+  <td>Derived: 21,189 households (occupied homes, ACS 2020-2024 5-year, B25002) / 300 simulated households.<p class="note">Each simulated household stands for this many real ones, so the households and priced-out counts are in real households. It was homes per simulated household (79), which counted vacant homes as households.</p></td>
   <td></td>
 </tr>
 <tr class="flagged">
@@ -156,20 +156,20 @@
 <tr class="flagged">
   <th scope="row"><code>agentRenterShare</code></th>
   <td>downtown 0.6 · campus 0.8 · edge 0.35 · corridor 0.6</td>
-  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">From the household-model prototype. Corridor (new apartments near 15-501) takes downtown's value.</p></td>
+  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">From the household-model prototype. Corridor (new apartments near 15-501) takes downtown's value. At year 0 these give 58.6% renters town-wide against 52.6% in the ACS (2020-2024, B25003: 11,141 of 21,189 households). Kept for now because the showcase residents (data/residents.json) are seed-7 households picked by tenure; scaling these by 0.9 matches the ACS but redraws them.</p></td>
   <td></td>
 </tr>
-<tr class="flagged">
+<tr>
   <th scope="row"><code>agentStudentShare</code></th>
   <td>0.4</td>
-  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Share of renters who are students. From the household-model prototype.</p></td>
+  <td>Our calculation from ACS 2020-2024 5-year, Chapel Hill town: 21,533 enrolled in college or graduate school (B14001) less 11,204 in group quarters, mostly residence halls (B26001), leaves about 10,300 students in households; at 2.13 people per renter household (B25010) that is about 4,800 households, or 43% of the 11,141 renter households (B25003).<p class="note">Share of renters who are students. Rounded down to the prototype's 0.4, since some students live with non-students.</p></td>
   <td></td>
 </tr>
-<tr class="flagged">
+<tr>
   <th scope="row"><code>agentIncomeMedian</code></th>
-  <td>student 40000 · renter 64000 · owner 115000</td>
-  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Median household income by type (log-normal). From the household-model prototype.</p></td>
-  <td></td>
+  <td>student 43200 · renter 69100 · owner 180900</td>
+  <td>Owners: ACS 2020-2024 5-year, B25119 Median household income by tenure, Chapel Hill town: $180,885. Students and other renters: the prototype's values (40,000 and 64,000) scaled by 1.08 so that, at the ACS 2020-2024 median gross rent of $1,613 (B25064), 60.8% of renters pay 30% or more of income in rent, as in B25070.<p class="note">Median household income by type (log-normal). Over 60 runs, 60.5% of year-0 renters pay 30% or more of income in rent (ACS: 60.8%) and the median pays 34.3% (ACS B25071: 36.0%). The model's renters' median income is about $55,700 against $50,439 in the ACS: the model draws rents independently of incomes, so it can't match rent burden and income at once, and rent burden is what moves households. A wider income spread fits all three better but pushed a showcase resident (Quinn) into debt with no policy.</p></td>
+  <td><a href="https://censusreporter.org/data/table/?table=B25119&amp;geo_ids=16000US3711800">censusreporter.org</a></td>
 </tr>
 <tr class="flagged">
   <th scope="row"><code>agentIncomeSpread</code></th>
@@ -303,11 +303,11 @@
   <td>U.S. Census Bureau QuickFacts, Chapel Hill town, North Carolina (ACS 5-year estimates): median gross rent $1,172 (2014-2018) and $1,483 (2019-2023); median household income $68,640 (2014-2018) and $85,825 (2019-2023).<p class="note">Nominal household income growth, for rent burden in CH-LUTI and the household model. Our calculation: over those five years rent grew 4.82%/yr and income 4.57%/yr, so incomes trailed rents by 0.25 points a year. CH-LUTI's rent path rises with rentDrift (3%/yr at its central value, Zillow ZORI), so incomes grow 3% - 0.25 points = 2.75%/yr.</p></td>
   <td><a href="https://www.census.gov/quickfacts/fact/table/chapelhilltownnorthcarolina/">census.gov</a></td>
 </tr>
-<tr class="flagged">
+<tr>
   <th scope="row"><code>lutiCpi</code></th>
-  <td>0.025 <span class="unit">/yr</span></td>
-  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Inflation applied to sales tax, service costs and programme costs. From the CH-LUTI model.</p></td>
-  <td></td>
+  <td>0.023 <span class="unit">/yr</span></td>
+  <td>Federal Reserve Bank of Philadelphia, Survey of Professional Forecasters, Third Quarter 2026: headline CPI inflation over the next 10 years (2026-2035), 2.30% a year.<p class="note">Inflation applied to sales tax, service costs and programme costs, and the default for the inflation what-if (shared/luti/drivers.js). Recent: CPI-U +3.4% over the 12 months to August 2026 (BLS, released September 11, 2026).</p></td>
+  <td><a href="https://www.philadelphiafed.org/surveys-and-data/real-time-data-research/spf-q3-2026">philadelphiafed.org</a></td>
 </tr>
 <tr class="flagged">
   <th scope="row"><code>lutiRegionShare</code></th>
@@ -381,11 +381,11 @@
   <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">1 where new homes park in a garage, 0 where they use a surface lot. From the CH-LUTI model.</p></td>
   <td></td>
 </tr>
-<tr class="flagged">
+<tr>
   <th scope="row"><code>lutiParkingMinimum</code></th>
-  <td>downtown 1 · campus 1.25 · north 1.5 · east 1.25 · south 1.5 <span class="unit">spaces/home</span></td>
-  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Parking required per new home today. The model's note: approximate LUMO requirements; no section cited. From the CH-LUTI model.</p></td>
-  <td></td>
+  <td>downtown 0 · campus 0 · north 0 · east 0 · south 0 <span class="unit">spaces/home</span></td>
+  <td>Town of Chapel Hill: on January 21, 2026 the Town Council adopted Land Use Management Ordinance amendments that eliminate mandatory parking minimums across town.<p class="note">Parking required per new home today. With none required, builders build what the market asks for (marketParkingRatio in shared/luti/params.js); the housing.parkingMinimum lever can bring a requirement back.</p></td>
+  <td><a href="https://engage.chapelhillnc.gov/re-writing-our-rules-lumo-update/news_feed/town-council-adopts-lumo-amendments">engage.chapelhillnc.gov</a></td>
 </tr>
 <tr class="flagged">
   <th scope="row"><code>lutiStartShare</code></th>
@@ -561,29 +561,29 @@
   <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Time decay in the job-accessibility index. From the CH-LUTI model.</p></td>
   <td></td>
 </tr>
-<tr class="flagged">
+<tr>
   <th scope="row"><code>lutiHeadwayMin</code></th>
-  <td>downtown 10 · campus 10 · north 15 · east 15 · south 20 <span class="unit">minutes</span></td>
-  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Typical peak minutes between Chapel Hill Transit buses serving each zone. The model's note: derived from the route network; approximate. From the CH-LUTI model.</p></td>
-  <td></td>
+  <td>downtown 15 · campus 10 · north 18 · east 23 · south 13 <span class="unit">minutes</span></td>
+  <td>Our calculation from Chapel Hill Transit's GTFS feed, Fall 2026 Update (valid from October 9, 2026), via the Mobility Database (feed tld-89).<p class="note">Typical peak minutes between buses at a stop in each zone: weekday 7-9 am departures on local routes (express, park-and-ride shuttle and school routes left out), the busier direction at each stop, averaged over the zone's stops as a frequency (harmonic mean). Stops west of the Town line (Carrboro) are left out. Zones are the nearest representative point, as in shared/luti/data.js.</p></td>
+  <td><a href="https://files.mobilitydatabase.org/tld-89/latest.zip">files.mobilitydatabase.org</a></td>
 </tr>
-<tr class="flagged">
+<tr>
   <th scope="row"><code>lutiRegion</code></th>
   <td>outShare 0.45 · distanceKm 16 · headway 30</td>
-  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Commutes out of Town (Durham, RTP, Raleigh): share of resident commuters (the model's note: a LODES OD-style estimate), distance in km, minutes between regional buses. From the CH-LUTI model.</p></td>
-  <td></td>
+  <td>outShare: ACS 2020-2024 5-year, Chapel Hill town: 9,453 workers worked outside the town (B08008) of the 20,865 who did not work from home (29,039 workers less 8,174 at home, B08301), 45.3%.. distanceKm and headway: PLACEHOLDER - need citation.<p class="note">Commutes out of Town (Durham, RTP, Raleigh): share of resident commuters, distance in km, minutes between regional buses. LEHD LODES 2023 puts 72% of residents' primary jobs outside town, but it files many UNC System jobs at a Raleigh headquarters (19% of residents' jobs show in Wake County), so the ACS's answer from residents is used.</p></td>
+  <td><a href="https://censusreporter.org/data/table/?table=B08008&amp;geo_ids=16000US3711800">censusreporter.org</a></td>
 </tr>
-<tr class="flagged">
+<tr>
   <th scope="row"><code>lutiTransitTownShare</code></th>
-  <td>0.45</td>
-  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Town's share of the cost of extra Chapel Hill Transit service (with Carrboro and UNC). From the CH-LUTI model.</p></td>
-  <td></td>
+  <td>0.34</td>
+  <td>Town of Chapel Hill FY2026-27 adopted budget, Transit Fund revenue projections: the Town's transit property tax ($7,491,000) and vehicle tax ($450,000) are 34% of the three partners' contributions, with UNC ($12,624,606) and Carrboro ($2,673,487).<p class="note">Town's share of the cost of extra Chapel Hill Transit service, assuming added service is shared as today's is.</p></td>
+  <td><a href="https://www.chapelhillnc.gov/files/assets/town/v/1/bmd/documents/budgets/26-27-budget-development/26-27-adopted-budget/04-projections.pdf">chapelhillnc.gov</a></td>
 </tr>
-<tr class="flagged">
+<tr>
   <th scope="row"><code>lutiRevaluationYears</code></th>
   <td>2029, 2033, 2037, 2041, 2045, 2049, 2053</td>
-  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Years Orange County revalues property; each resets the base tax rate to revenue-neutral. From the CH-LUTI model, which had 2029 and 2033; the same four-year cycle continues to the end of a three-decade game.</p></td>
-  <td></td>
+  <td>Orange County, 2025 Property Revaluation: the 2025 revaluation is as of January 1, 2025 and the next is January 1, 2029, on a four-year cycle.<p class="note">Years Orange County revalues property; each resets the base tax rate to revenue-neutral. 2033 onward assume the four-year cycle continues, to the end of a three-decade game.</p></td>
+  <td><a href="https://orangecountync.gov/revaluation">orangecountync.gov</a></td>
 </tr>
 <tr class="flagged">
   <th scope="row"><code>lutiResidentialShareOfBase</code></th>
@@ -601,6 +601,54 @@
   <th scope="row"><code>lutiLandCatchUpQuarters</code></th>
   <td>12 <span class="unit">quarters</span></td>
   <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Land prices close the gap to an upzoning's value by 1/this each quarter (about three years). From the CH-LUTI model.</p></td>
+  <td></td>
+</tr>
+<tr class="flagged">
+  <th scope="row"><code>lutiAffordableGap</code></th>
+  <td>0.4</td>
+  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">How far below the new-build market rent a home under an affordable-housing requirement rents, as a share of that rent. Used by the housing.inclusionaryPct lever.</p></td>
+  <td></td>
+</tr>
+<tr class="flagged">
+  <th scope="row"><code>lutiApprovalCarryPerYear</code></th>
+  <td>0.04 <span class="unit">/yr</span></td>
+  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Extra cost of a new home per year of longer permit approval, as a share of its cost (land and loans held longer). Used by the housing.approvalMonths lever.</p></td>
+  <td></td>
+</tr>
+<tr class="flagged">
+  <th scope="row"><code>lutiValueOfTimePerHour</code></th>
+  <td>20 <span class="unit">$/hour</span></td>
+  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">What a commuter would pay to save an hour, to weigh a daily parking charge against travel time. Used by the transport.parkingPriceDelta lever.</p></td>
+  <td></td>
+</tr>
+<tr>
+  <th scope="row"><code>lutiCarCo2GramsPerMile</code></th>
+  <td>400 <span class="unit">g CO2/mile</span></td>
+  <td>U.S. EPA, Greenhouse Gas Emissions from a Typical Passenger Vehicle: about 400 grams of CO2 per mile (22.2 mpg, 8,887 g CO2 per gallon of gasoline).<p class="note">For the commute CO2 indicator: car-km on commutes (CH-LUTI's travel step) times this. Tailpipe CO2 only, today's fleet; electric cars would lower it.</p></td>
+  <td><a href="https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle">epa.gov</a></td>
+</tr>
+<tr>
+  <th scope="row"><code>lutiTrainingCost</code></th>
+  <td>23,135 <span class="unit">$/trainee</span></td>
+  <td>Year Up, a sectoral job-training programme evaluated by random assignment: net cost $23,135 per participant (Fein, Dastrup and Burnett 2021), as reported in J-PAL North America, Sectoral Employment Programs evidence review (2022).<p class="note">Cost to the Town of putting one resident through a job-training programme, rising with inflation. Year Up is a full-time, year-long programme with stipends; shorter programmes cost less.</p></td>
+  <td><a href="https://www.povertyactionlab.org/sites/default/files/publication/Evidence-Review_Sectoral-Employment_2222022_0.pdf">povertyactionlab.org</a></td>
+</tr>
+<tr>
+  <th scope="row"><code>lutiTrainingEarningsGain</code></th>
+  <td>0.2</td>
+  <td>Katz, L., Roth, J., Hendra, R. and Schaberg, K. (2022), Why Do Sectoral Employment Programs Work? Lessons from WorkAdvance, Journal of Labor Economics 40(S1): S249-S291: substantial and persistent earnings gains of 12% to 34% following training.<p class="note">A trained household's income rises by this share from the year after training, while it lives here. Near the middle of the published range.</p></td>
+  <td><a href="https://www.nber.org/papers/w28248">nber.org</a></td>
+</tr>
+<tr class="flagged">
+  <th scope="row"><code>lutiWorkdaysPerYear</code></th>
+  <td>250 <span class="unit">days</span></td>
+  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Days a year a commuter parks, for parking-charge revenue. Used by the transport.parkingPriceDelta lever.</p></td>
+  <td></td>
+</tr>
+<tr class="flagged">
+  <th scope="row"><code>lutiTownParkingShare</code></th>
+  <td>0.2</td>
+  <td><span class="flag">PLACEHOLDER</span> needs citation<p class="note">Share of cars bound for the downtown zone (Franklin Street and north campus) that park in Town-run decks, lots and meters; the rest use UNC or private parking the Town doesn't price. Used by the transport.parkingPriceDelta lever.</p></td>
   <td></td>
 </tr>
 </tbody>

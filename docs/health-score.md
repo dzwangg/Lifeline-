@@ -1,9 +1,8 @@
 # The city health score
 
 At the end of a decade the game answers one question: **is Chapel Hill better off than if the Town had done nothing?**
-It answers with a number out of 100, split into two halves — the economy, and the people who live here — and it always
-shows the same number for a town that adopted no new policy, because a score on its own can't tell you whether a policy
-helped or the town was heading there anyway.
+It answers with a number out of 100, split into two halves — the economy, and the people who live here — where
+**50 is the town that adopted nothing**. Above 50 the policies left it better off, below 50 worse.
 
 The scoring lives in [`shared/health.js`](../shared/health.js); the anchors live next to each indicator in
 [`shared/indicators.js`](../shared/indicators.js). Why each indicator is in the panel at all is
@@ -11,61 +10,95 @@ The scoring lives in [`shared/health.js`](../shared/health.js); the anchors live
 
 ## The problem
 
-Twenty-one numbers move over ten years. Some go up when things get better (jobs, homes, income), some go down
-(rent burden, commute, carbon). They're in different units — dollars, minutes, percentages, tonnes. "The city is doing
-well" has to mean something specific before it can be a number, and the number has to be comparable between a run with
-policies and a run without.
+Twenty-one numbers move over a decade. Some go up when things get better (jobs, homes, income), some go down (rent
+burden, commute, carbon), and they are in different units — dollars, minutes, percentages, tonnes. Worse, most of them
+barely move in ten years no matter what the Council does: scored in absolute terms, the number would mostly measure
+Chapel Hill's starting position and sit near the same value whatever the player did.
 
 ## The solution, in four steps
 
-### 1. Each indicator is read in the basis that suits it
+### 1. Fifty is the town that did nothing
+
+Every indicator is scored against **the same decade run with no new policy**, so a run compared with itself is 50 on
+the nose, on every indicator and both halves. The number then always answers one question: better or worse than doing
+nothing? The no-policy run is computed anyway — the panel has always compared against it — so this costs nothing and
+makes the score about the policies rather than about Chapel Hill's inheritance.
+
+### 2. Each indicator is read in the basis that suits it
 
 | Basis | What it reads | Used for |
 |---|---|---|
-| `level` | the value this year | rent burden, commute, tree cover, vacancy, tax burden — things with a meaningful absolute level |
-| `ratioToStart` | this year ÷ year 0 | jobs, businesses, real income, bus trips, commute CO₂, the Town's budget — things that only mean something as growth |
+| `level` | the value this year | rent burden, commute, tree cover, vacancy, tax burden |
+| `ratioToStart` | this year ÷ year 0 | jobs, businesses, real income, bus trips, commute CO₂, the Town's budget |
 | `perYear` | (this year − year 0) ÷ years | new homes a year, so a longer game isn't automatically a better score |
 
-### 2. Two anchors turn it into 0–100
+**Year 0 is not scored** — nothing has grown yet and both runs are the same town.
 
-Every scored indicator carries a **target** (scores 100) and a **floor** (scores 0), with a straight line between and
-clamping at both ends. The direction falls out of the anchors: for rent burden the target (35%) sits *below* the floor
-(75%); for jobs it sits above. No separate "higher is better" flag is needed in the arithmetic.
+### 3. A swing turns the gap into a score
 
-A growth anchor is written per decade and compounded to the year being scored: +15% of jobs over ten years asks for
-+1.4% after one. Without that every growth indicator would sit at its floor early in a run and the score would climb on
-the calendar rather than on the policies. **Year 0 is not scored at all** — nothing has grown yet and both runs are the
-same town.
+The gap between the two runs is divided by that indicator's **swing**: the move against doing nothing that counts as
+decisive. A full swing better is 100, a full swing worse is 0, no change is 50, and the result is clamped so one
+runaway indicator can't carry the score on its own.
 
-### 3. Two halves, then the midpoint
+The swings are calibrated against what the models actually do — measured across upzoning, a subsidy, maximum edge
+release, an eight-cent tax move and a bus doubling, then set near the largest effect a single determined policy
+produces. That is what makes the score sensitive: a policy that moves an indicator as hard as policies realistically
+can takes that line to 100 or 0, rather than nudging it by a point.
 
-Each half is the weighted mean of its own indicators. Overall is the mean of the two halves, so the side with more
+| Indicator | A decisive move is |
+|---|---|
+| Rent-burdened renters | 1.2 points off the burden line |
+| Price to income | a third of a year of income |
+| New homes a year | 130 more homes a year |
+| Households priced out | 130 households kept in town |
+| Jobs | a further 1.2% of the town's jobs |
+| Storefront businesses | 4.5% more storefronts |
+| Storefront vacancy | 1.8 points off the empty shopfronts |
+| Real median income | 2% more real income |
+| Town budget | a tenth of the Town's net position, about 5¢ on the rate |
+| Average commute | a quarter-minute, which almost nothing shifts |
+| Access to jobs | 5% more jobs within a normal commute |
+| Bus ridership | 15% more trips |
+| Car traffic | 3 points off peak traffic |
+| Tree cover | 3 points of canopy |
+| Commute CO₂ | 3.5% of commute carbon |
+| Commuters driving | 1 point of commuters off the road |
+| Tax burden | 0.35 points of a homeowner's income |
+
+### 4. Two halves, then the midpoint
+
+Each half is the weighted mean of its own indicators; overall is the mean of the two halves, so the side with more
 indicators can't drown out the other.
 
 **Economy — is the town earning its living?** New homes a year, jobs, storefront businesses, storefront vacancy, real
 median household income, the Town's budget.
 
-**Residents — are the people here better off?** Rent burden (weight 2), price to income, households priced out
-(weight 1.5), commute, access to jobs, bus ridership (0.5), car traffic (0.5), tree cover, commute CO₂ (0.75),
-commuters driving (0.75), property tax burden.
+**Residents — are the people here better off?** Rent burden (weight 2), households priced out (1.5), tree cover (1.5),
+tax burden (1.5), price to income, commute, access to jobs, bus ridership (0.5), car traffic (0.5), commute CO₂
+(0.75), commuters driving (0.75).
 
-The weights are the one place a value judgement is deliberately loud. Rent burden counts double because it is the
-clearest measure of whether living here is affordable; displacement counts 1.5 because being forced out is the sharpest
-harm the model can show. Bus ridership, traffic, CO₂ and car share are weighted below 1 because they overlap — four
-measures of the same transport story shouldn't outvote housing. Housing and staying put together are about 41% of the
-residents' half, getting around 27%, environment 23%, tax 9%.
+The weights are where the value judgement is deliberately loud. Rent burden counts double because it is the clearest
+measure of whether living here is affordable. Displacement, losing the woods and the tax bill count 1.5 because the
+brief named them as what makes residents unhappy. Bus ridership, traffic, CO₂ and car share are weighted below 1
+because they overlap — four readings of the same transport story shouldn't outvote housing.
 
-### 4. The same scoring runs on the no-policy town
+The residents' half also carries a **mood** — much better off, better off, about as before, worse off, much worse off —
+and a sentence naming the two indicators that carried it and the two that pulled against it, so the player gets the
+why and not just the number.
 
-The headline is the scenario's score; underneath it is the same decade with no new policy. On today's path Chapel Hill
-scores about **58** — "holding steady" — and it is roughly flat across the decade, which is the point: the baseline is
-not 50 by construction, it is what the models say happens if the Council does nothing.
+### What it comes out at
+
+Doing nothing is 50 exactly. Realistic packages land between about 46 and 70 overall, and the halves move further: a
+full build-and-transit package reaches 80 on the economy, releasing the edge of town at its maximum drops residents to
+45 as the canopy goes, and a tax cut and sprawl together score 65 on the economy against 34 for residents — the whole
+point being that the two halves can disagree.
 
 ## The anchors
 
-Each anchor is a judgement about what "doing well" means, so each one carries its reasoning in
-`shared/indicators.js`, shown in the panel when you hover a line. Where a published benchmark exists it is used; the
-rest are marked **our choice** and derived from the spread of US places.
+These describe what a good and a bad town look like in **absolute** terms. The score no longer reads them — it reads
+the swings above — but they set the context the panel shows beside each value, they are where the swings were sized
+from, and they are what a later absolute reading would use. Each carries its reasoning in `shared/indicators.js`.
+Where a published benchmark exists it is used; the rest are marked **our choice**.
 
 The pattern follows the **SDG Index**: goalposts chosen by preference order — the Town's own adopted goal, then a
 recognized standard, then the spread of real US places — with hard censoring at both ends. Fixed goalposts (as the UN's
@@ -118,8 +151,9 @@ Three measurement choices worth knowing, because each one moves its score by a l
 
 ## Tuning it
 
-Change the numbers in the `score` block next to an indicator in `shared/indicators.js` — category, basis, anchors,
-weight — and the panel, the final screen and the tests all follow. `tests/health.test.js` holds the contract: every
-scored indicator is a real metric, the anchors point the way its direction says, the halves are weighted means, the
-baseline lands mid-scale, and building homes, releasing the edge of town, cutting tax and running more buses each move
-the score the way the models say they should.
+Change the numbers in the `score` block next to an indicator in `shared/indicators.js` — category, basis, **swing**,
+weight, anchors — and the panel, the final screen and the tests all follow. The swing is the dial for sensitivity:
+halve it and that indicator reacts twice as hard. `tests/health.test.js` holds the contract: doing nothing scores
+exactly 50 everywhere, a full swing is worth 50 points and is clamped past it, the halves are weighted means, and
+building homes, releasing the edge of town, cutting tax and running more buses each move the score the way the models
+say they should.

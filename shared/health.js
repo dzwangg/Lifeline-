@@ -1,21 +1,23 @@
-// City health: one score out of 100 for how Chapel Hill is doing at the end of a run, in two halves — the economy, and
-// how residents are faring. Pure: the same run scores the same in the browser, a Worker and Node.
+// City health: one score out of 100 for how a policy package leaves Chapel Hill, in two halves — the economy, and the
+// people who live here. Pure: the same run scores the same in the browser, a Worker and Node.
 //
-// How a score is built, in three steps:
+// **50 is the town that adopted nothing.** Every indicator is scored against the same decade run with no new policy, so
+// a run compared with itself is 50 on the nose and the number always answers one question: better or worse than doing
+// nothing? An absolute score would mostly measure Chapel Hill's starting position, which no policy can move far in a
+// decade; this measures the policies.
+//
+// How a score is built:
 //   1. Each scored indicator (shared/indicators.js, the ones with a `score` block) is read in its own basis — its level
-//      this year, its ratio to year 0, or its change per year — and mapped onto 0-100 between two anchors: `floor`
-//      scores 0, `target` scores 100, straight line between, clamped at both ends. The direction falls out of the
-//      anchors: for rent burden target (35%) is below floor (75%), for jobs target is above floor.
-//      A growth anchor (`ratioToStart`) is written per decade and compounded to the year being scored, so +15% of jobs
-//      in ten years asks for +1.4% after one. Without that, every growth indicator would sit at its floor early in a
-//      run and the score would climb on the calendar rather than on the policies.
-//   2. Each half is the mean of its indicators' scores, each indicator weighted (default 1).
-//   3. Overall is the mean of the two halves, so neither can be drowned out by having more indicators.
-// Every anchor is a value judgement about what "doing well" means, so each one carries its reasoning and, where one
-// exists, a published source (docs/health-score.md). They are data, not logic: tune them there without touching this.
+//      this year, its growth since year 0, or its change per year — for both runs, and the gap between them is divided
+//      by that indicator's `swing`: the move against doing nothing that counts as decisive. Clamped to ±1, so one
+//      runaway indicator can't carry the score, and turned into 50 ± 50.
+//   2. Each half is the weighted mean of its own indicators' moves, again as 50 ± 50.
+//   3. Overall is the mean of the two halves, so the side with more indicators can't drown out the other.
+// The swings are calibrated against what the models actually do: see docs/health-score.md. They are data, not logic —
+// tune them in shared/indicators.js without touching this file.
 //
-// The same scoring runs on the no-policy timeline, which is what makes the number mean something: a town can score 58
-// doing nothing and 63 with a policy package, and the second number is only worth reading next to the first.
+// The anchors (`target`, `floor`) in the same block are not used here. They say what a good and a bad town look like in
+// absolute terms, which the panel shows as context next to the value.
 
 import { INDICATORS, PILLARS } from './indicators.js';
 
@@ -25,26 +27,27 @@ export const CATEGORIES = [
   { id: 'social', label: 'Residents', question: 'Are the people here better off?' },
 ];
 
-/** What a score means, in words: a band for the headline number. */
+/** What a score means, in words. 50 is the town that did nothing, so every band is relative to that. */
 export const BANDS = [
-  { min: 80, label: 'Thriving' },
-  { min: 65, label: 'Healthy' },
-  { min: 50, label: 'Holding steady' },
-  { min: 35, label: 'Strained' },
-  { min: 0, label: 'Struggling' },
+  { min: 72, label: 'Far better' },
+  { min: 58, label: 'Better' },
+  { min: 43, label: 'About the same' },
+  { min: 28, label: 'Worse' },
+  { min: 0, label: 'Far worse' },
 ];
-export const bandOf = score => BANDS.find(b => score >= b.min) ?? BANDS.at(-1);
+/** The same five steps said about the people rather than the town. */
+export const MOODS = [
+  { min: 72, label: 'Much better off' },
+  { min: 58, label: 'Better off' },
+  { min: 43, label: 'About as before' },
+  { min: 28, label: 'Worse off' },
+  { min: 0, label: 'Much worse off' },
+];
+const bandIn = (list, score) => (list.find(b => score >= b.min) ?? list.at(-1)).label;
+export const bandOf = score => bandIn(BANDS, score);
+export const moodOf = score => bandIn(MOODS, score);
 
 export const SCORED = INDICATORS.filter(i => i.score);
-
-/** The anchors are written per decade; a growth anchor compounds to the year being scored. */
-export const HORIZON = 10;
-export function anchorsAt(indicator, year) {
-  const { target, floor, basis, horizon = HORIZON } = indicator.score;
-  if (basis !== 'ratioToStart') return { target, floor };
-  const k = year / horizon;
-  return { target: target ** k, floor: floor ** k };
-}
 
 /** An indicator's value in its scoring basis: its level, its ratio to year 0, or its change per year since year 0. */
 export function basisValue(indicator, timeline, year) {
@@ -57,51 +60,51 @@ export function basisValue(indicator, timeline, year) {
   }
 }
 
-/** 0-100 between the anchors, clamped. target scores 100 and floor 0, whichever way round they are. */
-export const scoreValue = (value, { target, floor }) =>
-  Math.max(0, Math.min(100, ((value - floor) / (target - floor)) * 100));
+const clamp1 = x => Math.max(-1, Math.min(1, x));
+const round = v => Math.round(v * 10) / 10;
 
 /**
- * Scores one run's timeline at `year`.
- * @param {{ metrics: Record<string, number> }[]} timeline a SimResult timeline (year 0 first)
+ * Scores a run against the same decade with no new policy.
+ * @param {{ metrics: Record<string, number> }[]} policy @param {{ metrics: Record<string, number> }[]} baseline
  * @param {number} [year] the year to score; the last by default
- * @returns {{ overall: number, band: string, economic: number, social: number,
- *   categories: { id: string, label: string, question: string, score: number, indicators: object[] }[],
- *   indicators: { key: string, label: string, category: string, pillar: string, pillarLabel: string, value: number,
- *     score: number, weight: number, target: number, floor: number, basis: string, fmt: string, why: string }[] }}
  */
-export function scoreRun(timeline, year = timeline.length - 1) {
-  // Year 0 is the town as it stands, the same in every run: nothing has grown yet and no homes have been built, so there
-  // is nothing to score. The caller shows that rather than a number.
+export function scoreAgainst(policy, baseline, year = policy.length - 1) {
+  // Year 0 is the town as it stands, the same in both runs: there is nothing to score yet.
   if (year < 1) return { scored: false, year };
   const pillarLabel = id => PILLARS.find(p => p.id === id)?.label ?? id;
-  const indicators = SCORED.filter(i => i.key in timeline[year].metrics).map(i => {
-    const value = basisValue(i, timeline, year), anchors = anchorsAt(i, year);
+  const indicators = SCORED.filter(i => i.key in policy[year].metrics).map(i => {
+    const dir = i.better === 'higher' ? 1 : -1;
+    const value = basisValue(i, policy, year), base = basisValue(i, baseline, Math.min(year, baseline.length - 1));
+    const move = clamp1(((value - base) * dir) / i.score.swing);
     return { key: i.key, label: i.score.label ?? i.short ?? i.label, category: i.score.category, pillar: i.pillar,
-      pillarLabel: pillarLabel(i.pillar), value, score: scoreValue(value, anchors), weight: i.score.weight ?? 1,
-      target: anchors.target, floor: anchors.floor, basis: i.score.basis ?? 'level', fmt: i.score.fmt ?? i.fmt, why: i.score.why };
+      pillarLabel: pillarLabel(i.pillar), value, base, move, score: round(50 + 50 * move), weight: i.score.weight ?? 1,
+      target: i.score.target, floor: i.score.floor, basis: i.score.basis ?? 'level', fmt: i.score.fmt ?? i.fmt,
+      why: i.score.why, today: i.today?.text };
   });
-  const mean = list => (list.length ? list.reduce((s, x) => s + x.score * x.weight, 0) / list.reduce((s, x) => s + x.weight, 0) : 0);
+  const half = list => (list.length
+    ? round(50 + 50 * (list.reduce((s, i) => s + i.move * i.weight, 0) / list.reduce((s, i) => s + i.weight, 0)))
+    : 50);
   const categories = CATEGORIES.map(c => {
     const own = indicators.filter(i => i.category === c.id);
-    return { ...c, score: round(mean(own)), indicators: own };
+    return { ...c, score: half(own), indicators: own, summary: summarise(own) };
   });
   const byId = Object.fromEntries(categories.map(c => [c.id, c.score]));
   const overall = round((byId.economic + byId.social) / 2);
-  return { scored: true, overall, band: bandOf(overall).label, economic: byId.economic, social: byId.social, categories, indicators, year };
+  return { scored: true, year, overall, band: bandOf(overall), economic: byId.economic, social: byId.social,
+    mood: moodOf(byId.social), categories, indicators };
 }
 
-/**
- * The run's score beside the same town with no new policy: the comparison is the point, since a score on its own can't
- * say whether a policy helped or the town was heading there anyway.
- * @param {{ metrics: Record<string, number> }[]} policy @param {{ metrics: Record<string, number> }[]} baseline
- */
-export function compareRuns(policy, baseline, year = policy.length - 1) {
-  const a = scoreRun(policy, year), b = scoreRun(baseline, Math.min(year, baseline.length - 1));
-  if (!a.scored || !b.scored) return { scored: false, year, policy: a, baseline: b };
-  const deltas = Object.fromEntries(a.indicators.map((i, n) => [i.key, round(i.score - (b.indicators[n]?.score ?? i.score))]));
-  return { scored: true, policy: a, baseline: b, overall: round(a.overall - b.overall), economic: round(a.economic - b.economic),
-    social: round(a.social - b.social), indicators: deltas };
+/** The indicators that carried a half, in a sentence: what moved it up, then what pulled against it. */
+export function summarise(indicators, limit = 2) {
+  const moved = indicators.filter(i => Math.abs(i.move) > 0.02);
+  if (!moved.length) return 'Nothing moved much either way.';
+  const pick = sign => moved.filter(i => Math.sign(i.move) === sign)
+    .sort((a, b) => Math.abs(b.move * b.weight) - Math.abs(a.move * a.weight)).slice(0, limit)
+    .map(i => i.label.toLowerCase());
+  const names = list => (list.length === 2 ? `${list[0]} and ${list[1]}` : list[0]);
+  const up = pick(1), down = pick(-1);
+  if (up.length && down.length) return `Better on ${names(up)}; worse on ${names(down)}.`;
+  return up.length ? `Better on ${names(up)}.` : `Worse on ${names(down)}.`;
 }
 
-const round = v => Math.round(v * 10) / 10;
+export { scoreAgainst as compareRuns };

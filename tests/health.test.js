@@ -1,8 +1,8 @@
-// The city health score (shared/health.js): the anchors are sound, the arithmetic is what it claims to be, and a run
-// scores the way the models say it should.
+// The city health score (shared/health.js): 50 is the town that did nothing, the arithmetic is what it claims to be,
+// and a run moves the way the models say it should.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CATEGORIES, SCORED, anchorsAt, bandOf, basisValue, compareRuns, scoreRun, scoreValue } from '../shared/health.js';
+import { CATEGORIES, SCORED, bandOf, basisValue, moodOf, scoreAgainst, summarise } from '../shared/health.js';
 import { INDICATORS } from '../shared/indicators.js';
 import { runCombined } from '../shared/combined.js';
 import { zones, assumptions, baselines, cards } from './data.js';
@@ -10,35 +10,46 @@ import { zones, assumptions, baselines, cards } from './data.js';
 const byId = id => cards.find(c => c.id === id);
 const none = runCombined([], {}, zones, assumptions, baselines);
 const run = (ids, params = {}) => runCombined(ids.map(byId), params, zones, assumptions, baselines, none);
+const score = (ids, params) => scoreAgainst(run(ids, params).timeline, none.timeline);
+const at = (s, key) => s.indicators.find(i => i.key === key);
 
-test('every scored indicator is a real metric with usable anchors, in one of the two halves', () => {
+test('every scored indicator is a real metric with a swing, anchors and a half to belong to', () => {
   const metrics = none.timeline.at(-1).metrics;
   for (const i of SCORED) {
     assert.ok(i.key in metrics, `${i.key} is a metric the models produce`);
     assert.ok(CATEGORIES.some(c => c.id === i.score.category), `${i.key}: category`);
     assert.ok(['level', 'ratioToStart', 'perYear'].includes(i.score.basis), `${i.key}: basis`);
-    assert.notEqual(i.score.target, i.score.floor, `${i.key}: anchors must differ`);
-    // the anchors have to agree with the direction the indicator is read in, or the score runs backwards
-    const up = i.score.target > i.score.floor;
-    assert.equal(up, i.better === 'higher', `${i.key}: target is on the ${i.better} side`);
-    assert.ok(i.score.why?.length > 40, `${i.key}: the anchors say why they are where they are`);
+    assert.ok(i.score.swing > 0, `${i.key}: a swing the score is built on`);
+    assert.notEqual(i.score.target, i.score.floor, `${i.key}: the context anchors differ`);
+    // the anchors have to agree with the direction the indicator is read in, or the context reads backwards
+    assert.equal(i.score.target > i.score.floor, i.better === 'higher', `${i.key}: target is on the ${i.better} side`);
+    assert.ok(i.score.why?.length > 40, `${i.key}: says where its anchors come from`);
   }
   assert.ok(SCORED.length >= 12, 'the score reads most of the panel');
   for (const c of CATEGORIES) assert.ok(SCORED.some(i => i.score.category === c.id), `${c.id} has indicators`);
-  // an indicator with no score block is context, and context is never scored by accident
-  for (const i of INDICATORS.filter(x => !x.score)) assert.ok(!SCORED.includes(i), i.key);
+  for (const i of INDICATORS.filter(x => !x.score)) assert.ok(!SCORED.includes(i), `${i.key} is context and stays unscored`);
 });
 
-test('a value at the floor scores 0, at the target 100, halfway 50, and past either end is clamped', () => {
-  const up = { floor: 0, target: 10 }, down = { floor: 0.75, target: 0.35 };
-  assert.equal(scoreValue(0, up), 0);
-  assert.equal(scoreValue(10, up), 100);
-  assert.equal(scoreValue(5, up), 50);
-  assert.equal(scoreValue(-5, up), 0, 'below the floor is still 0');
-  assert.equal(scoreValue(99, up), 100, 'past the target is still 100');
-  assert.equal(scoreValue(0.75, down), 0, 'lower-is-better reads the same way round');
-  assert.equal(scoreValue(0.35, down), 100);
-  assert.ok(Math.abs(scoreValue(0.55, down) - 50) < 1e-9, 'halfway between the anchors, give or take floating point');
+test('doing nothing scores exactly 50, on every indicator and both halves', () => {
+  const s = scoreAgainst(none.timeline, none.timeline);
+  assert.equal(s.overall, 50);
+  assert.equal(s.economic, 50);
+  assert.equal(s.social, 50);
+  for (const i of s.indicators) assert.equal(i.score, 50, i.key);
+  assert.equal(s.band, 'About the same');
+  assert.equal(s.mood, 'About as before');
+  for (const c of s.categories) assert.equal(c.summary, 'Nothing moved much either way.');
+});
+
+test('an indicator moves 50 points for a full swing, and is clamped past it', () => {
+  const line = v => [{ metrics: { treeCoverPct: 46.9 } }, { metrics: { treeCoverPct: v } }];
+  const treeAt = v => scoreAgainst(line(v), line(46.9)).indicators.find(i => i.key === 'treeCoverPct').score;
+  const swing = SCORED.find(i => i.key === 'treeCoverPct').score.swing;
+  assert.equal(treeAt(46.9), 50, 'no change is 50');
+  assert.equal(treeAt(46.9 + swing), 100, 'a full swing better is 100');
+  assert.equal(treeAt(46.9 - swing), 0, 'a full swing worse is 0');
+  assert.equal(treeAt(46.9 + swing / 2), 75, 'half a swing is half the distance');
+  assert.equal(treeAt(46.9 + swing * 9), 100, 'past a full swing is still 100, so one indicator cannot carry the score');
 });
 
 test('each basis reads the metric it says it does', () => {
@@ -51,75 +62,56 @@ test('each basis reads the metric it says it does', () => {
 });
 
 test('the halves are weighted means of their own indicators, and overall is their midpoint', () => {
-  const s = scoreRun(none.timeline);
+  const s = score(['transit-upzoning', 'housing-construction-subsidy']);
   for (const c of s.categories) {
     const own = s.indicators.filter(i => i.category === c.id);
-    const want = own.reduce((t, i) => t + i.score * i.weight, 0) / own.reduce((t, i) => t + i.weight, 0);
+    const want = 50 + 50 * (own.reduce((t, i) => t + i.move * i.weight, 0) / own.reduce((t, i) => t + i.weight, 0));
     assert.ok(Math.abs(c.score - want) < 0.05, `${c.id}: ${c.score} vs ${want}`);
   }
   assert.ok(Math.abs(s.overall - (s.economic + s.social) / 2) < 0.05, 'overall is the midpoint of the halves');
-  assert.ok(s.overall > 0 && s.overall < 100);
-  assert.equal(s.band, bandOf(s.overall).label);
+  assert.equal(s.band, bandOf(s.overall));
+  assert.equal(s.mood, moodOf(s.social));
 });
 
-test('the no-policy baseline scores in the middle, so a policy has room to move it either way', () => {
-  const s = scoreRun(none.timeline);
-  assert.ok(s.overall > 35 && s.overall < 75, `baseline ${s.overall}: neither already perfect nor already doomed`);
-  for (const c of s.categories) assert.ok(c.score > 20 && c.score < 85, `${c.id} ${c.score}`);
-  assert.equal(scoreRun(none.timeline, 3).year, 3, 'any year can be scored, not just the last');
+test('year 0 is not scored: nothing has grown and both runs are the same town', () => {
+  assert.equal(scoreAgainst(none.timeline, none.timeline, 0).scored, false);
+  assert.equal(scoreAgainst(none.timeline, none.timeline, 1).scored, true);
 });
 
-test('comparing a run with itself is a flat zero; the comparison is per indicator too', () => {
-  const c = compareRuns(none.timeline, none.timeline);
-  assert.equal(c.overall, 0);
-  assert.equal(c.economic, 0);
-  assert.equal(c.social, 0);
-  assert.ok(Object.values(c.indicators).every(d => d === 0));
-  assert.equal(c.baseline.overall, c.policy.overall);
+test('a policy package moves the score well clear of 50, in the half it acts on', () => {
+  const homes = score(['transit-upzoning', 'housing-construction-subsidy']);
+  assert.ok(homes.economic > 60, `homes lift the economy half: ${homes.economic}`);
+  assert.ok(homes.overall > 55, `and the score with it: ${homes.overall}`);
+
+  const everything = score(['transit-upzoning', 'housing-construction-subsidy', 'bus-frequency-boost', 'protected-bike-network', 'small-business-support-grant']);
+  assert.ok(everything.overall > 65, `a full package is clearly better: ${everything.overall}`);
+  assert.equal(everything.band, 'Better');
 });
 
-test('building homes lifts the economy; releasing the edge of town trades the woods for it', () => {
-  const homes = compareRuns(run(['transit-upzoning', 'housing-construction-subsidy']).timeline, none.timeline);
-  assert.ok(homes.economic > 1, `homes raise the economy half: ${homes.economic}`);
-  assert.ok(homes.indicators.housingUnits > 5, 'the new homes are what does it');
-
-  const sprawl = compareRuns(run(['edge-subdivisions'], { 'edge-subdivisions': { acres_released: 150 } }).timeline, none.timeline);
-  assert.ok(sprawl.economic > 0, 'the homes still count for the economy');
-  assert.ok(sprawl.indicators.treeCoverPct < -5, `the woods go: ${sprawl.indicators.treeCoverPct}`);
-  assert.ok(sprawl.social < 0, `and residents are worse off for it: ${sprawl.social}`);
+test('releasing the edge of town trades the economy against the people who live here', () => {
+  const sprawl = score(['edge-subdivisions'], { 'edge-subdivisions': { acres_released: 150 } });
+  assert.ok(sprawl.economic > 55, `the homes count for the economy: ${sprawl.economic}`);
+  assert.ok(sprawl.social < 48, `the woods going counts against residents: ${sprawl.social}`);
+  assert.equal(at(sprawl, 'treeCoverPct').score, 0, 'tree cover takes the full hit');
 });
 
-test('a tax cut costs the Town and eases the bill; a tax rise does the reverse', () => {
-  const cut = compareRuns(run(['property-tax-adjustment'], { 'property-tax-adjustment': { cents_per_100: -4 } }).timeline, none.timeline);
-  assert.ok(cut.indicators.netFiscal < -5, `the Town's money takes the hit: ${cut.indicators.netFiscal}`);
-  // a few points at most: the Town sets 50 of the 132.84 cents on a bill, and the anchors span the whole US spread
-  assert.ok(cut.indicators.taxBurden > 0.3, `households pay a smaller share of their income: ${cut.indicators.taxBurden}`);
-  assert.ok(cut.economic < 0, 'so the economy half falls');
+test('a tax cut eases the bill and costs the Town; a rise does the reverse', () => {
+  const cut = score(['property-tax-adjustment'], { 'property-tax-adjustment': { cents_per_100: -8 } });
+  assert.ok(at(cut, 'taxBurden').score > 60, 'households pay a smaller share');
+  assert.ok(at(cut, 'netFiscal').score < 20, "the Town's money takes the hit");
+  assert.ok(cut.economic > 50 && cut.social < 45, 'cheaper to live in, paid for out of the Town');
 
-  const rise = compareRuns(run(['property-tax-adjustment'], { 'property-tax-adjustment': { cents_per_100: 4 } }).timeline, none.timeline);
-  assert.ok(rise.indicators.netFiscal > 5 && rise.indicators.taxBurden < -0.3, 'and a rise is the mirror of it');
+  const rise = score(['property-tax-adjustment'], { 'property-tax-adjustment': { cents_per_100: 8 } });
+  assert.ok(at(rise, 'taxBurden').score < 40, 'and a rise is the mirror of it');
+  assert.match(rise.categories.find(c => c.id === 'social').summary, /tax burden/, 'the summary names the bill');
 });
 
-test('buses and bike lanes move getting around, and the money to pay for them shows up', () => {
-  const c = compareRuns(run(['bus-frequency-boost', 'protected-bike-network']).timeline, none.timeline);
-  assert.ok(c.indicators.transitRidership > 5, `more riders: ${c.indicators.transitRidership}`);
-  assert.ok(c.social > 0, 'residents get around better');
-  assert.ok(c.indicators.netFiscal < 0, 'the service costs the Town something');
-});
-
-test('year 0 is not scored: nothing has grown yet and both runs are the same town', () => {
-  assert.equal(scoreRun(none.timeline, 0).scored, false);
-  assert.equal(compareRuns(none.timeline, none.timeline, 0).scored, false);
-  assert.equal(scoreRun(none.timeline, 1).scored, true);
-});
-
-test('a growth anchor is a decade\u2019s worth, compounded to the year being scored', () => {
-  const jobs = SCORED.find(i => i.key === 'jobs'), full = jobs.score.target;
-  assert.ok(Math.abs(anchorsAt(jobs, 10).target - full) < 1e-9, 'at ten years it is the anchor as written');
-  assert.ok(Math.abs(anchorsAt(jobs, 5).target - full ** 0.5) < 1e-9, 'at five, half of it compounded');
-  const rent = SCORED.find(i => i.key === 'rentBurden');
-  assert.equal(anchorsAt(rent, 5).target, rent.score.target, 'a level anchor does not move');
-  // without compounding, the baseline would climb year on year just because time passed
-  const early = scoreRun(none.timeline, 2).overall, late = scoreRun(none.timeline, 10).overall;
-  assert.ok(Math.abs(late - early) < 8, `the no-policy town scores about the same all through: ${early} then ${late}`);
+test('the summary names what carried a half, and says so plainly when nothing did', () => {
+  const ind = (key, label, move, weight = 1) => ({ key, label, move, weight });
+  assert.equal(summarise([ind('a', 'Jobs', 0)]), 'Nothing moved much either way.');
+  assert.equal(summarise([ind('a', 'Jobs', 0.5), ind('b', 'Tree cover', -0.4)]), 'Better on jobs; worse on tree cover.');
+  assert.equal(summarise([ind('a', 'Jobs', 0.5), ind('b', 'Rent', 0.3)]), 'Better on jobs and rent.');
+  assert.equal(summarise([ind('a', 'Jobs', -0.5)]), 'Worse on jobs.');
+  // the biggest mover by weight leads, so a double-weighted indicator outranks a bigger move on a light one
+  assert.match(summarise([ind('a', 'Rent', 0.4, 2), ind('b', 'Buses', 0.6, 0.5)]), /^Better on rent and buses\./);
 });

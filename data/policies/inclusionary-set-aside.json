@@ -1,7 +1,7 @@
 {
   "id": "inclusionary-set-aside",
   "title": "Require below-market homes in every new building",
-  "summary": "Raises the share of homes in a new development that must be let below market, and drops the density bonus that pays developers back for them.",
+  "summary": "Requires a share of the homes in every new development to be let below market, and drops the density bonus that pays developers back for them. Chapel Hill's own ordinance covers homes for sale; this is the version the state does not let a town impose.",
   "category": "housing",
   "icon": "tower",
   "decider": {
@@ -74,7 +74,7 @@
     "cons": [
       "With no density bonus the requirement is simply a cost on building with nothing given back, and the evidence that it is harmless comes from mild 10-15% programmes that do carry bonuses.",
       "The harm grows with how hard the requirement bites: the one study that measures stringency finds the effect about four times larger in the most demanding quartile of towns.",
-      "A town cannot simply impose this. Chapel Hill's mandate covers homes for sale; it reaches below-market rents only by agreement with developers who take its incentives, and that voluntary route has delivered 5 homes since 2013."
+      "A town cannot simply impose this one. The card models a requirement on homes to be let below market, which North Carolina bars outright: Chapel Hill's own mandate reaches homes for sale, and below-market rents only by agreement with developers who take its incentives — 5 homes since 2013."
     ]
   }
 }

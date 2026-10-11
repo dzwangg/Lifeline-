@@ -4,6 +4,24 @@ A policy card is one JSON file in `data/policies/`. Each card describes a local 
 
 ## Workflow
 
+### Drafting a card from an idea (Gemini)
+
+`npm run create:card -- "Allow mid-rise homes near the corridor"` (or no argument, to be asked) sends the idea to Gemini with `GEMINI_API_KEY` and `GEMINI_MODEL` from `.env.local`, then writes `data/policies/<id>.json` and `data/cards.index.json`. Review the text before committing it. The same generator serves players at `POST /api/policies/generate` with body `{ "idea": "..." }`. It replies `{ card, signature, unmodeled }` and keeps the API key on the server.
+
+Gemini may use zone rules, levers, timing and evidence. It lists the parts of the idea that the sim can't represent in `unmodeled` instead of substituting another mechanism. An idea with nothing modelable gets a 422 with `unsupportedReason`.
+
+A draft is used only when all of these hold:
+- It passes `validateCard`.
+- Every zone rule matches a forest parcel.
+- At its default params it changes at least one metric over 10 years.
+- Its title, summary, pros and cons contain no numbers from outside the card's settings or the idea, and no evaluative words.
+
+A failed draft gets one retry, with the problems fed back to Gemini. Param defaults are clamped onto their sliders. Evidence is kept only when it is copied from an existing card.
+
+`signature` is an HMAC of the card made with `CARD_SIGNING_KEY`. `/api/narration` reads a player card's text only when the card comes back with a valid signature and still validates; any other player card is narrated by the template as "a proposed policy". The page keeps player cards in localStorage (`meridian-city/policy/player-cards.js`).
+
+### Writing a card by hand
+
 1. Write `data/policies/<card-id>.json` (the file name should match the card's `id`).
 2. Run `npm run validate:cards`. It checks every card and prints each problem with the field path, e.g. `tradeoffs.cons: needs at least one entry`.
 3. Commit the card **and** `data/cards.index.json`. The validate script rewrites that file, and the site loads cards from it because a static host can't list a folder.

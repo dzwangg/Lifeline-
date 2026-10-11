@@ -70,7 +70,7 @@ const isCached = (policies) => runs.has(hashInput([...policies].sort((a, b) => (
 /** Whether statementFor(…, policies) runs on cached models (these policies and no policy), costing no model run. */
 export const scenarioCached = policies => isCached(policies) && isCached([]);
 
-const Y0 = BASE_YEAR - 1; // year 0's calendar year: CH-LUTI's year 1 is BASE_YEAR
+export const Y0 = BASE_YEAR - 1; // year 0's calendar year: CH-LUTI's year 1 is BASE_YEAR
 // Costs, fares and tax thresholds grow with CH-LUTI's regional rent inflation, so spending keeps pace with rents.
 const grow = t => (1 + PARAMS.rentDrift.mid) ** t, inYear0 = year => grow(Y0 - year); // inYear0(2024): 2024 dollars -> year 0's
 const table = v => Object.entries(v).map(([k, x]) => [+k, x]).sort((a, b) => a[0] - b[0]);
@@ -340,7 +340,9 @@ const queues = new Map(); // checking account -> its last write, so two writes t
 const writing = new Map(); // `${checking account}|${entries hash}` -> that write in flight: a repeat waits for it, writing nothing
 const computeLimit = rateLimiter(30), ledgerLimit = rateLimiter(6), visitorLimit = rateLimiter(3, 600_000);
 
-export async function POST(request, env = process.env) {
+// Vercel calls POST(request, context), so the handler reads process.env itself; tests pass their env to handle().
+export const POST = request => handle(request, process.env);
+export async function handle(request, env) {
   const raw = await request.text();
   if (raw.length > MAX_BODY) return Response.json({ error: `body must be at most ${MAX_BODY} bytes` }, { status: 413 });
   let body;

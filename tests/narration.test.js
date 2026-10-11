@@ -96,7 +96,7 @@ test('handler: Gemini text read aloud, then served from cache', async () => {
     const [g, el] = calls;
     assert.equal(g.init.headers['x-goog-api-key'], 'gem-secret');
     assert.match(g.url, /models\/gemini-test:generateContent$/);
-    assert.deepEqual(JSON.parse(g.init.body).generationConfig, { temperature: 0.2, thinkingConfig: { thinkingLevel: 'minimal' } });
+    assert.deepEqual(JSON.parse(g.init.body).generationConfig, { temperature: 0.2, maxOutputTokens: 250, thinkingConfig: { thinkingLevel: 'minimal' } });
     assert.match(el.url, /text-to-speech\/voice\?/);
     assert.deepEqual(JSON.parse(el.init.body), { text: speakable(GOOD), model_id: 'eleven_flash_v2_5', apply_text_normalization: 'on' });
     assert.match(JSON.parse(el.init.body).text, /twenty-four thousand two hundred, a two point one five percent rise/);
@@ -189,7 +189,7 @@ test('handler: GEMINI_THINKING_LEVEL is sent, and a 400 about it retries once wi
     await withMocks({ ...KEYS, GEMINI_THINKING_LEVEL: 'low' }, [rejected(), GOOD], async calls => {
       const r = await post(variant(8));
       assert.deepEqual([r.text, r.fallback], [GOOD, false]);
-      assert.deepEqual(calls.slice(0, 2).map(c => JSON.parse(c.init.body).generationConfig), [{ temperature: 0.2, thinkingConfig: { thinkingLevel: 'low' } }, { temperature: 0.2 }]);
+      assert.deepEqual(calls.slice(0, 2).map(c => JSON.parse(c.init.body).generationConfig), [{ temperature: 0.2, maxOutputTokens: 250, thinkingConfig: { thinkingLevel: 'low' } }, { temperature: 0.2, maxOutputTokens: 250 }]);
     });
     await withMocks(KEYS, [Response.json({ error: { code: 400, message: 'Invalid JSON payload.' } }, { status: 400 }), GOOD], async calls => {
       const r = await post(variant(9));

@@ -6,18 +6,22 @@ import { readFileSync } from 'node:fs';
 import { POST, checkCard, directionErrors, generateCard, loadContext, tidy } from '../api/policies.js';
 import { POST as narrationPOST, signCard } from '../api/narration.js';
 import { cards } from './data.js';
+import { validateCard } from '../shared/schema.js';
 
 const ctx = await loadContext();
 const sample = JSON.parse(readFileSync(new URL('./fixtures/narration-sample.json', import.meta.url), 'utf8'));
 const byId = id => structuredClone(cards.find(c => c.id === id));
-const zoneCard = { ...byId('corridor-midrise'), id: 'corridor-apartments' };
-const leverCard = { ...byId('bus-frequency-boost'), id: 'more-buses' };
+// Catalog cards with one value changed, as a copy is a duplicate (see tidy).
+const zoneCard = { ...byId('corridor-midrise'), id: 'corridor-apartments', zoneRules: [{ ...byId('corridor-midrise').zoneRules[0], ratePerYear: 0.2 }] };
+const leverCard = { ...byId('bus-frequency-boost'), id: 'more-buses', params: [{ ...byId('bus-frequency-boost').params[0], default: 1.3 }] };
 const directed = (card, direction) => ({ ...card, levers: card.levers.map(l => ({ ...l, direction })) }); // as Gemini replies
 const taxCard = (cents, direction) => directed({ ...byId('property-tax-adjustment'), id: 'tax-change',
   params: [{ ...byId('property-tax-adjustment').params[0], default: cents }] }, direction);
 const ENV = { GEMINI_API_KEY: 'gem-secret', GEMINI_MODEL: 'gemini-test', GEMINI_MODEL_CARDS: '', GEMINI_FALLBACK_MODELS: '', GEMINI_THINKING_LEVEL: '', DEMO_MODE: '', CARD_SIGNING_KEY: 'sign-secret',
   ELEVENLABS_API_KEY: '', ELEVENLABS_VOICE_ID: '' };
-const reply = (card, unmodeled = [], unsupportedReason = null) => JSON.stringify({ card, unmodeled, unsupportedReason });
+// As Gemini replies: evidence by its number in the catalog's list of distinct entries.
+const evidenceIds = card => card?.evidence && { evidence: card.evidence.map(e => [...new Map(cards.flatMap(c => c.evidence ?? []).map(x => [JSON.stringify(x), x])).keys()].indexOf(JSON.stringify(e))) };
+const reply = (card, unmodeled = [], unsupportedReason = null) => JSON.stringify({ card: card && { ...card, ...evidenceIds(card) }, unmodeled, unsupportedReason });
 
 /** Runs fn with these env vars and a fake fetch that answers Gemini with `drafts` in turn; fn gets the request bodies it saw,
  *  each with the model it went to as `model`. */
@@ -63,14 +67,59 @@ test('checks: invented numbers and evaluative words in title, summary, pros or c
   assert.deepEqual(checkCard({ ...zoneCard, summary: 'Opens 20 acres, up to 40, near 15-501.' }, 'up to 40 acres', ctx), []);
 });
 
-test('tidy clamps param defaults into range, drops evidence not copied from a catalog card, and drops empty lists', () => {
+test('tidy clamps param defaults into range, copies evidence in by its number, and drops empty lists', () => {
   const params = [{ key: 'a', label: 'A', min: 0, max: 60, default: 80, unit: 'acres' }, { key: 'b', label: 'B', min: -10, max: -1, default: 3, unit: '¢' }];
-  const real = cards.flatMap(c => c.evidence ?? [])[0];
-  const out = tidy({ ...zoneCard, params, levers: [], evidence: [real, { claim: 'Invented', source: 'Nobody (2024)' }] }, ctx.catalog);
+  const library = [...ctx.catalog.values()].flatMap(c => c.evidence ?? []);
+  const out = tidy({ ...zoneCard, params, levers: [], evidence: [1, 1, 999, 'x', { claim: 'Invented', source: 'Nobody (2024)' }] }, ctx.catalog);
   assert.deepEqual(out.params.map(p => p.default), [60, -1]);
-  assert.deepEqual(out.evidence, [real]);
+  assert.deepEqual(out.evidence, [library[1]], 'a known number once; an unknown number, a string or an object never');
   assert.ok(!('levers' in out));
-  assert.ok(!('evidence' in tidy({ ...zoneCard, evidence: [{ claim: 'x', source: 'y' }] }, ctx.catalog)));
+  assert.ok(!('evidence' in tidy({ ...zoneCard, evidence: [999] }, ctx.catalog)));
+});
+
+test('tidy turns the reply\'s all-fields zone rules into card rules', () => {
+  const out = tidy({ ...zoneCard, zoneRules: [{ where: 'tag:corridor', from: 'forest', to: 'mid_res', ratePerYear: 0.15, capParam: 'acres_released', protect: '' },
+    { where: 'tag:map_edge', from: '', to: '', ratePerYear: 0, capParam: '', protect: 'forest' }] }, ctx.catalog);
+  assert.deepEqual(out.zoneRules, [{ where: 'tag:corridor', from: 'forest', to: 'mid_res', ratePerYear: 0.15, capParam: 'acres_released' }, { where: 'tag:map_edge', protect: 'forest' }]);
+  assert.deepEqual(validateCard(out), []);
+});
+
+test('tidy backstops: a conversion rule with no usable ratePerYear gets 0.2; the one acres param caps rules that name none', () => {
+  const warn = console.warn, warned = [];
+  console.warn = line => warned.push(line);
+  try {
+    const rule = { where: 'tag:near_campus', from: 'parking', to: 'mid_res', capParam: '', protect: '' };
+    const out = tidy({ ...zoneCard, zoneRules: [{ ...rule, ratePerYear: 0 }, rule] }, ctx.catalog);
+    assert.deepEqual(out.zoneRules.map(r => [r.ratePerYear, r.capParam]), [[0.2, 'acres_released'], [0.2, 'acres_released']]);
+    assert.equal(warned.length, 3);
+    const two = [...zoneCard.params, { ...zoneCard.params[0], key: 'more_acres' }];
+    assert.ok(!('capParam' in tidy({ ...zoneCard, params: two, zoneRules: [{ ...rule, ratePerYear: 0.1 }] }, ctx.catalog).zoneRules[0]), 'two acres params: no guess');
+  } finally {
+    console.warn = warn;
+  }
+});
+
+// Gemini's live reply to "protect all remaining forest" (2026-10-11): the catalog's protect-remaining-forest, id and all.
+const forest = JSON.parse(readFileSync(new URL('./fixtures/forest-draft.json', import.meta.url), 'utf8'));
+
+test('tidy: a draft whose rules and levers are a catalog card\'s is that card', () => {
+  assert.deepEqual(tidy(forest.card, ctx.catalog), { duplicateOf: 'protect-remaining-forest' });
+});
+
+test('tidy: a new card on a taken id gets -draft, then -draft-2', () => {
+  const edge = { ...forest.card, zoneRules: [{ ...forest.card.zoneRules[0], where: 'tag:map_edge' }] };
+  assert.equal(tidy(edge, ctx.catalog).id, 'protect-remaining-forest-draft');
+  const taken = new Map([...ctx.catalog, ['protect-remaining-forest-draft', { id: 'protect-remaining-forest-draft', zoneRules: [] }]]);
+  assert.equal(tidy(edge, taken).id, 'protect-remaining-forest-draft-2');
+});
+
+test('generate: a redrafted catalog card gets 200 with the library\'s title and no card, from one Gemini call', async () => {
+  await withGemini([JSON.stringify(forest)], async bodies => {
+    const res = await generate('protect all remaining forest');
+    assert.deepEqual([res.status, await res.json()], [200, { duplicateOf: 'protect-remaining-forest',
+      message: 'That policy is already in the library: Protect remaining forest', cached: false }]);
+    assert.equal(bodies.length, 1);
+  });
 });
 
 test('generate: a valid zone-rule card comes back signed, from one Gemini call with the schema and minimal thinking', async () => {

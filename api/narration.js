@@ -212,11 +212,19 @@ Rules:
 - State both the benefits (pros) and the drawbacks (cons), taken only from the input's tradeoffs; add none of your own.
 - Never recommend, endorse or oppose the policy and never take a side. Report what the simulation shows, as a simulation.`;
 
-const userPrompt = input => `Simulation results (JSON):\n${JSON.stringify(input)}\n\nWhat the metrics mean: ${
-  Object.entries(METRICS).map(([k, m]) => `${k} = ${m.meaning}`).join('; ')
+// Gemini sees only what the recap can use, as every call pays for its input: the headline deltas, plus the two other metrics
+// that moved most (the one it may mention), and the meanings of those. The number check still allows the whole input.
+const OTHERS = 2;
+const promptInput = input => {
+  const moved = d => Math.abs(d.changePts ?? d.changePct);
+  const others = input.deltas.filter(d => !HEADLINE.includes(d.metric) && moved(d) > 0).sort((a, b) => moved(b) - moved(a)).slice(0, OTHERS);
+  return { ...input, deltas: input.deltas.filter(d => HEADLINE.includes(d.metric) || others.includes(d)) };
+};
+const userPrompt = full => { const input = promptInput(full); return `Simulation results (JSON):\n${JSON.stringify(input)}\n\nWhat the metrics mean: ${
+  input.deltas.map(({ metric }) => `${metric} = ${METRICS[metric].meaning}`).join('; ')
 }. In each delta, final is the value after the simulated years with this policy, and baseline is what it is compared with: `
   + `the starting value when comparedWith is "year 0", or the value after the same years with no new policy when comparedWith is "${NO_POLICY}". `
-  + 'changePct is the percent change from baseline to final.';
+  + 'changePct is the percent change from baseline to final.'; };
 
 // Each feature has its own model, so one feature's spent daily quota doesn't stop the others: GEMINI_MODEL_NARRATION,
 // GEMINI_MODEL_CHAT, GEMINI_MODEL_CARDS, else GEMINI_MODEL, else these. Free-tier quotas are per project and model:
@@ -240,6 +248,36 @@ export const nextModel = (env, model) => {
 // per-minute limit) waits and retries once; else it throws. Callers fall back to their template on a throw.
 // Errors throw, and callers use their template. The pauses are per instance (and per process, for scripts).
 // opts: feature, system prompt, extra generationConfig (such as a responseSchema) and timeout; /api/policies passes its own.
+// Spending. Each feature's output is capped (a recap is about 120 tokens, an answer 100, a card 500-900), and every call is
+// counted per model per UTC day: past GEMINI_DAILY_CALL_CAP calls (default 300, all models) gemini() throws AI_PAUSED
+// without calling, and callers serve their cache or template. Each call logs its tokens and estimated cost.
+// ponytail: counted per instance, so N warm instances can spend N caps; a shared KV counter if that matters.
+const MAX_OUTPUT = { narration: 250, chat: 200, cards: 1200 };
+// Paid-tier $ per 1M tokens, [input, output incl. thinking], from ai.google.dev/gemini-api/docs/pricing (2026-10-09).
+const PRICES = { 'gemini-3.5-flash-lite': [0.30, 2.50], 'gemini-3.1-flash-lite': [0.25, 1.50], 'gemini-3-flash-preview': [0.50, 3.00],
+  'gemini-3.6-flash': [0.75, 3.75], 'gemini-3.8-flash': [0.75, 3.75], 'gemini-2.5-flash': [0.30, 2.50], 'gemini-2.5-flash-lite': [0.10, 0.40] };
+export const AI_PAUSED = 'AI responses paused for today';
+/** GEMINI_DAILY_CALL_CAP as a nonnegative integer; unset or blank is the default, 300, and anything else warns and uses it too. */
+export function dailyCap(v = '') {
+  const n = Number(v);
+  if (v.trim() && Number.isInteger(n) && n >= 0) return n;
+  if (v.trim()) console.warn(`gemini: GEMINI_DAILY_CALL_CAP "${v}" is not a nonnegative integer; using 300`);
+  return 300;
+}
+const usage = { day: '', calls: 0, byModel: {}, dollars: 0 };
+/** Today's (UTC) Gemini calls, by model, and their estimated cost. */
+export const geminiUsage = () => (rollover(), structuredClone(usage));
+export const resetGeminiUsage = () => Object.assign(usage, { day: '', calls: 0, byModel: {}, dollars: 0 });
+function rollover() {
+  const day = new Date().toISOString().slice(0, 10);
+  if (usage.day !== day) Object.assign(usage, { day, calls: 0, byModel: {}, dollars: 0 });
+}
+/** Estimated $ for a call's usageMetadata, or null for a model without a price. */
+export function callCost(model, { promptTokenCount = 0, candidatesTokenCount = 0, thoughtsTokenCount = 0 } = {}) {
+  const price = PRICES[model];
+  return price ? (promptTokenCount * price[0] + (candidatesTokenCount + thoughtsTokenCount) * price[1]) / 1e6 : null;
+}
+
 const paused = new Map(); // model -> { until }: its daily quota is spent
 /** Forgets every paused model (for tests, which each start with fresh quotas). */
 export const clearGeminiPauses = () => paused.clear();
@@ -251,7 +289,11 @@ export async function gemini(env, contents, opts = {}, thinkingLevel = env.GEMIN
     if (next) return gemini(env, contents, { ...opts, model: next, fellBack: true }, thinkingLevel);
     throw new Error(`Gemini HTTP 429 (${model} paused until ${new Date(pause.until).toISOString()})`);
   }
-  const generationConfig = { temperature: 0.2, ...config, ...(thinkingLevel && { thinkingConfig: { thinkingLevel } }) };
+  rollover();
+  if (usage.calls >= dailyCap(env.GEMINI_DAILY_CALL_CAP)) throw Object.assign(new Error(AI_PAUSED), { aiPaused: true });
+  usage.calls++;
+  usage.byModel[model] = (usage.byModel[model] ?? 0) + 1;
+  const generationConfig = { temperature: 0.2, maxOutputTokens: MAX_OUTPUT[feature], ...config, ...(thinkingLevel && { thinkingConfig: { thinkingLevel } }) };
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
@@ -259,8 +301,9 @@ export async function gemini(env, contents, opts = {}, thinkingLevel = env.GEMIN
     signal: AbortSignal.timeout(timeout),
   });
   if (res.status === 400 && thinkingLevel && /thinking/i.test(await res.text())) {
-    console.warn(`gemini: ${model} rejected thinking level "${thinkingLevel}"; retrying with its default`);
-    return gemini(env, contents, { ...opts, model }, null);
+    const next = thinkingLevel === 'minimal' ? 'low' : null; // the cheapest level it may take, before its (pricier) default
+    console.warn(`gemini: ${model} rejected thinking level "${thinkingLevel}"; retrying with ${next ?? 'its default'}`);
+    return gemini(env, contents, { ...opts, model }, next);
   }
   if (res.status === 429) { // RESOURCE_EXHAUSTED, with RetryInfo { retryDelay: "78413s" } once a daily free-tier quota is spent
     const body = await res.text(), error = (() => { try { return JSON.parse(body).error; } catch { return undefined; } })();
@@ -278,8 +321,19 @@ export async function gemini(env, contents, opts = {}, thinkingLevel = env.GEMIN
     throw new Error(`Gemini HTTP 429 (${error?.status ?? 'rate limited'}${delay ? `, retry in ${delay}` : ''}) from ${model}`);
   }
   if (!res.ok) throw new Error(`Gemini HTTP ${res.status} (${model})`);
-  const parts = (await res.json()).candidates?.[0]?.content?.parts ?? [];
+  const { candidates, usageMetadata: tokens = {} } = await res.json(), cost = callCost(model, tokens);
+  usage.dollars += cost ?? 0;
+  console.log(`gemini: ${feature} ${model} ${tokens.promptTokenCount ?? '?'} in, ${tokens.candidatesTokenCount ?? '?'} out, `
+    + `${tokens.thoughtsTokenCount ?? 0} thinking, ${cost == null ? 'price unknown' : `~$${cost.toFixed(5)}`}; `
+    + `today ${usage.calls} calls, ~$${usage.dollars.toFixed(4)}`);
+  const parts = candidates?.[0]?.content?.parts ?? [];
   const text = parts.filter(p => !p.thought).map(p => p.text ?? '').join('').trim();
+  // A reply cut off at maxOutputTokens reads as finished prose but isn't (or is broken JSON): callers use their template.
+  // Its ending is logged, to tell a runaway reply from a cap set too low.
+  if (candidates?.[0]?.finishReason === 'MAX_TOKENS') {
+    console.warn(`gemini: ${feature} reply cut off at ${generationConfig.maxOutputTokens} tokens; it ended: …${text.slice(-300)}`);
+    throw new Error(`Gemini hit maxOutputTokens (${generationConfig.maxOutputTokens}) on ${model}`);
+  }
   if (!text) throw new Error('Gemini returned no text');
   return text;
 }
@@ -297,7 +351,7 @@ export async function speak(env, text, voice = env.ELEVENLABS_VOICE_ID) {
 
 /** Gemini text (one retry naming the bad numbers or evaluative words, then the template) read aloud by ElevenLabs. Never throws. `failed` marks a transient API error. */
 export async function narrate(input, env = process.env) {
-  let text = null, failed = false;
+  let text = null, failed = false, reason;
   if (env.GEMINI_API_KEY) {
     try {
       const contents = [{ role: 'user', parts: [{ text: userPrompt(input) }] }];
@@ -312,6 +366,7 @@ export async function narrate(input, env = process.env) {
       }
     } catch (err) {
       failed = true;
+      if (err.aiPaused) reason = AI_PAUSED;
       console.error('narration: Gemini failed:', err.message);
     }
   }
@@ -326,7 +381,7 @@ export async function narrate(input, env = process.env) {
       console.error('narration: ElevenLabs failed:', err.message);
     }
   }
-  return { text, audio, fallback, failed };
+  return { text, audio, fallback, failed, ...(reason && { reason }) };
 }
 
 /** The mp3 is named by the words it says, so a clip recorded before speakable() changed is never reused. */
@@ -362,7 +417,10 @@ export function rateLimiter(limit, windowMs = 60_000) {
     return ++h.n > limit ? Math.ceil((h.reset - now) / 1000) : 0;
   };
 }
-const retryAfter = rateLimiter(RATE_LIMIT);
+/** A per-IP limiter for an endpoint that calls Gemini: `production` calls per 10 minutes on Vercel production (the paid key's
+ *  credit is small), else `dev` a minute. Callers count only calls that would reach Gemini: cache hits are free. */
+export const aiLimiter = (production, dev) => (process.env.VERCEL_ENV === 'production' ? rateLimiter(production, 600_000) : rateLimiter(dev));
+const retryAfter = aiLimiter(5, RATE_LIMIT);
 // Vercel sets x-forwarded-for to the client's IP and overwrites any value the client sends.
 export const clientIp = request => request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
 

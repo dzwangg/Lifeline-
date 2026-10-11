@@ -20,7 +20,7 @@ export function createGame({ store }) {
     get,
     subscribe(fn) { listeners.add(fn); fn(get()); return () => listeners.delete(fn); },
     /** Every card in the scenario: the enacted ones, then the ones applied for this decade. */
-    cardIds: () => [...enacted.map(e => e.id), ...planned()],
+    cardIds: () => [...new Set([...enacted.map(e => e.id), ...planned()])], // a card in two slots still runs once
     /** card id -> the year it starts, for the cards that don't start in year 0. */
     starts: () => Object.fromEntries([...enacted.map(e => [e.id, DECADE * e.turn]), ...planned().map(id => [id, DECADE * turn])].filter(([, y]) => y)),
     /** Enacts this decade's cards and moves on to the next decade, or ends the game after the last. */

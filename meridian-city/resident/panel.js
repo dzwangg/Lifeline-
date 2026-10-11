@@ -21,7 +21,7 @@ const json = path => fetch(new URL(`../../data/${path}`, import.meta.url)).then(
 export async function mountResidentPanel({ launch }) {
   const [{ residents }, demo, cards] = await Promise.all([json('residents.json'), json('demo-scenarios.json'), cardsReady]);
   await residentsReady;
-  const known = new Set(cards.map(c => c.id));
+  const byId = new Map(cards.map(c => [c.id, c]));
   let open = false, pick = residents[0].id, filter = 'all', compare = 'map', tab = 'budget', year = 10, data = null, latest = 0, asked = 0;
   let run = null, shownYear = 0, opener = null;
 
@@ -74,10 +74,19 @@ export async function mountResidentPanel({ launch }) {
       h('optgroup', { label: 'One policy' }, cards.filter(c => c.id !== 'stub-card').map(c => h('option', { value: `card:${c.id}` }, c.title))));
     compareSel.value = compare;
   }
-  // AI-drafted cards live only in this browser, so the bank and the residents can't run them: only the town's own cards go.
+  // What the bank and the residents (/api/resident-bank, /api/resident) accept: up to 10 of the town's own cards (drafted
+  // ones live only in this browser), each once, with only that card's params, as numbers within its ranges. The map's
+  // params can hold more (a slot shared twice, an "ask the city" adjustment), so they are cleaned here, not sent as they are.
   function mapPolicies() {
-    const s = scenario.get();
-    return s.cards.filter(c => known.has(c.id)).slice(0, 10).map(c => ({ id: c.id, params: s.params?.[c.id] ?? {} }));
+    const s = scenario.get(), out = [];
+    for (const c of s.cards) {
+      const card = byId.get(c.id);
+      if (!card || out.some(p => p.id === c.id) || out.length >= 10) continue;
+      const given = s.params?.[c.id] ?? {}, params = {};
+      for (const p of card.params ?? []) if (given[p.key] != null && Number.isFinite(+given[p.key])) params[p.key] = Math.min(p.max, Math.max(p.min, +given[p.key]));
+      out.push({ id: c.id, params });
+    }
+    return out;
   }
   function policies() {
     if (compare === 'map') return mapPolicies();

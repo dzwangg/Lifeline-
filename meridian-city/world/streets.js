@@ -4,6 +4,7 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
 import { P, hash, pickBy, CHUNK } from './palette.js';
 import { Batches, OCC, triangulate, edges, chunkKey } from './geometry.js';
+import { TREE_KINDS } from './sprite-art.js';
 
 export const ROAD_W = { trunk: 15, primary: 13, secondary: 11, tertiary: 9, unclassified: 7, residential: 7, living_street: 6, trunk_link: 6, primary_link: 6, secondary_link: 6, tertiary_link: 6, service: 4.5, pedestrian: 5, track: 3, footway: 2.2, cycleway: 2.2, steps: 2.2, path: 1.6 };
 export const MAJOR = new Set(['trunk', 'primary', 'secondary', 'tertiary']);
@@ -65,7 +66,8 @@ function along(r, step, trimStart, trimEnd, f, start = 0) {
   return total;
 }
 
-export function buildStreets({ osm, grid, ground, parent }) {
+// fit(item): the scale at which a street tree { x, z, name, scale } clears every building with its crown, or 0 (land.js).
+export function buildStreets({ osm, grid, ground, parent, fit = it => it.scale }) {
   const batches = new Batches();
   const roads = osm.r.filter(([cls]) => ROAD_W[cls]).map(([cls, ow, r]) => ({ cls, ow, r, w: ROAD_W[cls], len: 0 }));
   const key = (x, z) => `${x},${z}`;
@@ -159,8 +161,9 @@ export function buildStreets({ osm, grid, ground, parent }) {
     if (!MAJOR.has(cls)) along(r, 13, t0 + 6, t1 + 6, (x, z, ux, uz) => {
       for (const side of [-1, 1]) {
         const off = half + SIDEWALK_W + 1.6, px = x + uz * side * off, pz = z - ux * side * off;
-        if (hash(px, pz, 11) < .7 && grid.clear(px, pz, 2, OCC.building | OCC.road | OCC.sidewalk | OCC.keepClear | OCC.decor | OCC.zone)) { // sim zones plant their own
-          trees.push({ x: px, z: pz, kind: 'street' });
+        const tree = { x: px, z: pz, kind: 'street', name: pickBy(TREE_KINDS.street, hash(px, pz, 1)), scale: .85 + hash(px, pz, 2) * .3 };
+        if (hash(px, pz, 11) < .7 && grid.clear(px, pz, 2, OCC.building | OCC.road | OCC.sidewalk | OCC.keepClear | OCC.decor | OCC.zone) && fit(tree)) { // sim zones plant their own
+          trees.push(tree);
           grid.fill(px - 1, pz - 1, px + 1, pz + 1, OCC.decor);
         }
       }

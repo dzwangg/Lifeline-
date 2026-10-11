@@ -34,13 +34,16 @@ export function mountZoneLayer({ world, zones }) {
   const rr = (a, b) => a + rnd() * (b - a);
   const zoneIndex = new Map(zones.map((z, zi) => [z.id, zi]));
 
-  // Tree slots: an 11 m jittered lattice over each zone, clear of buildings and roads.
-  const list = [];
+  // Tree slots: an 11 m jittered lattice over each zone, clear of buildings and roads. A slot's species is drawn later, so
+  // its crown is checked as the woods' widest and lowest: one near a building is drawn smaller, or not at all (scale 0,
+  // keeping its slot so every other tree's draws stay as they were), so no crown reaches a wall (world/clearance.js).
+  const list = [], woods = TREE_KINDS.wood.map(k => world.art.sprites[k]);
+  const widest = { w: Math.max(...woods.map(t => t.w)), h: Math.max(...woods.map(t => t.h)), crownBase: Math.min(...woods.map(t => t.crownBase)) };
   const range = zones.map(({ ring }) => {
     const start = list.length / STRIDE, [x0, z0, x1, z1] = bounds(ring);
     for (let x = x0; x < x1; x += TREE_STEP) for (let z = z0; z < z1; z += TREE_STEP) {
       const px = x + rr(0, TREE_STEP), pz = z + rr(0, TREE_STEP);
-      if (!(at(px, pz) & 3) && inside(ring, px, pz)) list.push(px, pz, rr(1.1, 1.7));
+      if (!(at(px, pz) & 3) && inside(ring, px, pz)) list.push(px, pz, world.footprints.fitScale(px, pz, widest, rr(1.1, 1.7), .7));
     }
     return [start, list.length / STRIDE];
   });

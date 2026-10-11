@@ -86,7 +86,7 @@ export function spriteAtlas() {
     trunk(p, x + Math.floor(W / 2) - 2, y + H - trunkH - 2, 4, trunkH + 2, ...(trunkColors ?? []));
     canopy(p, x, y, W, ch, colors, discs, r, dots);
     outline(p, x - 1, y - 1, W + 2, H + 2, mix(colors[0], P.ink, .5));
-  }, { sway: 1 });
+  }, { sway: 1, crownBase: (trunkH - 2) * TEXEL }); // crownBase: metres from the ground to the crown's underside (clearance.js)
   // Sized like real Piedmont trees: an oak is ~10 m across and ~13 m tall.
   roundTree('oak', CANOPY.oak, 48, 64, 14);
   roundTree('oakSmall', CANOPY.oak, 32, 42, 10);
@@ -115,7 +115,7 @@ export function spriteAtlas() {
     }
     for (let k = 0; k < 6; k++) { const i = Math.floor(W / 2 - 3 + r() * 4), j = Math.floor(r() * (H - 8)); if (mask[j * W + i]) p.set(x + i, y + j, colors[4]); }
     outline(p, x - 1, y - 1, W + 2, H + 2, mix(colors[0], P.ink, .5));
-  }, { sway: .5 });
+  }, { sway: .5, crownBase: 3 * TEXEL });
   pine('pine', 28, 72, 5);
   pine('spruce', 22, 58, 6);
   pine('pineSmall', 16, 32, 3);

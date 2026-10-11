@@ -12,7 +12,7 @@
   --ae-pixel: 'Pixelify Sans', 'Silkscreen', ui-monospace, monospace;
   --ae-body: 'Mukta', 'Segoe UI', sans-serif;
   /* the page's own tokens, re-pointed so older rules pick up the palette */
-  --ink: var(--ae-navy); --muted: var(--ae-ink-soft); --sodium: var(--ae-aqua-dark); --load-ink: #ffffff;
+  --ink: var(--ae-navy); --muted: var(--ae-ink-soft); --sodium: var(--ae-aqua-dark);
   --display: var(--ae-body); --mono: var(--ae-pixel);
 }
 
@@ -28,10 +28,6 @@
 .plate { padding: 12px 15px !important; }
 #hud, #alt { z-index: 10; } /* above the drifting bubbles */
 body { background: #7fd6f5 !important; font-family: var(--ae-body); }
-#loading {
-  background: linear-gradient(180deg, #4fc3f2 0 50%, #8fe0fa 50% 78%, #6fd04a 78% 100%); color: #ffffff !important;
-  text-shadow: 2px 2px 0 var(--ae-navy) !important; font: 600 18px var(--ae-pixel) !important; letter-spacing: .04em !important; text-transform: none !important;
-}
 h1, h2, h3, .pp-title, .pp-col__title, .building-card__title { font-family: var(--ae-pixel) !important; letter-spacing: .01em; }
 
 /* ---------- HUD ---------- */

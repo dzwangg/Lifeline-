@@ -11,6 +11,7 @@ import { scenario, simClock, dataReady, devMode, demoMode, stubOn, stubAuto, STA
 import { VARIABLES, explain, MODEL } from '../../shared/luti/run.js';
 import { LEVERS } from '../../shared/luti/levers.js';
 import { INDICATORS, PILLARS } from '../../shared/indicators.js';
+import { compareRuns } from '../../shared/health.js';
 import { createModel } from '../../shared/luti/model.js';
 import { paramRanges } from '../../shared/luti/params.js';
 import { ZONES as LUTI_ZONES, SOURCES } from '../../shared/luti/data.js';
@@ -205,11 +206,12 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
   const realIn = h('input', { type: 'checkbox', onchange: () => { ui.real = realIn.checked; drawn = []; render(); } });
   const settings = h('details', { class: 'rp-settings' });
   const residentEl = h('div', { class: 'sim__resident', 'aria-live': 'polite' });
+  const health = h('section', { class: 'rp-health', 'aria-label': 'City health score' });
   const tiles = h('div', { class: 'rp-groups', 'aria-label': 'City-health indicators, with their change against no new policy' });
   const detail = h('section', { class: 'rp-detail', 'aria-live': 'polite' });
   const assume = h('details', { class: 'rp-assume' }, h('summary', {}, 'Assumptions, sources and checks'));
   const dlBtn = h('button', { class: 'rp-dl', type: 'button', onclick: download }, 'Download scenario and results (JSON)');
-  const scroll = h('div', { class: 'rp-scroll' }, h('div', { class: 'rp-side' }, residentEl, tiles), detail, assume, dlBtn,
+  const scroll = h('div', { class: 'rp-scroll' }, h('div', { class: 'rp-side' }, health, residentEl, tiles), detail, assume, dlBtn,
     h('div', { class: 'rp-foot' },
       h('a', { class: 'sim__sources', href: 'sources.html', target: '_blank', rel: 'noopener' }, 'Sources'),
       devMode && !stubAuto && h('label', { class: 'sim__check sim__dev' }, h('input', { type: 'checkbox', checked: stubOn, onchange: e => toggleStub(e.target.checked) }), 'Load stub card (dev)')));
@@ -284,7 +286,12 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
     const g = game.get(), n = game.cardIds().length - g.enacted.length, end = yearLabel(DECADE * g.turns);
     kicker.textContent = g.over ? `Game complete · ${decade(0, g.to)}` : `Decade ${g.turn + 1} of ${g.turns} · ${decade(g.from, g.to)}`;
     if (g.over) {
-      turnRow.replaceChildren(h('p', { class: 'rp-turn__text' }, `All ${g.turns} decades are played. Here is your Chapel Hill in ${yearLabel(g.to)}, compared with a town that adopted no new policy.`),
+      const c = run && compareRuns(run.result.timeline, run.noPolicy.timeline);
+      const scored = c?.scored ? c : null;
+      turnRow.replaceChildren(
+        scored && h('p', { class: 'rp-turn__final' }, h('strong', {}, fixed(scored.policy.overall, 0)), '/100 · ', scored.policy.band,
+          h('span', {}, ` — the same town with no new policy scores ${fixed(scored.baseline.overall, 0)}`)),
+        h('p', { class: 'rp-turn__text' }, `All ${g.turns} decades are played. Here is your Chapel Hill in ${yearLabel(g.to)}, compared with a town that adopted no new policy.`),
         h('div', { class: 'rp-turn__actions' }, GlassButton('New game', { variant: 'quiet', onclick: () => location.reload() })));
       return;
     }
@@ -354,6 +361,7 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
       h('strong', {}, 'Under these assumptions, this is a plausible range of outcomes, not a forecast. '),
       luti ? `${MODEL.id} v${MODEL.version} · ${luti.runs} paired runs · seed ${luti.seed}` : `${MODEL.id} v${MODEL.version} · ranges loading…`);
     if (!ui.picked) ui.metric = pickMetric();
+    renderHealth();
     renderTiles();
     renderDetail();
     renderResident(run.households, resident, y);
@@ -404,6 +412,52 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
       if (s > score) { score = s; best = m.key; }
     }
     return best;
+  }
+
+  // ---------- city health: one score out of 100, beside the same town with no new policy ----------
+  // The score is only worth reading next to the baseline, so both numbers are always on screen: the big one is this
+  // scenario, the line under it is a town that adopted nothing. shared/health.js does the scoring; this draws it.
+  function renderHealth() {
+    const c = compareRuns(run.result.timeline, run.noPolicy.timeline, y);
+    if (!c.scored) { // year 0 is today, the same town in both runs: there is nothing to score yet
+      health.replaceChildren(
+        h('h3', { class: 'rp-health__head' }, 'City health', h('span', {}, yearLabel(y))),
+        h('p', { class: 'rp-health__base' }, 'Year 0 is the town as it stands, so there is no score yet. Move the year forward, or press play, to see how the decade leaves it.'));
+      return;
+    }
+    const sign1 = d => `${d > 0 ? '+' : '−'}${fixed(Math.abs(d), 1)}`;
+    const tone = d => (Math.abs(d) < 0.05 ? 'flat' : d > 0 ? 'good' : 'bad');
+    const delta = d => (Math.abs(d) < 0.05 ? 'no change' : sign1(d));
+    const bar = (label, score, d) => h('div', { class: 'rp-hbar' },
+      h('span', { class: 'rp-hbar__label' }, label),
+      h('span', { class: 'rp-hbar__track' }, h('span', { class: 'rp-hbar__fill', style: { '--w': `${score}%` } })),
+      h('span', { class: 'rp-hbar__value' }, fixed(score, 0)),
+      h('span', { class: cls('rp-hbar__delta', `is-${tone(d)}`) }, delta(d)));
+    // a growth indicator reads as the change since year 0, not as the bare ratio behind it
+    const show = i => (i.basis === 'ratioToStart' ? `${i.value >= 1 ? '+' : '−'}${fixed(Math.abs(i.value - 1) * 100, 1)}%` : (FMT[i.fmt] ?? FMT.dec)(i.value));
+    const showAnchor = (i, v) => (i.basis === 'ratioToStart' ? `${v >= 1 ? '+' : '−'}${fixed(Math.abs(v - 1) * 100, 1)}%` : (FMT[i.fmt] ?? FMT.dec)(v));
+    const row = i => {
+      const d = c.indicators[i.key] ?? 0;
+      return h('div', { class: 'rp-hrow', title: `${i.why}\nBy ${yearLabel(y)}: ${showAnchor(i, i.target)} scores 100, ${showAnchor(i, i.floor)} scores 0. This run: ${show(i)}.` },
+        h('span', { class: 'rp-hrow__label' }, i.label, h('small', {}, ` ${show(i)}`)),
+        h('span', { class: 'rp-hbar__track' }, h('span', { class: 'rp-hbar__fill', style: { '--w': `${i.score}%` } })),
+        h('span', { class: 'rp-hrow__score' }, fixed(i.score, 0)),
+        h('span', { class: cls('rp-hbar__delta', `is-${tone(d)}`) }, delta(d)));
+    };
+    health.replaceChildren(
+      h('h3', { class: 'rp-health__head' }, 'City health', h('span', {}, yearLabel(y))),
+      h('div', { class: 'rp-health__score' },
+        h('strong', {}, fixed(c.policy.overall, 0)), h('span', { class: 'rp-health__max' }, '/100'),
+        h('span', { class: 'rp-health__band' }, c.policy.band),
+        h('span', { class: cls('rp-health__delta', `is-${tone(c.overall)}`) }, `${delta(c.overall)} vs. no new policy`)),
+      h('p', { class: 'rp-health__base' }, `The same town with no new policy scores ${fixed(c.baseline.overall, 0)} (${c.baseline.band.toLowerCase()}) in ${yearLabel(y)}.`),
+      h('div', { class: 'rp-health__bars' }, c.policy.categories.map(cat => bar(cat.label, cat.score, c[cat.id]))),
+      h('details', { class: 'rp-health__detail' },
+        h('summary', {}, 'What the score reads'),
+        c.policy.categories.map(cat => h('div', { class: 'rp-hgroup' },
+          h('h4', { class: 'rp-h4' }, cat.label, h('span', {}, ` · ${cat.question}`)),
+          cat.indicators.map(row))),
+        h('p', { class: 'rp-note' }, 'Each line scores 0 to 100 between two anchors — the value that would mean the town is doing well, and the one that would mean it is doing badly — then the halves are averaged and the two halves averaged again. Hover a line for its anchors. The anchors are judgement calls, written down in docs/health-score.md.')));
   }
 
   // ---------- tiles ----------

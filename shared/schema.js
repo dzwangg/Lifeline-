@@ -8,9 +8,9 @@ import { ZONE_IDS as LUTI_ZONES } from './luti/data.js';
 
 export const ZONE_STATES = ['forest', 'low_res', 'mid_res', 'mixed_use', 'parking', 'transit_station'];
 export const METRICS = ['housingUnits', 'medianRent', 'treeCoverPct', 'avgCommuteMin', 'taxRevenue'];
-export const HOUSEHOLD_METRICS = ['households', 'pricedOut', 'rentBurden']; // added by shared/combined.js
+export const HOUSEHOLD_METRICS = ['households', 'pricedOut', 'rentBurden', 'realIncome']; // added by shared/combined.js
 export const LUTI_METRICS = ['jobs', 'businesses', 'storefrontVacancy', 'homeValue', 'netFiscal', 'transitRidership', 'trafficIndex',
-  'priceToIncome', 'affordableHomes', 'carShare', 'jobAccess', 'commuteCO2']; // added by shared/combined.js
+  'priceToIncome', 'affordableHomes', 'carShare', 'jobAccess', 'commuteCO2', 'taxBurden']; // added by shared/combined.js
 const OPTIONAL_METRICS = [...HOUSEHOLD_METRICS, ...LUTI_METRICS];
 
 /** Does a rule's `where` ("tag:<tag>", "id:<zoneId>" or "all") select this zone? @param {string} where @param {Pick<Zone, 'id' | 'tags'>} zone */

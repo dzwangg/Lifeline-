@@ -52,6 +52,7 @@
  * @property {number} medianRent renters' median monthly rent @property {number} commute mean commute, minutes
  * @property {number} displaced year-0 households that have left so far (newcomers who leave don't count)
  * @property {number} renters renter households here @property {number} burdened those paying 30% or more of income in rent
+ * @property {number} medianIncome median household income here, in that year's dollars (with any training gain or cash)
  * @property {number} roadRatio 15-501 volume / capacity
  * @property {number} roadTime 15-501 travel time, minutes
  */
@@ -209,9 +210,11 @@ export function simulate(inputs, assumptions, baselines, seed = 7) {
     }
     const here = L.filter(a => a.renter);
     const renters = L.filter(a => a.renter).map(rentOf).sort((x, y) => x - y), ratio = ratio0 * (inputs?.traffic?.[t] ?? 1);
+    const incomes = L.map(incomeNow).sort((x, y) => x - y);
     years.push({
       t, units, pop: L.length,
       medianRent: Math.round(renters[Math.floor(renters.length / 2)]),
+      medianIncome: Math.round(incomes[Math.floor(incomes.length / 2)]),
       commute: Math.round(commuters.reduce((s, a) => s + commute(a), 0) / commuters.length * 10) / 10,
       displaced: agents.filter(a => a.joined === 0 && a.left !== null).length, roadRatio: ratio, roadTime: road(ratio) * calib,
       renters: here.length, burdened: here.filter(burdened).length,
@@ -235,6 +238,7 @@ export function averageRuns(inputs, assumptions, baselines, seeds = SEEDS) {
     households: Math.round(mean(t, y => y.pop) * scale),
     pricedOut: Math.round(mean(t, y => y.displaced) * scale),
     rentBurden: Math.round(mean(t, y => y.burdened) / mean(t, y => y.renters) * 1e4) / 1e4,
+    medianIncome: Math.round(mean(t, y => y.medianIncome)),
     roadRatio: mean(t, y => y.roadRatio),
     roadTime: round1(mean(t, y => y.roadTime)),
   }));

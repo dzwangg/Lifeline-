@@ -205,6 +205,7 @@
 .clock-date { font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .clock-sub { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; }
 .clock-status:empty { display: none; }
+.clock-time { opacity: .7; font-variant-numeric: tabular-nums; } /* the street's time of day: there, not loud */
 
 /* Mid widths: no room between the launcher and the map tools, so the toolbar sits under the launcher. */
 @media (min-width: 641px) and (max-width: 900px) {

@@ -101,7 +101,8 @@ export function createClock({ steps, predict, yearMs = 1000 }) {
     play(s = speed) {
       if (!SPEEDS.includes(s)) throw new RangeError(`speed ${s}`);
       speed = s; error = null; before = false;
-      if (!playing && step >= steps) { step = 0; frac = 0; needCommit = 'show'; } // replay from the start
+      // replay from the start once the last year has played out, or after a seek to it; paused during its construction, carry on
+      if (!playing && step >= steps && (frac >= 1 || !shown?.tween)) { step = 0; frac = 0; needCommit = 'show'; }
       else if (shown && shown.version !== version) needCommit = 'resume'; // pick up the changed scenario where we are
       playing = true;
       want(step);

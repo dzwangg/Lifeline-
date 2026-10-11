@@ -123,6 +123,7 @@ import { buildWorld } from './world/world.js';
 import { inside, bounds } from './world/geometry.js';
 import { ZOOMS, DEFAULT_ZOOM } from './world/palette.js';
 import { zonesReady, mountZoneLayer } from './sim/zone-layer.js';
+import { mountAgentLayer } from './sim/agent-layer.js';
 import { mountBubbles } from './world/aero.js';
 import { onFrame } from './sim/scenario.js';
 
@@ -140,6 +141,7 @@ try {
   throw e;
 }
 mountZoneLayer({ scene: world.view.scene, zones: ZONES, at: world.gridAt, inside, bounds, parts: world.zoneParts, lod: world.lod });
+mountAgentLayer({ world, osm: OSM, zones: ZONES });
 
 $('stats').textContent = `Chapel Hill, NC · ${world.stats.buildings.toLocaleString()} buildings · tallest ${Math.round(world.stats.tallest)} m`;
 $('loading').remove();

@@ -250,9 +250,9 @@ test('handler: client-sent titles and tradeoffs never reach Gemini or ElevenLabs
   });
 });
 
-test('handler: bodies over 16 KB get 413, including a whole SimResult', async () => {
+test('handler: bodies over 32 KB get 413, including a whole SimResult', async () => {
   assert.equal((await post(fixture)).status, 413);
-  assert.equal((await post(`{"pad":"${'x'.repeat(17_000)}"}`)).status, 413);
+  assert.equal((await post(`{"pad":"${'x'.repeat(33_000)}"}`)).status, 413);
 });
 
 test('handler: 10 calls per IP per minute reach the APIs; cache hits and other IPs are not limited', async () => {

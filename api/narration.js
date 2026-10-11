@@ -3,12 +3,16 @@
 // where audio is a base64 mp3 or null, and fallback means the text is the deterministic template, not Gemini's.
 // Abuse limits: no client text reaches Gemini or ElevenLabs. Policy ids must be cards in data/cards.index.json (plus the
 // stub card outside production) with in-range params, and titles and tradeoffs are read from the card files here.
+// A player card from /api/policies may come in the body as cards: [{ card, signature }]; it is used only when its HMAC
+// signature (CARD_SIGNING_KEY) checks out and it still passes validateCard. Otherwise its text is dropped and the reply is the
+// template, naming it only as "a proposed policy".
 // Calls that would reach Gemini or ElevenLabs are rate-limited per IP.
 // Order: in-memory cache, then committed clips (demo-audio/<input hash>.json holds the text, <speech hash>.mp3 its audio),
 // then Gemini + ElevenLabs. ElevenLabs gets speakable(text), the numbers in words; the reply's text keeps the digits.
 // DEMO_MODE=1 never calls out. A missing key degrades its own step (no Gemini key: template; no ElevenLabs key: no audio).
-import { createHash } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { validateCard } from '../shared/schema.js';
 
 /** @typedef {import('../shared/types').SimResult} SimResult @typedef {Pick<SimResult, 'policies' | 'years' | 'deltas' | 'tradeoffs'>} NarrationInput */
 
@@ -60,6 +64,7 @@ export function parseInput(b, cards) {
   const errors = [];
   const ok = (pass, problem) => pass || errors.push(problem);
   const inRange = (params, card) => isObj(params) && Object.entries(params).every(([k, v]) => {
+    if (!card.params) return isNum(v); // an unverified player card: its specs are untrusted, and the template never says params
     const spec = card.params.find(s => s.key === k);
     return spec && isNum(v) && v >= spec.min && v <= spec.max;
   });
@@ -90,6 +95,31 @@ const stable = v => Array.isArray(v) ? `[${v.map(stable)}]`
 /** Cache key and demo clip name: same input, same hash, whatever the key order. */
 export const hashInput = input => createHash('sha256').update(stable(input)).digest('hex').slice(0, 16);
 
+/** HMAC of a player card, so /api/narration can trust card text that came back from the browser. */
+export const signCard = (card, key) => createHmac('sha256', key).update(stable(card)).digest('hex');
+const signedBy = (card, signature, key) => {
+  if (!key || typeof signature !== 'string') return false;
+  const want = Buffer.from(signCard(card, key), 'hex'), got = Buffer.from(signature, 'hex');
+  return got.length === want.length && timingSafeEqual(got, want);
+};
+const UNVERIFIED = 'a proposed policy';
+/**
+ * The catalog plus the body's player cards ({ card, signature }[], at most 10). A card with a good signature that still
+ * validates joins as is; any other stands in as UNVERIFIED with no tradeoffs, and its id is listed in `unverified`.
+ */
+export function withPlayerCards(sent, catalog, key = process.env.CARD_SIGNING_KEY) {
+  const cards = new Map(catalog), unverified = new Set();
+  for (const { card, signature } of Array.isArray(sent) ? sent.slice(0, 10).filter(isObj) : []) {
+    if (!isObj(card) || typeof card.id !== 'string' || catalog.has(card.id)) continue;
+    if (signedBy(card, signature, key) && !validateCard(card).length) cards.set(card.id, card);
+    else {
+      unverified.add(card.id);
+      cards.set(card.id, { id: card.id, title: UNVERIFIED, params: null, tradeoffs: { pros: [], cons: [] } });
+    }
+  }
+  return { cards, unverified };
+}
+
 // "24,222", "1479.81", "69.8 million". The last significant digit sets the rounding allowed: "24,000" covers 23,500-24,500.
 const NUMBER = /(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?(?:\s*(thousand|million|billion)\b)?/gi;
 const SCALE = { thousand: 1e3, million: 1e6, billion: 1e9 };
@@ -107,6 +137,12 @@ export function badNumbers(text, input) {
   return numbersIn(text).filter(({ value, tolerance }) => !allowed.some(a => Math.abs(value - a) <= tolerance + 1e-9 * Math.max(1, a)))
     .map(n => n.raw);
 }
+
+// The prompt's "no evaluative or advocacy language" rule as a check. ponytail: a word list catches the usual slips, not
+// every slant; /api/policies runs it on card text.
+const EVALUATIVE = /\b(help(s|ed|ing)?|good news|bad news|(un)?fortunately|great|terrible|disastrous|devastating|thriving|vibrant|crisis|best|worst|should|must|need(s)? to|unfair|fair share|wasteful|reckless|common.?sense|keep families in town)\b/gi;
+/** Evaluative or advocacy words in the text. Empty means it passes. */
+export const evaluativeWords = text => [...new Set(String(text).match(EVALUATIVE) ?? [])];
 
 const ONES = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
   'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
@@ -151,7 +187,7 @@ export function templateRecap(input) {
   return [
     `In a ${input.years}-year simulation of ${list(input.policies.map(p => `“${p.title}”`))}${overTime.length ? `, ${list(overTime)}` : ''}.`,
     vsNoPolicy.length ? `Compared with ${NO_POLICY}, ${list(vsNoPolicy)}.` : '',
-    `On the plus side: ${input.tradeoffs.pros[0]}`, `On the downside: ${input.tradeoffs.cons[0]}`,
+    input.tradeoffs.pros[0] && `On the plus side: ${input.tradeoffs.pros[0]}`, input.tradeoffs.cons[0] && `On the downside: ${input.tradeoffs.cons[0]}`,
   ].filter(Boolean).join(' ');
 }
 
@@ -176,17 +212,19 @@ const userPrompt = input => `Simulation results (JSON):\n${JSON.stringify(input)
 
 // Thinking makes Gemini 3 slow here (12-19s at its default level, 1.5s at "minimal"), but each model accepts different
 // levels (gemini-3.8-flash rejects "minimal"), so a 400 about the level retries once with the model's default.
-async function gemini(env, contents, thinkingLevel = env.GEMINI_THINKING_LEVEL || 'minimal') {
-  const generationConfig = { temperature: 0.2, ...(thinkingLevel && { thinkingConfig: { thinkingLevel } }) };
+// opts: system prompt, extra generationConfig (such as a responseSchema) and timeout; /api/policies passes its own.
+export async function gemini(env, contents, opts = {}, thinkingLevel = env.GEMINI_THINKING_LEVEL || 'minimal') {
+  const { system = SYSTEM_PROMPT, config = {}, timeout = 20_000 } = opts;
+  const generationConfig = { temperature: 0.2, ...config, ...(thinkingLevel && { thinkingConfig: { thinkingLevel } }) };
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(env.GEMINI_MODEL)}:generateContent`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-    body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] }, contents, generationConfig }),
-    signal: AbortSignal.timeout(20_000),
+    body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents, generationConfig }),
+    signal: AbortSignal.timeout(timeout),
   });
   if (res.status === 400 && thinkingLevel && /thinking/i.test(await res.text())) {
-    console.warn(`narration: ${env.GEMINI_MODEL} rejected thinking level "${thinkingLevel}"; retrying with its default`);
-    return gemini(env, contents, null);
+    console.warn(`gemini: ${env.GEMINI_MODEL} rejected thinking level "${thinkingLevel}"; retrying with its default`);
+    return gemini(env, contents, opts, null);
   }
   if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
   const parts = (await res.json()).candidates?.[0]?.content?.parts ?? [];
@@ -252,34 +290,47 @@ async function demoClip(key) {
 }
 
 const cache = new Map(); // ponytail: per-instance and capped at 100 by insertion order; a shared KV if cold starts hurt.
-const MAX_BODY = 16_384; // the real body is about 1 KB; a full SimResult (zone maps and all) is about 115 KB
+// The real body is about 1 KB, plus about 3 KB per player card; a full SimResult (zone maps and all) is about 115 KB.
+const MAX_BODY = 32_768;
 const RATE_LIMIT = 10; // calls that reach Gemini or ElevenLabs, per IP per minute
 // ponytail: per instance, so it resets on cold starts and doesn't add up across instances. The real cap is a Vercel
 // Firewall rate-limit rule on /api/narration; this one stops a single client hammering a warm instance.
-const hits = new Map(); // ip -> { n, reset }
 
-/** Seconds until this IP may call again, or 0 if it is under the limit (and now counted). */
-function retryAfter(ip, now = Date.now()) {
-  if (hits.size > 10_000) hits.clear();
-  const h = hits.get(ip);
-  if (!h || now >= h.reset) {
-    hits.set(ip, { n: 1, reset: now + 60_000 });
-    return 0;
+/** A per-IP limiter: (ip) -> seconds until this IP may call again, or 0 if it is under `limit` a minute (and now counted). */
+export function rateLimiter(limit) {
+  const hits = new Map(); // ip -> { n, reset }
+  return (ip, now = Date.now()) => {
+    if (hits.size > 10_000) hits.clear();
+    const h = hits.get(ip);
+    if (!h || now >= h.reset) {
+      hits.set(ip, { n: 1, reset: now + 60_000 });
+      return 0;
+    }
+    return ++h.n > limit ? Math.ceil((h.reset - now) / 1000) : 0;
+  };
+}
+const retryAfter = rateLimiter(RATE_LIMIT);
+// Vercel sets x-forwarded-for to the client's IP and overwrites any value the client sends.
+export const clientIp = request => request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+
+/** The request's JSON body, or an error Response when it is over `max` bytes or not JSON. */
+export async function readBody(request, max, hint) {
+  const raw = await request.text();
+  if (raw.length > max) return { error: Response.json({ error: `body must be at most ${max} bytes: ${hint}` }, { status: 413 }) };
+  try {
+    return { body: JSON.parse(raw) };
+  } catch {
+    return { error: Response.json({ error: 'body must be JSON' }, { status: 400 }) };
   }
-  return ++h.n > RATE_LIMIT ? Math.ceil((h.reset - now) / 1000) : 0;
 }
 
 export async function POST(request) {
-  const raw = await request.text();
-  if (raw.length > MAX_BODY) return Response.json({ error: `body must be at most ${MAX_BODY} bytes: send { policies, years, deltas }` }, { status: 413 });
-  let body;
-  try {
-    body = JSON.parse(raw);
-  } catch {
-    return Response.json({ error: 'body must be JSON' }, { status: 400 });
-  }
-  const { errors, input } = parseInput(body, await loadCards());
+  const { body, error } = await readBody(request, MAX_BODY, 'send { policies, years, deltas, cards? }');
+  if (error) return error;
+  const { cards, unverified } = withPlayerCards(body?.cards, await loadCards());
+  const { errors, input } = parseInput(body, cards);
   if (errors.length) return Response.json({ error: errors.join('; ') }, { status: 400 });
+  if (input.policies.some(p => unverified.has(p.id))) return Response.json({ text: templateRecap(input), audio: null, cached: false, fallback: true });
 
   const key = hashInput(input);
   if (cache.has(key)) return Response.json({ ...cache.get(key), cached: true });
@@ -290,8 +341,7 @@ export async function POST(request) {
   }
   if (process.env.DEMO_MODE === '1') return Response.json({ text: templateRecap(input), audio: null, cached: false, fallback: true });
 
-  // Vercel sets x-forwarded-for to the client's IP and overwrites any value the client sends.
-  const wait = retryAfter(request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown');
+  const wait = retryAfter(clientIp(request));
   if (wait) return Response.json({ error: 'too many recaps; try again shortly' }, { status: 429, headers: { 'retry-after': String(wait) } });
   const { failed, ...result } = await narrate(input);
   if (!failed) {

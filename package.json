@@ -13,6 +13,7 @@
     "sources": "node scripts/make-sources.js",
     "bake": "node scripts/bake-people-atlas.js",
     "dev": "node scripts/dev.js",
-    "seed:nessie": "node scripts/seed-nessie.js"
+    "seed:nessie": "node scripts/seed-nessie.js",
+    "pregen:demo": "node scripts/pregen-demo.js"
   }
 }

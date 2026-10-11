@@ -1,0 +1,15 @@
+{
+  "note": "The demo's three scenarios, for scripts/pregen-demo.js (npm run pregen:demo, run once at demo freeze) and meridian-city/resident/demo.html. For each, the script pregenerates the narration recap and audio, and each listed resident's answer and audio to each starter question, into demo-audio/. Params are explicit: the cached clips are found by the numbers these runs produce.",
+  "questions": ["What does this policy change for you?", "Can you afford to keep living here?", "How are your savings holding up?"],
+  "scenarios": [
+    { "id": "edge-and-infill", "title": "Edge neighborhoods at their largest, with core infill",
+      "policies": [{ "id": "edge-subdivisions", "params": { "acres_released": 150 } }, { "id": "core-infill", "params": { "acres_built": 10 } }],
+      "residents": ["diego", "uma", "victor"] },
+    { "id": "tax-cut", "title": "Property tax 4 cents lower",
+      "policies": [{ "id": "property-tax-adjustment", "params": { "cents_per_100": -4 } }],
+      "residents": ["femi", "lena", "hao"] },
+    { "id": "buses", "title": "More frequent buses",
+      "policies": [{ "id": "bus-frequency-boost", "params": { "service": 1.25 } }],
+      "residents": ["maya", "bryce", "ben"] }
+  ]
+}

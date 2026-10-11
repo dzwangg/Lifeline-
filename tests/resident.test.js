@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
 import { runModels } from '../shared/combined.js';
 import { simulate } from '../shared/agents.js';
 import { POST as bankPOST, budget, ledgerEntries, loadData, savingsAt, seedBank, spendingAt, statementFor, taxes, writeLedger } from '../api/resident-bank.js';
-import { POST as talkPOST, VOICES, facts, templateAnswer } from '../api/resident.js';
-import { badNumbers, loadCards } from '../api/narration.js';
+import { POST as talkPOST, VOICES, answerKey, clipFiles, facts, templateAnswer } from '../api/resident.js';
+import { jobs } from '../scripts/pregen-demo.js';
+import { badNumbers, loadCards, validPolicies } from '../api/narration.js';
 import { zones, assumptions, baselines } from './data.js';
 
 const { residents } = JSON.parse(readFileSync(new URL('../data/residents.json', import.meta.url), 'utf8'));
@@ -423,6 +424,56 @@ test('talk: a 429 with a short retry (a per-minute limit) waits and retries once
   } finally {
     globalThis.fetch = saved;
   }
+});
+
+test('talk: answers are cached by the resident\'s facts and the question, so equivalent params and phrasing share one', async () => {
+  const f = facts(await statementFor('jamal', [{ id: 'core-infill', params: {} }]));
+  assert.equal(answerKey(f, 'How are your savings holding up?'), answerKey(facts(await statementFor('jamal', [{ id: 'core-infill', params: { acres_built: 10 } }])), '  how are your savings holding up '.trim()));
+  assert.notEqual(answerKey(f, 'How are your savings holding up?'), answerKey(f, 'Can you afford to keep living here?'));
+  await withFetch({ drafts: ['I own a home near the UNC campus.'] }, async calls => {
+    assert.equal((await talk({ resident: 'jamal', policies: [{ id: 'core-infill', params: {} }], question: 'Where do you live?' }, GEM)).cached, false);
+    const again = await talk({ resident: 'jamal', policies: [{ id: 'core-infill', params: { acres_built: 10 } }], question: 'where do you live' }, GEM);
+    assert.deepEqual([again.cached, again.text], [true, 'I own a home near the UNC campus.']);
+    assert.equal(calls.filter(c => c.url.includes('generativelanguage')).length, 1);
+  });
+});
+
+test('talk: a committed demo clip (npm run pregen:demo) is served first, in DEMO_MODE too, with its resident\'s voice', async () => {
+  const policies = [{ id: 'hiring-subsidy', params: {} }], question = 'What does this policy change for you?';
+  const f = facts(await statementFor('lena', policies)), key = answerKey(f, question), text = 'I own a home on the edge of town.';
+  const dir = new URL('../demo-audio/', import.meta.url), files = clipFiles(key, text, f.type);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(new URL(files.json, dir), JSON.stringify({ text, fallback: false }));
+  writeFileSync(new URL(files.mp3, dir), Buffer.from([1, 2, 3]));
+  try {
+    await withFetch({}, async calls => {
+      assert.deepEqual(await talk({ resident: 'lena', policies, question }, { ...GEM, DEMO_MODE: '1' }), { status: 200, text, audio: 'AQID', fallback: false, cached: true });
+      assert.equal(calls.length, 0);
+    });
+    assert.notEqual(clipFiles(key, text, 'student').mp3, files.mp3, 'another voice is another clip');
+  } finally {
+    for (const name of Object.values(files)) rmSync(new URL(name, dir));
+    try { rmdirSync(dir); } catch {} // only if this test made it and it is empty
+  }
+});
+
+test('demo scenarios: valid cards and residents, and the pregen plan is a recap per scenario and 3 x 3 answers each', async () => {
+  const { scenarios, questions } = JSON.parse(readFileSync(new URL('../data/demo-scenarios.json', import.meta.url), 'utf8'));
+  const cards = await loadCards(true), ids = new Set(residents.map(r => r.id));
+  assert.equal(scenarios.length, 3);
+  assert.equal(questions.length, 3);
+  for (const sc of scenarios) {
+    assert.ok(validPolicies(sc.policies, cards), sc.id);
+    assert.equal(sc.residents.length, 3);
+    assert.ok(sc.residents.every(id => ids.has(id)), sc.id);
+  }
+  const edge = cards.get('edge-subdivisions').params[0];
+  assert.equal(scenarios[0].policies.find(p => p.id === 'edge-subdivisions').params[edge.key], edge.max, 'edge subdivisions at their max');
+  assert.equal(scenarios[1].policies[0].params.cents_per_100, -4);
+  const plan = await jobs();
+  assert.deepEqual(plan.map(j => j.kind).filter(k => k === 'recap').length, 3);
+  assert.equal(plan.filter(j => j.kind === 'answer').length, 27);
+  assert.equal(new Set(plan.map(j => j.json)).size, 30, 'every clip has its own file');
 });
 
 // Last: a daily-quota 429 pauses that model for this process (narration's gemini()), which would skip it in any test after.

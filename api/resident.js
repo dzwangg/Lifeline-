@@ -1,14 +1,15 @@
 // POST /api/resident: talk to a showcase resident. Gemini answers a visitor's question in character, in the first person,
 // in 2-4 sentences, from that resident's simulated years only (facts(): job, zone, income, housing, commute, savings, whether
 // they left), with the policy cards and with no new policy. Body (at most 4 KB): { resident, policies: 0-10 of { id, params },
-// question: 1-300 characters }. Reply: { text, audio, cached, fallback, reason? }, as /api/narration's; reason says why
+// question: 1-300 characters }. Order: in-memory cache, then committed clips (scripts/pregen-demo.js), then Gemini. Reply: { text, audio, cached, fallback, reason? }, as /api/narration's; reason says why
 // the answer is the template (a Gemini 429 pauses Gemini until its retry time; see narration's gemini()).
 // Guardrails as narration's: card ids and params are checked against data/cards.index.json and titles read from the cards;
 // every number in the answer must be in the facts (one retry naming the bad ones, then the template); the prompt bars
 // advocacy; calls that would reach Gemini or ElevenLabs are rate-limited per IP. The question is the only client text that
 // reaches Gemini, and it never reaches the number check's allowed set. ElevenLabs reads the answer in a premade voice per
 // resident type. DEMO_MODE=1 never calls out; a missing key degrades its own step.
-import { badNumbers, clientIp, gemini, hashInput, loadCards, policiesError, rateLimiter, speak, validPolicies } from './narration.js';
+import { readFile } from 'node:fs/promises';
+import { badNumbers, clientIp, gemini, hashInput, loadCards, policiesError, rateLimiter, speak, speakable, validPolicies } from './narration.js';
 import { loadData, statementFor } from './resident-bank.js';
 
 // ElevenLabs premade voices (in every account's voice library), one per resident type.
@@ -110,6 +111,26 @@ export async function answer(f, question, env = process.env) {
   return { text, audio, fallback, ...(fallback && { reason }), failed };
 }
 
+/**
+ * The cache key and committed clip name of an answer: the resident's facts (which follow from resident, cards and params,
+ * so equivalent params share it, and clips made before a model change are never served) and the question, normalised.
+ */
+export const answerKey = (f, question) => hashInput({ facts: f, question: question.toLowerCase().replace(/[\s?.!]+$/, '') });
+/** Committed clip files: demo-audio/resident-<answer key>.json holds the text, and the mp3 is named by the words and voice. */
+export const clipFiles = (key, text, type) => ({ json: `resident-${key}.json`,
+  ...(text !== undefined && { mp3: `resident-${hashInput({ voice: VOICES[type], speech: speakable(text) })}.mp3` }) });
+
+async function demoAnswer(key, type) {
+  const dir = new URL('../demo-audio/', import.meta.url);
+  try {
+    const { text, fallback } = JSON.parse(await readFile(new URL(clipFiles(key).json, dir), 'utf8'));
+    const mp3 = await readFile(new URL(clipFiles(key, text, type).mp3, dir)).catch(() => null);
+    return { text, audio: mp3?.toString('base64') ?? null, fallback };
+  } catch {
+    return null;
+  }
+}
+
 const cache = new Map(); // ponytail: per instance, capped at 200 by insertion order, as narration's
 const retryAfter = rateLimiter(10);
 
@@ -131,10 +152,14 @@ export async function POST(request, env = process.env) {
   if (!question || question.length > MAX_QUESTION) errors.push(`question must be 1-${MAX_QUESTION} characters`);
   if (errors.length) return Response.json({ error: errors.join('; ') }, { status: 400 });
 
-  const policies = b.policies.map(({ id, params }) => ({ id, params }));
-  const key = hashInput({ resident: b.resident, policies, question: question.toLowerCase() });
+  const f = facts(await statementFor(b.resident, b.policies.map(({ id, params }) => ({ id, params }))));
+  const key = answerKey(f, question);
   if (cache.has(key)) return Response.json({ ...cache.get(key), cached: true });
-  const f = facts(await statementFor(b.resident, policies));
+  const clip = await demoAnswer(key, f.type); // committed by npm run pregen:demo, and served first, in DEMO_MODE too
+  if (clip) {
+    cache.set(key, clip);
+    return Response.json({ ...clip, cached: true });
+  }
   if (env.DEMO_MODE === '1') return Response.json({ text: templateAnswer(f), audio: null, cached: false, fallback: true, reason: 'demo mode' });
   const wait = retryAfter(clientIp(request));
   if (wait) return Response.json({ error: 'too many questions; try again shortly' }, { status: 429, headers: { 'retry-after': String(wait) } });

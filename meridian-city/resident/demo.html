@@ -90,7 +90,8 @@ All numbers are simulated and illustrative.</p>
 
 <section id="talk">
   <h2>Talk to <span id="talk-name"></span></h2>
-  <textarea id="question" rows="2" maxlength="300" placeholder="How is your rent changing?"></textarea>
+  <div id="starters" class="row" style="margin-bottom:.4rem" aria-label="Starter questions"></div>
+  <textarea id="question" rows="2" maxlength="300" placeholder="Or ask your own question"></textarea>
   <div class="row" style="margin-top:.4rem"><button id="ask" type="button">Ask</button><button id="play" type="button" disabled>Play</button>
     <span id="talk-fallback" class="note" hidden>Standard answer (the AI answer was unavailable)</span></div>
   <p class="note">AI-generated, in character, from this resident's simulated numbers only.</p>
@@ -112,6 +113,16 @@ $('resident').append(el('option', 'You', { value: 'you' }));
 const paths = await fetch('../../data/cards.index.json').then(r => r.json());
 const cards = await Promise.all(paths.map(p => fetch(`../../data/${p}`).then(r => r.json())));
 for (const c of cards) $('card').append(el('option', c.title, { value: c.id }));
+// the demo's scenarios (data/demo-scenarios.json): their starter questions' answers are pregenerated (npm run pregen:demo)
+const DEMO = await fetch('../../data/demo-scenarios.json').then(r => r.json());
+const group = el('optgroup', null, { label: 'Demo scenarios' });
+for (const sc of DEMO.scenarios) group.append(el('option', `Demo · ${sc.title}`, { value: `scenario:${sc.id}` }));
+$('card').append(group);
+const policiesOf = () => {
+  const v = $('card').value;
+  return !v ? [] : v.startsWith('scenario:') ? DEMO.scenarios.find(sc => `scenario:${sc.id}` === v).policies : [{ id: v, params: {} }];
+};
+for (const q of DEMO.questions) $('starters').append(el('button', q, { type: 'button', onclick: () => { $('question').value = q; $('ask').click(); } }));
 const query = new URLSearchParams(location.search); // ?resident=soren&card=protected-bike-network, for links to a view
 if (query.has('resident')) $('resident').value = query.get('resident');
 if (query.has('card')) $('card').value = query.get('card');
@@ -125,7 +136,7 @@ async function load() {
   $('you-form').hidden = !you;
   $('talk').hidden = you;
   $('answer').hidden = true;
-  const body = { policies: $('card').value ? [{ id: $('card').value, params: {} }] : [], ledger: true };
+  const body = { policies: policiesOf(), ledger: true };
   if (you) {
     body.you = { rent: +$('you-rent').value, income: +$('you-income').value, zone: $('you-zone').value, mode: $('you-mode').value };
     const account = store.get('meridian-you-account');
@@ -154,7 +165,7 @@ function render() {
   $('talk-name').textContent = r.name;
   $('who').textContent = r.id === 'you' ? `You rent ${ZONE[r.zone]}${r.mode === 'none' ? ' and work from home' : `, getting to work by ${r.mode}`}.`
     : `${r.name}: ${TYPE[r.type].toLowerCase()}, ${r.tenure === 'owner' ? 'owns a home' : 'rents'} ${ZONE[r.zone]}, ${WORK[r.work]}${r.work === 'remote' ? '' : ` (${r.mode})`}.`;
-  const title = policies[0]?.title, at = b => b.years.find(y => y.t === t); // no card: one column, one line
+  const title = policies.map(p => p.title).join(' + ') || undefined, at = b => b.years.find(y => y.t === t); // no card: one column, one line
   const [a, b] = [at(noPolicy), at(policy)];
   const table = $('budget');
   table.replaceChildren();
@@ -261,7 +272,7 @@ $('ask').onclick = async () => {
   $('answer').textContent = '…';
   try {
     const res = await fetch('/api/resident', { method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ resident: $('resident').value, policies: $('card').value ? [{ id: $('card').value, params: {} }] : [], question }) });
+      body: JSON.stringify({ resident: $('resident').value, policies: policiesOf(), question }) });
     const out = await res.json();
     $('answer').textContent = res.ok ? out.text : out.error;
     $('talk-fallback').hidden = !out.fallback;

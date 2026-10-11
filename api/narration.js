@@ -21,7 +21,7 @@ import { validateCard } from '../shared/schema.js';
 // fmt says a value the way a news anchor would (unit follows it once); pct metrics are already percentages, so the template
 // gives from/to rather than a % change. households and pricedOut come from the household model (shared/agents.js).
 const about = n => `about ${fmtNum(n, { maximumSignificantDigits: 3 })}`;
-const METRICS = {
+export const METRICS = {
   housingUnits: { meaning: 'number of homes', label: 'homes', plural: true, fmt: about },
   households: { meaning: 'number of households living in town', label: 'households', plural: true, fmt: about },
   medianRent: { meaning: 'median monthly market rent in dollars (rents rise with inflation over the years)', label: 'median rent', fmt: n => `$${fmtNum(n, { maximumFractionDigits: 0 })}`, unit: ' a month' },

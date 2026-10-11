@@ -4,6 +4,7 @@
 // Keys: Space plays or pauses, 1, 2 and 4 pick that speed. The map toolbar's pixel-icon buttons and glass plate,
 // so retro-ui.css skins it like the rest.
 // The date is the forecast's own (clock.js): it moves only while the simulation plays and holds still while paused.
+// Once the game is over and the last decade has played out, it reads the game's last month and "Game over".
 import { h } from '../policy/components.js';
 import { simClock, START_YEAR, growthReport } from './scenario.js';
 
@@ -21,7 +22,7 @@ export const simDate = years => { // years since the start, as "Mar 2029"
   return `${MONTHS[m % 12]} ${START_YEAR + Math.floor(m / 12)}`;
 };
 
-export function mountClockBar({ host = document.body, clock = simClock } = {}) {
+export function mountClockBar({ host = document.body, clock = simClock, game = null } = {}) {
   // The toggle's name says what it does next (Play or Pause), so it has no pressed state of its own.
   const toggle = h('button', { class: 'tool-btn clock-btn clock-toggle', type: 'button', 'aria-keyshortcuts': 'Space', onclick: () => clock.toggle() });
   const speeds = SPEED_BUTTONS.map(b => h('button', {
@@ -39,6 +40,7 @@ export function mountClockBar({ host = document.body, clock = simClock } = {}) {
   // Homes the forecast's conversions ask for that no valid land could hold: said, with the constraint, not forced in.
   growthReport.subscribe(r => { unmet = r && !r.before ? r.unmet : 0; why = unmet ? (r.constraints ?? []).join('\n') : ''; if (last) update(last); });
   clock.subscribe(update);
+  game?.subscribe(() => { if (last) update(last); });
   function update(s) {
     last = s;
     const next = s.playing ? 'Pause' : 'Play';
@@ -48,12 +50,14 @@ export function mountClockBar({ host = document.body, clock = simClock } = {}) {
       toggle.title = `${next} (Space)`;
     }
     SPEED_BUTTONS.forEach((b, i) => speeds[i].setAttribute('aria-pressed', String(b.speed === s.speed)));
-    const years = s.before ? 0 : s.years, text = simDate(years); // "Show before" shows year 0, so its date
+    // Finish seeks to the last step, which would read Jan of the last year; the game ended in its December.
+    const ended = !!game?.get().over && !s.playing && !s.before && s.step >= s.steps;
+    const years = s.before ? 0 : ended ? s.steps + 1 - 1e-9 : s.years, text = simDate(years); // "Show before" shows year 0, so its date
     if (date.textContent !== text) { date.textContent = text; date.dateTime = `${START_YEAR + Math.floor(years)}-${String(Math.floor(years * 12) % 12 + 1).padStart(2, '0')}`; }
-    speed.textContent = s.playing ? `${s.speed}×` : `Paused · ${s.speed}×`;
+    speed.textContent = ended ? 'Game over' : s.playing ? `${s.speed}×` : `Paused · ${s.speed}×`;
     const msg = s.error ? 'Forecast failed · Play retries'
       : s.loading ? 'Loading forecast…'
-      : !s.playing && s.step >= s.steps ? 'End of the decade'
+      : !ended && !s.playing && s.step >= s.steps ? 'End of the decade'
       : '';
     const note = unmet ? `${unmet.toLocaleString()} new home${unmet === 1 ? '' : 's'} didn't fit` : '';
     const line = [msg, note].filter(Boolean).join(' · ');

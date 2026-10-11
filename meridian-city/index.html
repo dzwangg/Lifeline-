@@ -140,7 +140,7 @@ const showCount = () => {
 store.subscribe(showCount);
 game.subscribe(showCount);
 window.policyStore = store; // the simulation reads store.getState().applied once it models effects
-mountClockBar(); // starts paused, so policies can be set up before Play
+mountClockBar({ game }); // starts paused, so policies can be set up before Play
 mountAskBar({ store, cards, game }); // before the sim plate, so cards drafted on an earlier visit are in the deck
 mountSimPlate({ policyStore: store, cards, game });
 // Meet the residents: the fifty showcase households and "You", their budgets, Nessie ledgers and chat (resident/panel.js)

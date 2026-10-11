@@ -1,8 +1,8 @@
 // At demo freeze: creates the Nessie merchants and each showcase resident's customer, checking, savings and loan account,
 // once, keeping their ids in data/resident-bank.json (commit it), then writes each resident's ledger for no policy and for
-// each scenario in data/demo-scenarios.json. This is the only writer of showcase ledgers; /api/resident-bank only reads
-// them. Each id is saved as Nessie returns it and written entries are skipped, so a rerun after a failure makes only
-// what is missing. Reads NESSIE_API_KEY from .env.local. Usage: npm run seed:nessie
+// each scenario in data/demo-scenarios.json, so they are in Nessie before the demo (/api/resident-bank writes any it finds
+// missing on first request). Each id is saved as Nessie returns it and written entries are skipped, so a rerun after a
+// failure makes only what is missing. Reads NESSIE_API_KEY from .env.local. Usage: npm run seed:nessie
 import { readFileSync, writeFileSync } from 'node:fs';
 import { seedBank, seedLedgers } from '../api/resident-bank.js';
 

@@ -17,13 +17,14 @@
 // once savings are gone, what a household that borrows borrows or pays back each year in its loan account; all tagged
 // with a hash of the budget. Nessie's sandbox never posts entries to the balance and can't delete purchases, so ledgers are
 // append-only, and the reply's totals are summed from what Nessie returns.
-// Showcase residents: scripts/seed-nessie.js (npm run seed:nessie, at demo freeze) makes each one's customer and accounts
-// (ids in data/resident-bank.json) and writes their ledgers for the demo's scenarios, one process, one write at a time.
-// This endpoint never writes to them: with ledger: true it reads a scenario's ledger back, and computes it here if Nessie
-// lacks it. So no two server instances can race to write the same entries. "You" is the one live writer: it gets a customer
-// on its first ledger write and writes only to that customer's accounts, whose ids (signed with the key) the reply hands
-// back for later requests. Ledgers are cached, so a scenario costs Nessie calls once per instance; without ledger: true no
-// call is made (the panel asks only once a scenario settles, never per slider move).
+// Showcase residents: scripts/seed-nessie.js (npm run seed:nessie) makes each one's customer and accounts (ids in
+// data/resident-bank.json) and pre-writes their ledgers for the demo's scenarios. With ledger: true this endpoint reads a
+// scenario's ledger back and writes whatever entries Nessie lacks, so a scenario nobody seeded, or one whose entries
+// changed with the model, still lands in Nessie. Two server instances can both write a ledger neither found; the copies
+// carry the same labels and readLedger counts each entry once, so the reply is unchanged and the sandbox just holds a
+// spare. "You" gets a customer on its first ledger write and writes only to that customer's accounts, whose ids (signed
+// with the key) the reply hands back for later requests. Ledgers are cached, so a scenario costs Nessie calls once per
+// instance; without ledger: true no call is made (the panel asks only once a scenario settles, never per slider move).
 // No key, DEMO_MODE=1, a rate limit or a Nessie error: the reply's ledger is the same entries computed here, with
 // source: "local" and a note saying why.
 import { createHmac, timingSafeEqual } from 'node:crypto';
@@ -298,9 +299,9 @@ export async function seedBank(env, bank, residents, save = async () => {}) {
 }
 
 /**
- * Writes each showcase resident's ledger for each of these policy sets to its seeded accounts (npm run seed:nessie, at demo
- * freeze), one at a time: the only writer of showcase ledgers. Entries already there are skipped (writeLedger), so a rerun
- * after a failure writes only the rest. Returns how many entries were written.
+ * Writes each showcase resident's ledger for each of these policy sets to its seeded accounts (npm run seed:nessie), one at
+ * a time, so the demo's scenarios are in Nessie before anyone asks. Entries already there are skipped (writeLedger), so a
+ * rerun after a failure writes only the rest. Returns how many entries were written.
  */
 export async function seedLedgers(env, bank, residents, policySets) {
   let written = 0;
@@ -375,18 +376,12 @@ export async function handle(request, env) {
     : (ledgerLimit(ip) || (you && !accounts && visitorLimit(ip))) ? 'Too many ledger writes just now: computed here.' : null;
   if (note) return Response.json({ ...statement, ledger: localLedger(entries, note) });
   try {
-    if (!you) { // a showcase resident: written at demo freeze, only read back here
-      const { held, missing } = await readLedger(env, accounts, entries);
-      const ledger = missing.length ? localLedger(entries, 'Not in Nessie: showcase ledgers are written for the demo\'s scenarios at demo freeze (npm run seed:nessie). Computed here.')
-        : fromNessie(entries, held, 0);
-      lru(ledgers, key, ledger, 500);
-      return Response.json({ ...statement, ledger: { ...ledger, cached: false } });
-    }
     if (!accounts) {
       accounts = await createCustomer(env, 'Visitor', 'Prosperia (simulated)');
       reply.account = { ...accounts, sig: sign(env, accounts) };
     }
-    // "You" writes are keyed by the (signed) account and the entries: within an instance, the same write twice is one write.
+    // Writes are keyed by the account and the entries: within an instance, the same write twice is one write, and a ledger
+    // already in Nessie (seeded, or written by another instance) costs only reads.
     const writeKey = `${accounts.checking}|${hashInput(entries)}`;
     let job = writing.get(writeKey);
     if (!job) {

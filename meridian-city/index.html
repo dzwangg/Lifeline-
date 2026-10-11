@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="policy/policy-panel.css">
 <link rel="stylesheet" href="sim/sim-plate.css">
 <link rel="stylesheet" href="world/retro-ui.css">
+<link rel="stylesheet" href="world/start-screen.css">
 <style>
   /* Frutiger Aero: sunlit sky, clear water, and luminous glass overlays. */
   :root {
@@ -20,7 +21,6 @@
     --ink: #123e58;
     --muted: #42758a;
     --sodium: #078c9b;
-    --load-ink: #15536c;
     --display: 'Overpass', 'Helvetica Neue', Arial, sans-serif;
     --mono: 'Overpass Mono', ui-monospace, Menlo, monospace;
   }
@@ -61,11 +61,8 @@
     #hud h1 { font-size: 18px; }
     #alt { right: 12px; padding: 8px 12px; font-size: 11px; }
   }
-  #loading { position: fixed; inset: 0; display: grid; place-content: center; justify-items: center; gap: 12px; font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--load-ink); text-shadow: 0 1px white; }
-  #load-bar { width: min(300px, 70vw); height: 12px; box-sizing: border-box; border: 2px solid var(--load-ink); border-radius: 2px; background: rgba(255, 255, 255, .7); box-shadow: 0 2px 0 rgba(21, 83, 108, .25); }
-  #load-fill { display: block; height: 100%; width: 0; background: repeating-linear-gradient(90deg, var(--sodium) 0 6px, #0aa6b6 6px 8px); transition: width .2s steps(6); }
-  @media (prefers-reduced-motion: reduce) { #load-fill { transition: none; } }
-  /* The panels wait for the city: hidden while it builds, then they fade in together. */
+  /* The panels wait for the city: hidden under the start screen (world/start-screen.js) while it builds and until the
+     player presses Start, then they fade in together. */
   body.city-loading #hud, body.city-loading #alt, body.city-loading #policy-launch, body.city-loading #clock, body.city-loading .plate.sim { visibility: hidden; }
   body.city-ready #hud, body.city-ready #alt, body.city-ready #policy-launch, body.city-ready #clock, body.city-ready .plate.sim { animation: ui-in .35s ease-out; }
   @keyframes ui-in { from { opacity: 0; } } /* opacity only: the clock bar is centred with a transform */
@@ -75,7 +72,31 @@
 <body class="city-loading">
 
 <div id="view"></div>
-<div id="loading"><span id="load-msg">Laying out Chapel Hill…</span><span id="load-bar" role="progressbar" aria-label="Loading the city" aria-valuemin="0" aria-valuemax="100" aria-valuenow="5"><span id="load-fill" style="width: 5%"></span></span></div>
+<section id="start" class="start" role="dialog" aria-modal="true" aria-labelledby="start-title" aria-describedby="start-lede" tabindex="-1">
+  <canvas class="start__scene" aria-hidden="true"></canvas>
+  <div class="start__content">
+    <header class="start__brand">
+      <p class="start__kicker">Chapel Hill, NC · 2026–2056</p>
+      <h1 class="start__logo" id="start-title">Prosperia</h1>
+      <span class="start__spark" aria-hidden="true"></span><span class="start__spark" aria-hidden="true"></span><span class="start__spark" aria-hidden="true"></span>
+    </header>
+    <div class="start__card">
+      <p class="start__lede" id="start-lede">Choose the policies that shape Chapel Hill for the next thirty years, then watch what they do to rents, jobs, traffic and tree cover.</p>
+      <ol class="start__steps">
+        <li class="start__step"><span class="start__orb" aria-hidden="true">1</span><h2>Pick policies</h2><p>Open <b>Policies</b> and drag cards into this decade’s slots for housing, business, jobs, taxes and transport.</p></li>
+        <li class="start__step"><span class="start__orb" aria-hidden="true">2</span><h2>Play the decade</h2><p>Press play to watch the town change. Every result is compared with a Chapel Hill that adopts no new policy.</p></li>
+        <li class="start__step"><span class="start__orb" aria-hidden="true">3</span><h2>Enact and move on</h2><p>End the decade to lock your policies in for good. Three decades take you to 2056.</p></li>
+      </ol>
+      <div class="start__go">
+        <button class="start__btn" type="button" disabled><span class="start__fill" style="width: 5%"></span><span class="start__label">Loading 5%</span></button>
+        <p class="start__status" role="status">Laying out Chapel Hill…</p>
+      </div>
+    </div>
+    <p class="start__foot">Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors · <a href="sources.html" target="_blank" rel="noopener">Sources</a></p>
+  </div>
+</section>
+<!-- First of the page's modules, so the start screen's landscape paints before the big map data below has loaded. -->
+<script type="module" src="world/start-screen.js"></script>
 <div id="hud" class="plate">
   <h1>University of North Carolina</h1>
   <div id="stats">Surveying…</div>
@@ -145,21 +166,18 @@ import { mountAgentLayer } from './sim/agent-layer.js';
 import { mountFocus } from './sim/focus.js';
 import { mountWipe } from './sim/wipe.js';
 import { mountBubbles } from './world/aero.js';
+import { start } from './world/start-screen.js';
 import { onFrame } from './sim/scenario.js';
 
 const $ = id => document.getElementById(id);
-// The loading bar: the world's build fills it to 85%, the sim's layers and the first frame the rest.
+// The start screen's Start button is the loading bar: the world's build fills it to 85%, the sim's layers and the first
+// frame the rest.
 const timings = {};
-const progress = (message, fraction) => {
-  $('load-msg').textContent = message;
-  const pct = Math.round(fraction * 100);
-  $('load-fill').style.width = `${pct}%`;
-  $('load-bar').setAttribute('aria-valuenow', pct);
-};
+const progress = (message, fraction) => start.progress(message, fraction);
 const frame = () => new Promise(r => { const t = setTimeout(r, 50); requestAnimationFrame(() => { clearTimeout(t); setTimeout(r, 0); }); }); // a paint, or a timer in a hidden tab
 await frame();
 const OSM = window.CHAPEL_HILL;
-if (!OSM) { $('loading').textContent = 'Could not load the Chapel Hill map data.'; throw new Error('chapel-hill.js did not load'); }
+if (!OSM) { start.fail('Could not load the Chapel Hill map data.'); throw new Error('chapel-hill.js did not load'); }
 
 const ZONES = await zonesReady;
 timings.modulesAndData = Math.round(performance.now()); // since the page started loading: scripts, map data, zones
@@ -167,7 +185,7 @@ let world;
 try {
   world = await buildWorld({ container: $('view'), osm: OSM, names: window.CHAPEL_HILL_NAMES ?? [], zones: ZONES, progress: (m, f) => progress(m, .08 + f * .77) });
 } catch (e) {
-  $('loading').textContent = /WebGL/i.test(e.message) ? 'This city needs WebGL, which is turned off in this browser.' : `The city could not be built: ${e.message}`;
+  start.fail(/WebGL/i.test(e.message) ? 'This city needs WebGL, which is turned off in this browser.' : `The city could not be built: ${e.message}`);
   throw e;
 }
 progress('Placing households…', .88); await frame();
@@ -200,13 +218,13 @@ onFrame((dt, simDt) => world.update(dt, simDt));
 if (new URLSearchParams(location.search).has('debug')) globalThis.world = world; // ?debug: the world, for tooling and the console
 await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); // the first frame is on screen
 timings.firstFrame = Math.round(performance.now() - t);
-$('loading').remove();
-document.body.classList.replace('city-loading', 'city-ready'); // reveal the panels with the city
-mountBubbles(document.body, { onFrame }); // drifting Aero bubbles over the city, under the panels
 timings.total = Math.round(performance.now()); // since the page started loading
 Object.assign(world.timings, timings);
 console.info('City ready in', timings.total, 'ms:', world.timings);
 window.city = world; // for debugging and for the simulation to reach the world
+await start.ready(); // Start lights up; the city shows when the player presses it
+document.body.classList.replace('city-loading', 'city-ready'); // reveal the panels with the city
+mountBubbles(document.body, { onFrame }); // drifting Aero bubbles over the city, under the panels
 </script>
 </body>
 </html>

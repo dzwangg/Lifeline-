@@ -24,6 +24,7 @@ or each other.
 | `select.js` | Click a building to outline it and open its info card. |
 | `outskirts.js` | Everything past the map: the parkway and the ends of clipped streets, terrain and haze, woods, clean-energy sites, hamlets, transit stops, footbridges and wind turbines (see [The outskirts](#the-outskirts)). |
 | `aero.js` | The drifting bubble overlay. |
+| `start-screen.js` | The start screen over the city while it builds: the title, the game in three steps, and Start, which doubles as the loading bar. Its landscape is painted at the same pixel grain from `palette.js`, with the city's bubbles. `?nostart` opens straight on the city. |
 | `geometry.js` | Batched meshes, ring helpers (`inside`, `bounds`, `inset`, …) and the occupancy `Grid`. |
 
 **Pixel pipeline.** The scene renders into an offscreen target, then a full-screen pass draws a dark outline wherever

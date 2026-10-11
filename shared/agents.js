@@ -101,16 +101,7 @@ export function simulate(inputs, assumptions, baselines, seed = 7) {
     }
   };
   const makeAgent = (id, zone, year) => {
-    const renter = r() < A.agentRenterShare[zone];
-    const student = renter && r() < A.agentStudentShare;
-    const kind = student ? 'student' : renter ? 'renter' : 'owner';
-    const income = lognorm(r, A.agentIncomeMedian[kind], A.agentIncomeSpread[kind]);
-    const rw = r();
-    const work = rw < A.agentRemoteShare ? 'remote' : rw < A.agentRemoteShare + A.agentDurhamShare ? 'durham' : (student || r() < A.agentCampusWorkShare) ? 'campus' : 'downtown';
-    const a = {
-      id, first: NAMES[Math.floor(r() * NAMES.length)], zone, renter, student, income: Math.round(income / 100) * 100, work,
-      rentBase: A.agentZoneRent[zone] * (A.agentRentSpread.min + r() * A.agentRentSpread.range), x: r(), y: r(), joined: year, left: null, hazard: 0, leaveAt: -Math.log(1 - r()), burden0: null, hist: [],
-    };
+    const a = drawAgent(r, A, id, zone, year);
     a.name = nameFor(id, a.first);
     return a;
   };
@@ -127,8 +118,7 @@ export function simulate(inputs, assumptions, baselines, seed = 7) {
   const index = (key, t, zone) => inputs?.[key]?.[t]?.[zone] ?? 1, growth = 1 + A.lutiIncomeGrowth;
   // year-0 commute: the zone's local trip, plus 15-501 at its observed peak for edge homes and Durham workers (corridor
   // homes don't take it), calibrated to the ACS mean; later years follow CH-LUTI's commute for the zone
-  const road = ratio => A.roadT0Min * (1 + A.roadBpr.alpha * Math.pow(ratio, A.roadBpr.beta)), ratio0 = A.roadPeakVolume / A.roadCapacity;
-  const raw = a => (a.work === 'remote' ? 0 : A.agentBaseCommuteMin[a.zone] + ((a.zone === 'edge' || a.work === 'durham') ? road(ratio0) : 0) + (a.work === 'durham' ? A.agentDurhamExtraMin : 0));
+  const road = ratio => roadMin(A, ratio), ratio0 = A.roadPeakVolume / A.roadCapacity, raw = a => rawCommute(A, a);
   const commuters0 = agents.filter(a => a.work !== 'remote'), calib = baselines.meanCommuteMin.value / (commuters0.reduce((s, a) => s + raw(a), 0) / commuters0.length);
   const years = [];
   const last = inputs ? inputs.homes.length - 1 : 10;
@@ -177,7 +167,55 @@ export function simulate(inputs, assumptions, baselines, seed = 7) {
       displaced: agents.filter(a => a.joined === 0 && a.left !== null).length, roadRatio: ratio, roadTime: road(ratio) * calib,
     });
   }
-  return { agents, years };
+  // street: what streetAgent() needs to draw street residents on this run's paths (plain data, so it crosses to a worker)
+  return { agents, years, street: { k, calib, rent: inputs?.rent ?? null, commute: inputs?.commute ?? null } };
+}
+
+// One household's draws, in the run's order: tenure, student, income, work, first name, rent, place on the map, leaving.
+function drawAgent(r, A, id, zone, year) {
+  const renter = r() < A.agentRenterShare[zone];
+  const student = renter && r() < A.agentStudentShare;
+  const kind = student ? 'student' : renter ? 'renter' : 'owner';
+  const income = lognorm(r, A.agentIncomeMedian[kind], A.agentIncomeSpread[kind]);
+  const rw = r();
+  const work = rw < A.agentRemoteShare ? 'remote' : rw < A.agentRemoteShare + A.agentDurhamShare ? 'durham' : (student || r() < A.agentCampusWorkShare) ? 'campus' : 'downtown';
+  return {
+    id, first: NAMES[Math.floor(r() * NAMES.length)], zone, renter, student, income: Math.round(income / 100) * 100, work,
+    rentBase: A.agentZoneRent[zone] * (A.agentRentSpread.min + r() * A.agentRentSpread.range), x: r(), y: r(), joined: year, left: null, hazard: 0, leaveAt: -Math.log(1 - r()), burden0: null, hist: [],
+  };
+}
+const roadMin = (A, ratio) => A.roadT0Min * (1 + A.roadBpr.alpha * Math.pow(ratio, A.roadBpr.beta));
+const rawCommute = (A, a) => (a.work === 'remote' ? 0 : A.agentBaseCommuteMin[a.zone]
+  + ((a.zone === 'edge' || a.work === 'durham') ? roadMin(A, A.roadPeakVolume / A.roadCapacity) : 0) + (a.work === 'durham' ? A.agentDurhamExtraMin : 0));
+
+export const STREET_RESIDENTS = 5000; // street resident numbers run below this (street life makes at most 1,200 walkers)
+/**
+ * A street resident: one of the walkers street life adds around the model's households (meridian-city/world/street-sim.js),
+ * as a person with a household's state. Drawn like a year-0 household from its own number n alone, so number n is the
+ * same person on every load, in the browser and on the server. Its rent, income and commute follow the run's paths for
+ * its zone, as a household's do. Street residents are not counted: they never move away, and none of the model's totals
+ * (households, priced out, median rent) include them.
+ * @param {number} n the walker's number (street-sim.js) @param {ReturnType<typeof simulate>['street']} street the run's
+ * @param {Assumptions} assumptions @returns {Agent & { street: true }}
+ */
+export function streetAgent(n, street, assumptions) {
+  const A = Object.fromEntries(Object.entries(assumptions).map(([k, v]) => [k, v.value]));
+  const r = mulberry32(Math.imul(n + 1, 0x9E3779B1) ^ 0x5eed);
+  const zones = Object.entries(A.agentHouseholds), total = zones.reduce((s, [, c]) => s + c, 0);
+  let pick = r() * total, zone = zones.at(-1)[0];
+  for (const [z, c] of zones) if ((pick -= c) < 0) { zone = z; break; }
+  const a = drawAgent(r, A, n, zone, 0);
+  a.rentBase *= street.k;
+  a.name = `${a.first} ${INITIALS[(Math.imul(n + 7, 2246822519) >>> 0) % INITIALS.length]}.`;
+  a.street = true;
+  const index = (key, t) => street[key]?.[t]?.[zone] ?? 1, growth = 1 + A.lutiIncomeGrowth;
+  for (let t = 0; t <= 10; t++) {
+    const rent = a.renter ? Math.round(a.rentBase * index('rent', t)) : null, income = Math.round(a.income * growth ** t);
+    const commute = Math.round(rawCommute(A, a) * street.calib * index('commute', t) * 10) / 10;
+    a.hist[t] = { rent, income, burden: a.renter ? rent * 12 / income : null, commute, here: true };
+  }
+  a.burden0 = a.hist[0].burden;
+  return a;
 }
 
 /**

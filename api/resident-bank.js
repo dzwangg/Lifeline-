@@ -1,8 +1,12 @@
 // POST /api/resident-bank: one resident's money, year by year, with the active policy cards and with no new policy, kept as a
 // ledger in Capital One's Nessie sandbox bank. Body (at most 4 KB):
-//   { resident: <id in data/residents.json> } or { you: { rent, income, zone, mode } }, plus
+//   { resident: <resident id, shared/residents.js> } or { you: { rent, income, zone, mode } }, plus
 //   policies: 0-10 of { id, params } (cards in data/cards.index.json), ledger?: true to write the ledger, account?: (you only)
-// Reply: { resident, policies, policy, noPolicy, change, ledger, account? }. policy and noPolicy are budgets (see budget()): per
+// A resident is anyone on the map: a showcase household (data/residents.json), any other household of the map's run, or a
+// street resident; all three are read from the same model state the map's dots are (shared/residents.js residentIn).
+// Reply: { resident, policies, policy, noPolicy, change, link, ledger, retryAfter?, account? }. link says whether the
+// resident is linked to Nessie (its customer and accounts) or why not; retryAfter, in seconds, when asking again may get
+// the ledger into Nessie. policy and noPolicy are budgets (see budget()): per
 // year while the household is in town, a month's paycheck, housing, commute and other spending, and at the year's end the
 // savings (never below zero) and the bills left unpaid once they are gone. change sums the policy's monthly changes over the
 // years (changeOf()), so the panel can say "$1,400 more over 10 years".
@@ -20,9 +24,10 @@
 // Showcase residents: scripts/seed-nessie.js (npm run seed:nessie, at demo freeze) makes each one's customer and accounts
 // (ids in data/resident-bank.json) and writes their ledgers for the demo's scenarios, one process, one write at a time.
 // This endpoint never writes to them: with ledger: true it reads a scenario's ledger back, and computes it here if Nessie
-// lacks it. So no two server instances can race to write the same entries. "You" is the one live writer: it gets a customer
-// on its first ledger write and writes only to that customer's accounts, whose ids (signed with the key) the reply hands
-// back for later requests. Ledgers are cached, so a scenario costs Nessie calls once per instance; without ledger: true no
+// lacks it. So no two server instances can race to write the same entries. The live writers are "you", which gets a
+// customer on its first ledger write and writes only to that customer's accounts, whose ids (signed with the key) the
+// reply hands back for later requests, and every other map resident, linked on its first ledger write (linkResident()):
+// its customer is found in Nessie by its resident id, or made once. Ledgers are cached, so a scenario costs Nessie calls once per instance; without ledger: true no
 // call is made (the panel asks only once a scenario settles, never per slider move).
 // No key, DEMO_MODE=1, a rate limit or a Nessie error: the reply's ledger is the same entries computed here, with
 // source: "local" and a note saying why.
@@ -30,6 +35,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { runModels } from '../shared/combined.js';
 import { simulate } from '../shared/agents.js';
+import { residentIn, residentLabels, validResidentId } from '../shared/residents.js';
 import { BASE_YEAR } from '../shared/luti/data.js';
 import { PARAMS } from '../shared/luti/params.js';
 import { clientIp, hashInput, loadCards, policiesError, rateLimiter, validPolicies } from './narration.js';
@@ -52,19 +58,21 @@ export const loadData = () => data ??= Promise.all(['data/zones.geojson', 'data/
   .then(([fc, assumptions, baselines, finance, { residents }, bank]) => ({
     zones: fc.features.map(f => ({ ...f.properties, geometry: f.geometry })), assumptions, baselines,
     F: values(finance), A: values(assumptions), residents: new Map(residents.map(r => [r.id, r])),
+    showcaseAgents: new Map(residents.map(r => [r.id, r.agent])), // showcase id -> agent id (shared/residents.js)
     bank: bank ?? { merchants: {}, residents: {} },
   }));
 
 const lru = (map, key, value, cap) => { map.set(key, value); if (map.size > cap) map.delete(map.keys().next().value); return value; };
 
-const runs = new Map(); // scenario hash -> { agents, inputs, luti }; ponytail: per instance, about 200 ms a miss
+const runs = new Map(); // scenario hash -> { agents, households, inputs, luti }; ponytail: per instance, about 200 ms a miss
 /** The household model's seed-7 run and CH-LUTI's central run for these (validated) policies. */
 function scenarioRun(policies, cards, d) {
   const key = hashInput([...policies].sort((a, b) => (a.id < b.id ? -1 : 1)));
   if (runs.has(key)) return runs.get(key);
   const picked = policies.map(p => cards.get(p.id)), params = Object.fromEntries(policies.map(p => [p.id, p.params]));
   const { inputs, luti } = runModels(picked, params, d.zones, d.assumptions, d.baselines);
-  return lru(runs, key, { agents: simulate(inputs, d.assumptions, d.baselines, SEED).agents, inputs, luti }, 50);
+  const households = simulate(inputs, d.assumptions, d.baselines, SEED);
+  return lru(runs, key, { agents: households.agents, households, inputs, luti }, 50);
 }
 const isCached = (policies) => runs.has(hashInput([...policies].sort((a, b) => (a.id < b.id ? -1 : 1))));
 /** Whether statementFor(…, policies) runs on cached models (these policies and no policy), costing no model run. */
@@ -107,18 +115,20 @@ export const savingsAt = (income, F) => table(F.startingSavings).findLast(([lo])
  * year's end the savings, which never go below zero. Once they are gone, a household that borrows (who.borrows: students,
  * and renters whose year-0 rent burden is above agentBurdenLine) covers the gap with loans or family support, which are
  * not modelled in detail: borrowed is what it owes. Any other household falls behind on bills instead (behind). Later
- * surpluses pay those back first. Other spending is set by year-0 income and grows with rent inflation.
+ * surpluses pay those back first. Other spending is set by the first year's income and grows with rent inflation.
  * @param {{ income: number, housing: number, commuteMin: number }[]} years the household's years in town
  * @param {{ filing: 'single' | 'joint', mode: string, durham: boolean, borrows: boolean }} who
+ * @param {number} [t0] the year of years[0]: a newcomer's first year (its savings and spending follow its income then)
  */
-export function budget(years, who, { F, A }) {
-  const income0 = years[0].income, trips = 2 * F.workDaysPerMonth, perMin = A.lutiSpeedKmh.car / 1.609344 / 60 * F.carCostPerMile;
+export function budget(years, who, { F, A }, t0 = 0) {
+  const income0 = years[0].income / grow(t0), trips = 2 * F.workDaysPerMonth, perMin = A.lutiSpeedKmh.car / 1.609344 / 60 * F.carCostPerMile;
   const bus = who.durham ? Math.min(trips * F.busFare.durham, F.busMonthlyCap.durham) : trips * F.busFare.town;
-  const basket0 = spendingAt(income0, who.filing, F) / 12, start = Math.round(savingsAt(income0, F));
+  const basket0 = spendingAt(income0, who.filing, F) / 12, start = Math.round(savingsAt(income0, F) * grow(t0));
   let position = start; // savings, or minus what is owed (borrowed or unpaid) once they are gone
   return {
     start, borrows: who.borrows,
-    years: years.map(({ income, housing, commuteMin }, t) => {
+    years: years.map(({ income, housing, commuteMin }, i) => {
+      const t = t0 + i;
       const commute = who.mode === 'car' ? commuteMin * trips * perMin * grow(t) : who.mode === 'bus' ? bus * grow(t) : 0;
       const month = { pay: Math.round((income - taxes(income / grow(t), who.filing, F) * grow(t)) / 12), housing: Math.round(housing),
         commute: Math.round(commute), basket: Math.round(basket0 * grow(t)) };
@@ -133,24 +143,25 @@ const withFlags = (b, left) => ({ ...b, left, savingsOut: b.years.find(y => y.bo
 /** The policy's change against no new policy: month by month summed over the years the household is in town in both runs,
  *  and what it has borrowed by the last of those years ("borrows $1,200 less over 10 years"). */
 export function changeOf(policy, noPolicy) {
-  const both = policy.years.filter(y => noPolicy.years[y.t]), last = both.at(-1);
+  const base = new Map(noPolicy.years.map(y => [y.t, y])), both = policy.years.filter(y => base.has(y.t)), last = both.at(-1);
   return { throughYear: last?.t ?? null, ...Object.fromEntries(['pay', 'housing', 'commute', 'basket', 'net']
-    .map(k => [k, both.reduce((s, y) => s + 12 * (y[k] - noPolicy.years[y.t][k]), 0)])),
-  borrowed: last ? last.borrowed - noPolicy.years[last.t].borrowed : 0 };
+    .map(k => [k, both.reduce((s, y) => s + 12 * (y[k] - base.get(y.t)[k]), 0)])),
+  borrowed: last ? last.borrowed - base.get(last.t).borrowed : 0 };
 }
 
 const yearOf = (luti, t) => (t ? luti.series[4 * t - 1] : luti.start);
-/** A showcase resident's years in town in one run: the agent's own history (owners: housing per ownerFixedShare). */
-function residentYears(r, run, d) {
-  const a = run.agents[r.agent], out = [];
-  for (let t = 0; t < a.hist.length && a.hist[t]?.here; t++) {
+/** A resident's years in town in one run, from the year it arrived: the agent's own history (owners: housing per
+ *  ownerFixedShare). labels: its type, filing and mode (data/residents.json, or shared/residents.js residentLabels). */
+function residentYears(a, labels, run, d) {
+  const out = [];
+  for (let t = a.joined; t < a.hist.length && a.hist[t]?.here; t++) {
     const h = a.hist[t], L = yearOf(run.luti, t);
     const housing = a.renter ? h.rent
       : d.F.ownerFixedShare * a.rentBase + L.homeValue * a.rentBase / d.baselines.medianGrossRent.value * L.taxRate / 1e4 / 12;
     out.push({ income: h.income, housing, commuteMin: h.commute });
   }
-  const borrows = r.type === 'student' || (a.renter && a.burden0 > d.A.agentBurdenLine);
-  return withFlags(budget(out, { filing: r.filing, mode: r.mode, durham: a.work === 'durham', borrows }, d), a.left);
+  const borrows = labels.type === 'student' || (a.renter && a.burden0 > d.A.agentBurdenLine);
+  return withFlags(budget(out, { filing: labels.filing, mode: labels.mode, durham: a.work === 'durham', borrows }, d, a.joined), a.left);
 }
 /** The visitor's years: their year-0 rent follows CH-LUTI's rent for their zone, income grows as CH-LUTI's does, and the
  *  commute takes as long as their zone's average one in the seed-7 run. They never leave. */
@@ -165,17 +176,27 @@ function youYears(you, run, d) {
 }
 
 const withChange = (policy, noPolicy) => ({ policy, noPolicy, change: changeOf(policy, noPolicy) });
-/** The statement for a showcase resident id or a visitor profile, with and without the (validated) policies. */
+/**
+ * The statement for a resident id (shared/residents.js) or a visitor profile, with and without the (validated) policies.
+ * null for a resident the policies' run doesn't have (a newcomer it never brings); a newcomer the no-policy run doesn't
+ * bring has no noPolicy and no change.
+ */
 export async function statementFor(who, policies) {
   const [d, cards] = await Promise.all([loadData(), loadCards()]);
-  const r = typeof who === 'string' ? d.residents.get(who) : null;
-  const years = run => (r ? residentYears(r, run, d) : youYears(who, run, d));
-  const a = r && scenarioRun([], cards, d).agents[r.agent];
+  const titled = policies.map(({ id, params }) => ({ id, title: cards.get(id).title, params }));
+  const run = scenarioRun(policies, cards, d), base = scenarioRun([], cards, d);
+  if (typeof who !== 'string') return {
+    resident: { id: 'you', name: 'You', type: 'you', zone: who.zone, work: null, mode: who.mode, tenure: 'renter' },
+    policies: titled, ...withChange(youYears(who, run, d), youYears(who, base, d)),
+  };
+  const r = d.residents.get(who), find = x => residentIn(x.households, who, d.showcaseAgents, d.assumptions);
+  const a = find(run), b = find(base);
+  if (!a) return null;
+  const labels = r ?? residentLabels(a), policy = residentYears(a, labels, run, d), noPolicy = b && residentYears(b, labels, base, d);
   return {
-    resident: r ? { id: r.id, name: r.name, type: r.type, zone: a.zone, work: a.work, mode: r.mode, tenure: a.renter ? 'renter' : 'owner' }
-      : { id: 'you', name: 'You', type: 'you', zone: who.zone, work: null, mode: who.mode, tenure: 'renter' },
-    policies: policies.map(({ id, params }) => ({ id, title: cards.get(id).title, params })),
-    ...withChange(years(scenarioRun(policies, cards, d)), years(scenarioRun([], cards, d))),
+    resident: { id: who, name: r?.name ?? a.name, type: labels.type, zone: a.zone, work: a.work, mode: labels.mode, tenure: a.renter ? 'renter' : 'owner',
+      joined: a.joined, showcase: !!r, street: !!a.street },
+    policies: titled, ...(noPolicy ? withChange(policy, noPolicy) : { policy, noPolicy: null, change: null }),
   };
 }
 
@@ -191,7 +212,7 @@ export function ledgerEntries(b, { tenure, mode, type }, merchants, tag = hashIn
       nickname: say(`Year ${y.t} ${tenure === 'owner' ? 'mortgage and property tax' : 'rent'}`), payment_date: on, recurring_date: 1, payment_amount: y.housing } },
     y.commute > 0 && { account: 'checking', kind: 'purchases', body: { ...done, merchant_id: merchants.commute, purchase_date: on, amount: y.commute, description: say(`Year ${y.t} commute by ${mode}`) } },
     { account: 'checking', kind: 'purchases', body: { ...done, merchant_id: merchants.basket, purchase_date: on, amount: y.basket, description: say(`Year ${y.t} groceries, utilities and other spending`) } },
-    { account: 'savings', kind: 'deposits', body: { ...done, transaction_date: `${BASE_YEAR - 1}-01-01`, amount: b.start, description: say('Opening savings') } },
+    { account: 'savings', kind: 'deposits', body: { ...done, transaction_date: `${BASE_YEAR - 1 + b.years[0].t}-01-01`, amount: b.start, description: say('Opening savings') } },
     // each year's change in savings, which stop at zero: past that, the shortfall is borrowed or bills falling behind
     ...b.years.map((x, i) => [x, x.savings - (i ? b.years[i - 1].savings : b.start)]).filter(([, change]) => change).map(([x, change]) => ({
       account: 'savings', kind: change > 0 ? 'deposits' : 'withdrawals', body: { ...done, transaction_date: dateOf(x.t), amount: Math.abs(change),
@@ -280,6 +301,41 @@ async function createCustomer(env, first_name, last_name, have = {}, save = asyn
   return ids;
 }
 
+// Map residents (every person on the map but the showcase ones and "you") are linked on first use, here. Nessie itself is
+// the registry: a resident's customer is the one whose last name is customerTag(id), so a reload, a cold start or another
+// server instance finds the same customer and its accounts, and makes only what is missing. Two instances linking the
+// same new resident at once could each make a customer or an account; so after making anything, a link reads Nessie
+// again and keeps the lowest ids (Nessie's ids start with their creation time: the first made), and both settle on the
+// same customer and accounts. The others stay, unused: Nessie's sandbox has no delete for customers.
+export const customerTag = id => `Prosperia (simulated) ${id}`;
+const links = new Map(); // resident id -> { customer, checking, savings, loan }, per instance
+const linking = new Map(); // resident id -> its link in flight: a second request waits for it
+const byId = (a, b) => (a._id < b._id ? -1 : a._id > b._id ? 1 : 0);
+async function findCustomer(env, tag) {
+  const customer = (await nessie(env, 'GET', '/customers')).filter(c => c.last_name === tag).sort(byId)[0];
+  if (!customer) return null;
+  const ids = { customer: customer._id }, accounts = await nessie(env, 'GET', `/customers/${customer._id}/accounts`);
+  for (const [key, [type]] of Object.entries(ACCOUNTS)) {
+    const a = accounts.filter(x => x.type === type).sort(byId)[0];
+    if (a) ids[key] = a._id;
+  }
+  return ids;
+}
+/** A map resident's customer and accounts: found in Nessie, else made, once per resident (see above). */
+export function linkResident(env, id, firstName) {
+  if (links.has(id)) return Promise.resolve(links.get(id));
+  if (!linking.has(id)) linking.set(id, (async () => {
+    const tag = customerTag(id), found = await findCustomer(env, tag);
+    let ids = found;
+    if (!found || Object.keys(ACCOUNTS).some(k => !found[k])) { // something to make: then settle on the first made
+      await createCustomer(env, firstName, tag, found ?? {});
+      ids = await createCustomer(env, firstName, tag, await findCustomer(env, tag)); // makes nothing unless one went missing
+    }
+    return lru(links, id, ids, 5000);
+  })().finally(() => linking.delete(id)));
+  return linking.get(id);
+}
+
 /**
  * Creates what `bank` lacks: the two merchants purchases need, and each showcase resident's customer and accounts. Calls
  * save(bank) after each id Nessie returns, so a failure partway keeps everything made, and a rerun makes only what is
@@ -321,8 +377,8 @@ export function parseBody(b, cards, residents) {
   const errors = [], ok = (pass, problem) => pass || errors.push(problem);
   const num = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
   const y = b.you;
-  ok((typeof b.resident === 'string' && residents.has(b.resident)) !== isObj(y),
-    `send resident (one of ${[...residents.keys()].join(', ')}) or you, not both`);
+  ok(validResidentId(b.resident, residents) !== isObj(y),
+    `send resident (one of ${[...residents.keys()].join(', ')}, hh-<agent id>[-y<year>-<first name>] or st-<number>) or you, not both`);
   if (isObj(y)) ok(num(y.rent, 0, 20_000) && num(y.income, 0, 2_000_000) && ZONES.includes(y.zone) && MODES.includes(y.mode),
     `you must be { rent: 0-20000 a month, income: 0-2000000 a year, zone: ${ZONES.join('|')}, mode: ${MODES.join('|')} }`);
   ok(validPolicies(b.policies, cards, 0), policiesError(cards, 0));
@@ -339,6 +395,27 @@ const ledgers = new Map(); // `${checking account}|${entries hash}` -> written l
 const queues = new Map(); // checking account -> its last write, so two writes to one account never interleave
 const writing = new Map(); // `${checking account}|${entries hash}` -> that write in flight: a repeat waits for it, writing nothing
 const computeLimit = rateLimiter(30), ledgerLimit = rateLimiter(6), visitorLimit = rateLimiter(3, 600_000);
+const residentLimit = rateLimiter(20); // map residents' links and ledger writes: a visitor clicks through people quickly
+
+// Every reply says whether the resident is linked to Nessie. Unlinked: why, and retryAfter (seconds) when asking again can
+// work (a rate limit, a Nessie error, a ledger not asked for yet); without it, retrying won't help (no key, demo mode).
+const linked = a => ({ status: 'linked', customer: a.customer, accounts: { checking: a.checking, savings: a.savings, loan: a.loan } });
+const unlinked = (reason, retryAfter) => ({ status: 'unlinked', reason, ...(retryAfter ? { retryAfter } : {}) });
+
+/** Writes the ledger to accounts once: the same write twice (within an instance) is one write, and two writes to one
+ *  account never interleave. */
+function queuedWrite(env, accounts, entries) {
+  const writeKey = `${accounts.checking}|${hashInput(entries)}`;
+  let job = writing.get(writeKey);
+  if (!job) {
+    const prev = queues.get(accounts.checking) ?? Promise.resolve();
+    job = prev.catch(() => {}).then(() => writeLedger(env, accounts, entries));
+    lru(queues, accounts.checking, job, 500);
+    writing.set(writeKey, job);
+    job.then(ledger => lru(ledgers, writeKey, ledger, 500), () => {}).finally(() => writing.delete(writeKey));
+  }
+  return job;
+}
 
 // Vercel calls POST(request, context), so the handler reads process.env itself; tests pass their env to handle().
 export const POST = request => handle(request, process.env);
@@ -361,45 +438,42 @@ export async function handle(request, env) {
   }
 
   const statement = await statementFor(who, policies);
-  const you = typeof who !== 'string';
+  if (!statement) return Response.json({ error: `resident ${who} is not in this scenario's run` }, { status: 404 });
+  const you = typeof who !== 'string', showcase = !you && d.residents.has(who), mapResident = !you && !showcase;
   const entries = ledgerEntries(statement.policy, statement.resident, d.bank.merchants);
-  let accounts = you ? account : d.bank.residents[who], reply = {};
+  let accounts = you ? account : showcase ? d.bank.residents[who] : links.get(who), reply = {};
   if (you && account && !(env.NESSIE_API_KEY && signed(env, account))) return Response.json({ error: 'account is not one this server made' }, { status: 400 });
   const key = accounts && `${accounts.checking}|${hashInput(entries)}`;
-  if (key && ledgers.has(key)) return Response.json({ ...statement, ledger: { ...ledgers.get(key), cached: true } });
+  if (key && ledgers.has(key)) return Response.json({ ...statement, link: linked(accounts), ledger: { ...ledgers.get(key), cached: true } });
 
-  const note = !body.ledger ? 'Not written to Nessie yet: computed here.'
-    : env.DEMO_MODE === '1' ? 'Demo mode: computed here, not written to Nessie.'
+  const off = env.DEMO_MODE === '1' ? 'Demo mode: computed here, not written to Nessie.'
     : !env.NESSIE_API_KEY ? 'Nessie is not configured (no NESSIE_API_KEY): computed here.'
-    : !you && !accounts ? 'This resident has no Nessie account yet (run npm run seed:nessie): computed here.'
-    : (ledgerLimit(ip) || (you && !accounts && visitorLimit(ip))) ? 'Too many ledger writes just now: computed here.' : null;
-  if (note) return Response.json({ ...statement, ledger: localLedger(entries, note) });
+    : showcase && !accounts ? 'This resident has no Nessie account yet (run npm run seed:nessie): computed here.' : null;
+  const wait = !body.ledger || off ? 0 : mapResident ? residentLimit(ip) : (ledgerLimit(ip) || (you && !accounts && visitorLimit(ip)));
+  const note = !body.ledger ? 'Not written to Nessie yet: computed here.' : off ?? (wait ? 'Too many ledger writes just now: computed here.' : null);
+  if (note) {
+    const retryAfter = off ? 0 : wait || 1; // nothing to wait for when the ledger wasn't asked for
+    return Response.json({ ...statement, link: accounts && !off ? linked(accounts) : unlinked(note, retryAfter), ...(retryAfter ? { retryAfter } : {}), ledger: localLedger(entries, note) });
+  }
   try {
-    if (!you) { // a showcase resident: written at demo freeze, only read back here
+    if (showcase) { // written at demo freeze, only read back here
       const { held, missing } = await readLedger(env, accounts, entries);
       const ledger = missing.length ? localLedger(entries, 'Not in Nessie: showcase ledgers are written for the demo\'s scenarios at demo freeze (npm run seed:nessie). Computed here.')
         : fromNessie(entries, held, 0);
       lru(ledgers, key, ledger, 500);
-      return Response.json({ ...statement, ledger: { ...ledger, cached: false } });
+      return Response.json({ ...statement, link: linked(accounts), ledger: { ...ledger, cached: false } });
     }
-    if (!accounts) {
+    if (mapResident && !accounts) accounts = await linkResident(env, who, statement.resident.name.split(' ')[0]);
+    if (you && !accounts) {
       accounts = await createCustomer(env, 'Visitor', 'Prosperia (simulated)');
       reply.account = { ...accounts, sig: sign(env, accounts) };
     }
-    // "You" writes are keyed by the (signed) account and the entries: within an instance, the same write twice is one write.
-    const writeKey = `${accounts.checking}|${hashInput(entries)}`;
-    let job = writing.get(writeKey);
-    if (!job) {
-      const prev = queues.get(accounts.checking) ?? Promise.resolve();
-      job = prev.catch(() => {}).then(() => writeLedger(env, accounts, entries));
-      lru(queues, accounts.checking, job, 500);
-      writing.set(writeKey, job);
-      job.then(ledger => lru(ledgers, writeKey, ledger, 500), () => {}).finally(() => writing.delete(writeKey));
-    }
-    const ledger = await job;
-    return Response.json({ ...statement, ...reply, ledger: { ...ledger, cached: false } });
+    // Writes are keyed by the account (signed, for "you") and the entries.
+    const ledger = await queuedWrite(env, accounts, entries);
+    return Response.json({ ...statement, ...reply, link: linked(accounts), ledger: { ...ledger, cached: false } });
   } catch (err) {
     console.error('resident-bank:', err.message);
-    return Response.json({ ...statement, ...reply, ledger: localLedger(entries, `Nessie is unavailable (${err.message}): computed here.`) });
+    const note = `Nessie is unavailable (${err.message}): computed here.`;
+    return Response.json({ ...statement, ...reply, link: accounts ? linked(accounts) : unlinked(note, 5), retryAfter: 5, ledger: localLedger(entries, note) });
   }
 }

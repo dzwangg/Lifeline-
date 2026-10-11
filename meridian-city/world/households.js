@@ -35,7 +35,7 @@ export function createHouseholds({ sim, ext }) {
     return { a, key: keyOf(a), home, vPref, ped: null, leaving: false, entering: false };
   }
   function spawn(h, [x, z]) {
-    h.ped = sim.addPed({ x, z, look: Math.floor(hash(h.a.id, 0, 3) * 1e6), vPref: h.vPref, owner: h.a.id });
+    h.ped = sim.addPed({ x, z, look: Math.floor(hash(h.a.id, 0, 3) * 1e6), vPref: h.vPref, owner: h.a.id, resident: h.a.resident ?? null });
     return h.ped;
   }
 

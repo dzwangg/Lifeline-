@@ -20,6 +20,8 @@
 // go only where they are sent (sendPed), and stand still in between. A long trip shows its two ends only: past
 // SHOW_M from the start the walker steps out of sight and comes back SHOW_M short of the goal, so a day's commute
 // fits a short real-time day.
+// Every walker is a resident (shared/residents.js): p.resident is its resident id. The walkers made here are street
+// residents, st-<id> (their ids follow the seed, so they are the same people on every load); addPed's are the caller's.
 import { findRoute } from './roadnet.js';
 import { seeded } from './palette.js';
 
@@ -344,7 +346,7 @@ export function createStreetSim({ net, walk, seed = 11, doors = [], obstacles = 
         id: peds.length, look: Math.floor(r() * 1e6), x, z, px: x, pz: z, dx: 1, dz: 0, v: 0, vPref: r() < .08 ? r.range(.8, 1.05) : r.range(1.15, 1.6),
         state: 'walking', route: null, ri: 0, lat: 0, latGoal: 0, keep: r.range(.15, .45), spread: r.range(-1, 1), back: r.range(.15, .75),
         dest: null, linger: 0, cw: null, wait: 0, anim: r() * 4, comp: e.a.comp, node: fwd ? e.a : e.b, active: false, door: null, doorLeg: false,
-        trips: 0, waitSpot: null, slow: 1,
+        trips: 0, waitSpot: null, slow: 1, resident: `st-${peds.length}`,
       };
       p.route = wander(fwd ? e.b : e.a, fwd ? e.a : e.b, 6 + Math.floor(r() * 10));
       p.dest = { label: 'a stroll around the block', node: lastOf(p.route) };
@@ -699,14 +701,15 @@ export function createStreetSim({ net, walk, seed = 11, doors = [], obstacles = 
     /** Walkers inside [x0, z0, x1, z1] get full local avoidance; the rest just follow their routes. */
     setFocus(b) { focus = b; },
     nearestNode,
-    /** A walker the caller controls, standing at the walk node nearest (x, z). owner is the caller's, say a household id. */
-    addPed({ x, z, look = 0, vPref = 1.35, owner }) {
+    /** A walker the caller controls, standing at the walk node nearest (x, z). owner is the caller's, say a household id;
+     *  resident, its resident id (shared/residents.js). */
+    addPed({ x, z, look = 0, vPref = 1.35, owner, resident = null }) {
       const n = nearestNode(x, z);
       if (!n) return null;
       const p = {
         id: nextId++, look, x: n.x, z: n.z, px: n.x, pz: n.z, dx: 1, dz: 0, v: 0, vPref, state: 'walking', route: null, ri: 0, lat: 0, latGoal: 0,
         keep: .3, spread: 0, back: .4, dest: { label: 'nearby', node: n }, linger: 0, cw: null, wait: 0, anim: 0, comp: n.comp, node: n, active: false,
-        door: null, doorLeg: false, trips: 0, waitSpot: null, slow: 1, owner, goal: null, skip: null, hidden: 0,
+        door: null, doorLeg: false, trips: 0, waitSpot: null, slow: 1, owner, resident, goal: null, skip: null, hidden: 0,
       };
       peds.push(p);
       return p;

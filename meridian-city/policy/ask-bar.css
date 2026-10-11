@@ -1,7 +1,9 @@
-/* "Ask the city" bar: bottom of the map, between the info plate (left) and the results dashboard (right). It wears the
-   page's .plate glass, which retro-ui.css frames in the pixel theme; its answer opens above it. */
+/* "Ask the city" bar: bottom of the map, beside the info plate (left) and left of the results dashboard (right), or above
+   the info plate when there isn't room beside it. ask-bar.js measures both and sets left, right and bottom; these are the
+   values until it does. It wears the page's .plate glass, which retro-ui.css frames in the pixel theme; its answer opens
+   above it. */
 .ask {
-  position: fixed; z-index: 31; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 404px; right: 472px;
+  position: fixed; z-index: 31; bottom: calc(176px + env(safe-area-inset-bottom, 0px)); left: 16px; right: 472px;
   display: grid; gap: 8px; padding: 8px !important; box-sizing: border-box; font-family: var(--pp-font, 'Mukta', sans-serif); color: var(--ink, #123e58);
 }
 body.city-loading .ask { visibility: hidden; }
@@ -51,6 +53,4 @@ body.city-loading .ask { visibility: hidden; }
 @keyframes ask-spin { to { transform: rotate(1turn); } }
 @media (prefers-reduced-motion: reduce) { .ask__spinner { animation: none; } }
 
-/* Narrower screens: above the info plate, left of the dashboard. Phones: full width, above the info plate. */
-@media (max-width: 1180px) { .ask { left: 16px; bottom: calc(176px + env(safe-area-inset-bottom, 0px)); } }
-@media (max-width: 640px) { .ask { left: 12px; right: 12px; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); } .ask__out { max-height: 34vh; } }
+@media (max-width: 640px) { .ask { right: 16px; } .ask__out { max-height: 34vh; } }

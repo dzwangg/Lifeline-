@@ -32,6 +32,7 @@ export function mountAskBar({ store, cards, host = document.body }) {
   const form = h('form', { class: 'plate ask', 'aria-label': 'Ask the city' }, out, h('div', { class: 'ask__row' }, input, send));
   host.append(form);
   let busy = false, undo = null;
+  placeBar(form);
 
   input.addEventListener('focus', () => { if (out.hidden && !input.value) showExamples(); });
   form.addEventListener('submit', e => { e.preventDefault(); submit(input.value); });
@@ -152,6 +153,35 @@ export function mountAskBar({ store, cards, host = document.body }) {
       id: c.id, title: c.title, params: c.params.map(p => ({ key: p.key, label: p.label, min: p.min, max: p.max, unit: p.unit, value: params[c.id]?.[p.key] ?? p.default })),
     }));
   }
+}
+
+// Where the bar goes: beside the info plate (#hud, bottom left) when the room between it and the results dashboard is wide
+// enough, else just above the info plate, left of the dashboard where the dashboard reaches down that far. The info plate's
+// width follows the building picked on the map, so both are measured, not assumed, and measured again when either changes
+// size (the dashboard also hides, expands and mounts after the bar).
+const GAP = 12, EDGE = 16, MIN_WIDTH = 420;
+function placeBar(form) {
+  const fit = () => {
+    const W = innerWidth, H = innerHeight, hud = document.getElementById('hud')?.getBoundingClientRect();
+    const plate = document.querySelector('.plate.sim'), sim = plate && !plate.classList.contains('is-expanded') ? plate.getBoundingClientRect() : null;
+    const hasHud = hud && hud.width > 0, top = hasHud ? hud.top : H - EDGE;
+    const rightOf = y => (sim?.width && sim.bottom > y ? W - sim.left + GAP : EDGE); // the dashboard beside a bar whose top is at y
+    const besideLeft = hasHud ? hud.right + GAP : EDGE, besideBottom = hasHud ? H - hud.bottom : EDGE;
+    const besideRight = rightOf(top);
+    if (W - besideLeft - besideRight >= MIN_WIDTH) return set(besideLeft, besideRight, besideBottom);
+    const bottom = hasHud ? H - hud.top + GAP : EDGE, left = hasHud ? hud.left : EDGE;
+    const right = rightOf(H - bottom - form.offsetHeight);
+    set(left, W - left - right >= 280 ? right : left, bottom);
+  };
+  const set = (left, right, bottom) => Object.assign(form.style, { left: `${Math.round(left)}px`, right: `${Math.round(right)}px`, bottom: `${Math.round(bottom)}px` });
+  const sizes = new ResizeObserver(() => fit()), seen = new Set();
+  const watch = () => {
+    for (const el of [document.getElementById('hud'), document.querySelector('.plate.sim')]) if (el && !seen.has(el)) { seen.add(el); sizes.observe(el); }
+    fit();
+  };
+  new MutationObserver(watch).observe(document.body, { childList: true, attributes: true, attributeFilter: ['class'] });
+  addEventListener('resize', fit);
+  watch();
 }
 
 // What a card changes in the simulator, in plain words.

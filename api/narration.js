@@ -257,6 +257,13 @@ const MAX_OUTPUT = { narration: 250, chat: 200, cards: 1200 };
 const PRICES = { 'gemini-3.5-flash-lite': [0.30, 2.50], 'gemini-3.1-flash-lite': [0.25, 1.50], 'gemini-3-flash-preview': [0.50, 3.00],
   'gemini-3.6-flash': [0.75, 3.75], 'gemini-3.8-flash': [0.75, 3.75], 'gemini-2.5-flash': [0.30, 2.50], 'gemini-2.5-flash-lite': [0.10, 0.40] };
 export const AI_PAUSED = 'AI responses paused for today';
+/** GEMINI_DAILY_CALL_CAP as a nonnegative integer; unset or blank is the default, 300, and anything else warns and uses it too. */
+export function dailyCap(v = '') {
+  const n = Number(v);
+  if (v.trim() && Number.isInteger(n) && n >= 0) return n;
+  if (v.trim()) console.warn(`gemini: GEMINI_DAILY_CALL_CAP "${v}" is not a nonnegative integer; using 300`);
+  return 300;
+}
 const usage = { day: '', calls: 0, byModel: {}, dollars: 0 };
 /** Today's (UTC) Gemini calls, by model, and their estimated cost. */
 export const geminiUsage = () => (rollover(), structuredClone(usage));
@@ -283,7 +290,7 @@ export async function gemini(env, contents, opts = {}, thinkingLevel = env.GEMIN
     throw new Error(`Gemini HTTP 429 (${model} paused until ${new Date(pause.until).toISOString()})`);
   }
   rollover();
-  if (usage.calls >= Number(env.GEMINI_DAILY_CALL_CAP || 300)) throw Object.assign(new Error(AI_PAUSED), { aiPaused: true });
+  if (usage.calls >= dailyCap(env.GEMINI_DAILY_CALL_CAP)) throw Object.assign(new Error(AI_PAUSED), { aiPaused: true });
   usage.calls++;
   usage.byModel[model] = (usage.byModel[model] ?? 0) + 1;
   const generationConfig = { temperature: 0.2, maxOutputTokens: MAX_OUTPUT[feature], ...config, ...(thinkingLevel && { thinkingConfig: { thinkingLevel } }) };

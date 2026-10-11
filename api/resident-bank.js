@@ -70,7 +70,7 @@ const isCached = (policies) => runs.has(hashInput([...policies].sort((a, b) => (
 /** Whether statementFor(…, policies) runs on cached models (these policies and no policy), costing no model run. */
 export const scenarioCached = policies => isCached(policies) && isCached([]);
 
-const Y0 = BASE_YEAR - 1; // year 0's calendar year: CH-LUTI's year 1 is BASE_YEAR
+export const Y0 = BASE_YEAR - 1; // year 0's calendar year: CH-LUTI's year 1 is BASE_YEAR
 // Costs, fares and tax thresholds grow with CH-LUTI's regional rent inflation, so spending keeps pace with rents.
 const grow = t => (1 + PARAMS.rentDrift.mid) ** t, inYear0 = year => grow(Y0 - year); // inYear0(2024): 2024 dollars -> year 0's
 const table = v => Object.entries(v).map(([k, x]) => [+k, x]).sort((a, b) => a[0] - b[0]);

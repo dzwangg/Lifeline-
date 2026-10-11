@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 process.env.VERCEL_ENV = 'production';
-const { AI_PAUSED, POST: narration, callCost, clearGeminiPauses, geminiUsage, resetGeminiUsage } = await import('../api/narration.js');
+const { AI_PAUSED, POST: narration, callCost, clearGeminiPauses, dailyCap, geminiUsage, resetGeminiUsage } = await import('../api/narration.js');
 const { POST: policies } = await import('../api/policies.js');
 const { POST: resident } = await import('../api/resident.js');
 const { cards } = await import('./data.js');
@@ -87,6 +87,21 @@ test('daily cap: past GEMINI_DAILY_CALL_CAP calls, nothing reaches Gemini and re
   });
 });
 
+test('daily cap: a GEMINI_DAILY_CALL_CAP that is not a nonnegative integer warns and uses 300; blank is 300 quietly', () => {
+  const warn = console.warn, warned = [];
+  console.warn = line => warned.push(line);
+  try {
+    assert.equal(dailyCap('300/day'), 300);
+    assert.equal(dailyCap(''), 300);
+    assert.equal(dailyCap('-1'), 300);
+    assert.equal(dailyCap('25'), 25);
+  } finally {
+    console.warn = warn;
+  }
+  assert.deepEqual(warned, ['gemini: GEMINI_DAILY_CALL_CAP "300/day" is not a nonnegative integer; using 300',
+    'gemini: GEMINI_DAILY_CALL_CAP "-1" is not a nonnegative integer; using 300']);
+});
+
 test('output caps: 250 tokens for recaps, 200 for answers, 1200 for cards; a reply cut off at the cap is not used', async () => {
   await withGemini({}, body => (body.generationConfig.responseSchema ? cardReply() : RECAP), async calls => {
     await recap(30);
@@ -152,5 +167,8 @@ test('prompts carry only what each feature uses: headline deltas plus the two ot
     assert.ok(!narrationPrompt.includes('trafficIndex =') || others.includes('trafficIndex'), 'meanings only for metrics sent');
     const facts = JSON.parse(chatPrompt.slice(chatPrompt.indexOf('{'), chatPrompt.lastIndexOf('}') + 1));
     assert.deepEqual(facts.withPolicy.byYear.map(y => y.t), [0, 3, 5, 10]);
+    await ask('Will I manage a few years from now?');
+    const all = calls.at(-1).body.contents[0].parts[0].text;
+    assert.equal(JSON.parse(all.slice(all.indexOf('{'), all.lastIndexOf('}') + 1)).withPolicy.byYear.length, 11, 'a time it cannot place sends every year');
   });
 });

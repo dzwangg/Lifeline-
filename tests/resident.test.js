@@ -4,7 +4,7 @@ import { mkdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from 'node:
 import { runModels } from '../shared/combined.js';
 import { simulate } from '../shared/agents.js';
 import { POST as bankPOST, budget, ledgerEntries, loadData, savingsAt, scenarioCached, seedBank, seedLedgers, spendingAt, statementFor, taxes, writeLedger } from '../api/resident-bank.js';
-import { POST as talkPOST, VOICES, answerKey, clipFiles, facts, templateAnswer } from '../api/resident.js';
+import { POST as talkPOST, VOICES, answerKey, clipFiles, facts, namedYears, templateAnswer } from '../api/resident.js';
 import { assignModels, audioOf, jobs } from '../scripts/pregen-demo.js';
 import { badNumbers, loadCards, parseInput, validPolicies } from '../api/narration.js';
 import { zones, assumptions, baselines } from './data.js';
@@ -572,4 +572,15 @@ test('talk: a Gemini 429 (spent daily quota) falls back to the template, says wh
     globalThis.fetch = saved;
     console.error = error;
   }
+});
+
+// Year 0 is 2026, so "by 2030" is year 4.
+for (const [question, years] of [['What is my rent in 3 years?', [3]], ['Do I still live here after 3 years?', [3]],
+  ['What will I pay 3 years from now?', [3]], ['Can I afford it by 2030?', [4]], ['What happens next year?', [1]],
+  ['How are my savings?', []], ['What about a few years from now?', null]]) {
+  test(`namedYears: "${question}" -> ${JSON.stringify(years)}${years ? '' : ' (send every year)'}`, () => assert.deepEqual(namedYears(question), years));
+}
+test('namedYears: number words one through ten', () => {
+  ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'].forEach((w, i) =>
+    assert.deepEqual(namedYears(`What is my rent in ${w} years?`), [i + 1], w));
 });

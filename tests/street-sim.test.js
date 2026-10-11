@@ -85,7 +85,7 @@ test('pausing freezes everything', () => {
 
 // ---------- walkers the caller controls, and the households on them (households.js) ----------
 import { SHOW_M } from '../meridian-city/world/street-sim.js';
-import { createHouseholds, placeAt, hourAt, clockLabel, DAY_S, START_HOUR } from '../meridian-city/world/households.js';
+import { createHouseholds, placeAt, hourAt, clockLabel, pickWalker, DAY_S, START_HOUR } from '../meridian-city/world/households.js';
 
 const city = (o = {}) => { const net = buildRoadNet(roads), walk = buildWalkNet(net, footpaths, { onRoad }); return createStreetSim({ net, walk, onRoad, pedDensity: .3, seed: 3, ...o }); };
 const runFor = (sim, seconds, each = () => {}) => { for (let t = 0; t < seconds; t += STEP) { sim.step(STEP); sim.plan(50); each(); } };
@@ -136,7 +136,7 @@ test('the day: a clock that loops every DAY_S seconds, and where each kind of ho
   assert.equal(placeAt(h('campus'), 12), 'work');
   assert.equal(placeAt(h('downtown'), 21), 'home');
   assert.equal(placeAt(h('durham'), 12), 'away');
-  assert.equal(placeAt(h('remote'), 12), 'home');
+  assert.equal(placeAt(h('remote'), 13.5), 'home');
   assert.equal(placeAt(h('remote'), 11.2), 'stroll');
   assert.equal(placeAt(h('campus', true), 8), 'home', 'students leave later');
 });
@@ -187,4 +187,56 @@ test('households: a year reached by playback walks newcomers in from the map edg
   const seek = households(city());
   seek.sync(agents, homes, 2, false, 6);
   seek.each((a, p, h) => { assert.equal(a.id, 2); assert.ok(!h.entering && Math.hypot(p.x - 240, p.z - 240) < 20, 'placed at home at once'); });
+});
+
+test('household id 0 is an owner like any other: it goes only where it is sent, then waits', () => {
+  const sim = city(), p = sim.addPed({ x: 2, z: 2, owner: 0 });
+  sim.sendPed(p, 125, 5, 'the corner shop');
+  runFor(sim, 240);
+  assert.ok(sim.idle(p) && p.trips === 1, `trips ${p.trips}, ${p.state}`);
+  assert.equal(p.dest.label, 'the corner shop');
+  const x = p.x;
+  runFor(sim, 60);
+  assert.equal(p.x, x, 'no wandering off on a random trip');
+});
+
+test('households: playing into a departure year, then seeking back, keeps the household, placed afresh', () => {
+  const sim = city(), H = households(sim), homes = [[120, 120]], agents = [agent(0, { left: 2 })];
+  H.sync(agents, homes, 1, false, 6);
+  H.sync(agents, homes, 2, true, 6);
+  let h0; H.each((a, p, h) => { h0 = h; });
+  assert.ok(h0.leaving, 'walking off the map');
+  H.sync(agents, homes, 1, false, 6); // seek back before the walk ends
+  assert.equal(H.size, 1);
+  H.each((a, p, h) => { assert.ok(!h.leaving && !h.entering && p && !p.removed); assert.ok(Math.hypot(p.x - 120, p.z - 120) < 20, 'at home'); });
+  runFor(sim, 300, () => H.update(6));
+  assert.equal(H.size, 1, 'still here');
+  H.each((a, p) => assert.ok(p && sim.peds.includes(p)));
+});
+
+test('households: with the hour running, every walk ends inside its window: at work by day, home by night', () => {
+  const sim = city(), H = households(sim);
+  const agents = [agent(0), agent(1, { student: true }), agent(2, { work: 'downtown' }), agent(3, { work: 'remote' }), agent(4, { work: 'durham' })];
+  const homes = [[5, 360], [360, 360], [240, 360], [120, 245], [5, 245]];
+  H.sync(agents, homes, 0, false, hourAt(0));
+  const was = new Map(), arrivals = [];
+  runFor(sim, 2 * DAY_S, () => {
+    const hour = hourAt(sim.time);
+    H.update(hour);
+    H.each((a, p, h) => {
+      const idle = !p || sim.idle(p);
+      if (idle && was.get(a.id) === false) arrivals.push({ id: a.id, at: h.at, where: placeAt(h, hour), hour });
+      was.set(a.id, idle);
+    });
+  });
+  assert.ok(arrivals.filter(x => x.at === 'work').length >= 4, `${arrivals.filter(x => x.at === 'work').length} arrivals at work`);
+  for (const x of arrivals) assert.equal(x.at, x.where, `household ${x.id} reached ${x.at} at ${clockLabel(x.hour)}, when it should be at ${x.where}`);
+});
+
+test('picking: a household in range wins over a nearer ambient walker; an ambient walker only when no household is', () => {
+  const rect = { left: 0, top: 0, width: 1000, height: 1000 }, walker = { id: 1 }, household = { id: 2, owner: 0 };
+  const at = (p, x, y) => [p, x / 1000, (y + 12) / 1000]; // feet 12 px below the aim point
+  assert.equal(pickWalker([...at(walker, 500, 500), ...at(household, 510, 508)], rect, 500, 500), household);
+  assert.equal(pickWalker([...at(walker, 500, 500), ...at(household, 530, 500)], rect, 500, 500), walker, 'the household is out of range');
+  assert.equal(pickWalker([...at(walker, 540, 500)], rect, 500, 500), null);
 });

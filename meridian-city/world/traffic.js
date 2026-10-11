@@ -17,7 +17,7 @@ import { buildRoadNet, buildWalkNet } from './roadnet.js';
 import { createStreetSim } from './street-sim.js';
 import { paintPeopleAtlas, LOOKS } from './people-art.js';
 import { createSpriteSystem } from './sprites.js';
-import { hourAt } from './households.js';
+import { hourAt, pickWalker } from './households.js';
 
 // ---------- vehicle atlas: alpha 255 marks paintable body, 254 keeps the pixel's own colour ----------
 function vehicleAtlas() {
@@ -395,16 +395,10 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
   let down = null;
   const canvas = view.renderer.domElement;
   canvas.addEventListener('pointerdown', e => { if (e.button === 0) down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
-  /** The walker drawn nearest the pointer, within a few pixels of its body; households win over ambient walkers. */
+  /** The walker under the pointer, within a few pixels of its body: the nearest household if any is in range, else the
+   *  nearest ambient walker. */
   function pickAt(clientX, clientY) {
-    const rect = canvas.getBoundingClientRect();
-    let best = null, bd = 16 * 16;
-    for (let i = 0; i < visible.length; i += 3) {
-      const p = visible[i], sx = rect.left + visible[i + 1] * rect.width, sy = rect.top + visible[i + 2] * rect.height;
-      const d = (sx - clientX) ** 2 + (sy - 12 - clientY) ** 2 * (p.owner != null ? .6 : 1); // aim at the body, a little above the feet
-      if (d < bd) { bd = d; best = p; }
-    }
-    return best;
+    return pickWalker(visible, canvas.getBoundingClientRect(), clientX, clientY);
   }
   let onHousehold = () => {};
   addEventListener('pointerup', e => {

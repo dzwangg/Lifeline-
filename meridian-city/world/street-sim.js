@@ -28,7 +28,7 @@ const MAX_STEPS = 16;                  // per frame; beyond this the sim runs sl
 const A_MAX = 2.2, B_COMF = 3, B_MAX = 8, T_HEAD = 1.1, S_MIN = 2;
 const YELLOW = 3.5, ALL_RED = 2, WALK_TIME = 7, CLEAR_SPEED = 1.0, HOLD_MAX = 30;
 const PED_R = .28;                     // personal radius (m)
-export const SHOW_M = 90;              // a sent trip longer than twice this shows only this much at each end
+export const SHOW_M = 25;              // a sent trip longer than twice this shows only this much at each end: ~20 s of walking
 const HIDE_S = 2;                      // seconds out of sight between a trip's two ends
 const W_TURN = { S: 4, R: 1.4, L: 1.1, U: .15 }; // how often cars go straight, turn right, left or U-turn
 
@@ -368,7 +368,7 @@ export function createStreetSim({ net, walk, seed = 11, doors = [], obstacles = 
   // Trips: routed off the frame budget, a few at a time, so starting thousands of walkers never stalls a frame.
   const tripQueue = [];
   function planTrip(p) {
-    if (p.owner) return planGoal(p);
+    if (p.owner != null) return planGoal(p); // owners are ids, and 0 is one
     const here = p.node, list = doorsByComp.get(here.comp), nodes = compNodes.get(here.comp);
     let goal = null, door = null;
     for (let k = 0; k < 10 && !goal; k++) {
@@ -467,7 +467,7 @@ export function createStreetSim({ net, walk, seed = 11, doors = [], obstacles = 
     if (!p.route) {
       p.v = 0;
       if (p.linger > 0) p.linger -= dt;
-      else if (!p.queued && (!p.owner || p.goal)) { p.queued = true; tripQueue.push(p); } // sent walkers wait to be sent
+      else if (!p.queued && (p.owner == null || p.goal)) { p.queued = true; tripQueue.push(p); } // sent walkers wait to be sent
       return;
     }
     const route = p.route;
@@ -524,7 +524,7 @@ export function createStreetSim({ net, walk, seed = 11, doors = [], obstacles = 
   }
   function arrive(p) {
     setState(p, 'arriving');
-    p.route = null; p.doorLeg = false; p.v = 0; p.linger = p.owner ? 0 : r.range(3, 12); p.wait = 0; p.skip = null;
+    p.route = null; p.doorLeg = false; p.v = 0; p.linger = p.owner != null ? 0 : r.range(3, 12); p.wait = 0; p.skip = null;
     p.node = p.dest?.node ?? p.node;
   }
   function stepPed2(p, dt, T, P, half, speed, ex, ez) {

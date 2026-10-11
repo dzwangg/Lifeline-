@@ -5,8 +5,10 @@
 // a building door of their kind (campus, or a downtown shop, office or civic building), stay near it through the day
 // and walk home in the evening; Durham commuters walk to where 15-501 leaves the map and are out of sight there until
 // they come back; people who work from home stay near it, with a short walk or two. A long trip shows its two ends
-// only (street-sim.js SHOW_M). A year that playback steps into walks its newcomers in from the map's edge and its
-// leavers off it; any other change of year or run puts everyone where the time of day says they are.
+// only (street-sim.js SHOW_M), about 40 s of walking at most, so it ends well inside the window it belongs to (at least
+// seven hours, 45 s of the day); should the schedule move on first anyway, the walker turns for where it now should
+// be. A year that playback steps into walks its newcomers in from the map's edge and its leavers off it; any other
+// change of year or run (a seek, a policy change) puts every household afresh at its home or wherever the hour says.
 import { hash, seeded } from './palette.js';
 
 export const DAY_S = 150;          // real seconds per simulated day
@@ -19,14 +21,29 @@ export const clockLabel = hour => {
   return `${(h + 11) % 12 + 1}:${String(m % 60).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
 };
 
-const STROLL_M = 45;               // how far from home a walk near home goes
+/**
+ * The walker under the pointer: the nearest household within 16 pixels of its body if there is one, else the nearest
+ * ambient walker in range. visible: [walker, x, y, ...] with x, y in 0-1 across rect (traffic.js drawPeople).
+ */
+export function pickWalker(visible, rect, clientX, clientY) {
+  let household = null, hd = 16 * 16, other = null, od = hd;
+  for (let i = 0; i < visible.length; i += 3) {
+    const p = visible[i], sx = rect.left + visible[i + 1] * rect.width, sy = rect.top + visible[i + 2] * rect.height;
+    const d = (sx - clientX) ** 2 + (sy - 12 - clientY) ** 2; // aim at the body, a little above the feet
+    if (p.owner != null) { if (d < hd) { hd = d; household = p; } } else if (d < od) { od = d; other = p; }
+  }
+  return household ?? other;
+}
+
+const STROLL_M = 20;               // how far from home a walk near home goes: ~15 s each way
 const within = (hour, from, to) => (from <= to ? hour >= from && hour < to : hour >= from || hour < to);
 
 /** Where a household is at this hour: 'home', 'work' (campus or downtown), 'away' (Durham) or 'stroll' (near home). */
 export function placeAt(h, hour) {
   const { a, u } = h;
-  if (a.work === 'remote') return within(hour, 10 + u[0] * 2, 10.6 + u[0] * 2) || within(hour, 15 + u[1] * 2, 15.6 + u[1] * 2) ? 'stroll' : 'home';
-  const leave = a.student ? 8.25 + u[0] * 1.5 : 7 + u[0] * 1.5, back = a.student ? 15 + u[1] * 2 : 16.5 + u[1] * 1.5;
+  if (a.work === 'remote') return within(hour, 9.5 + u[0] * 1.5, 12.5 + u[0] * 1.5) || within(hour, 14.5 + u[1] * 1.5, 17.5 + u[1] * 1.5) ? 'stroll' : 'home';
+  // out for 10-12.5 hours (students 7.25-9.75): 62-78 s of the day (45-61 s), against ~40 s of walking each way
+  const leave = a.student ? 7.75 + u[0] : 6.5 + u[0], back = a.student ? 16 + u[1] * 1.5 : 17.5 + u[1] * 1.5;
   return within(hour, leave, back) ? (a.work === 'durham' ? 'away' : 'work') : 'home';
 }
 
@@ -71,17 +88,19 @@ export function createHouseholds({ sim, doors, exits, ext }) {
   function sync(agents, homes, year, played, hour) {
     const want = new Map();
     agents.forEach((a, i) => { if (a.joined <= year && (a.left === null || a.left > year)) want.set(keyOf(a), [a, homes[i]]); });
+    const drop = (key, h) => { if (h.ped) sim.removePed(h.ped); live.delete(key); };
     for (const [key, h] of live) {
-      if (want.has(key)) continue;
+      if (want.has(key) && (played || !h.leaving)) continue;
       if (played && h.a.left === year && h.ped && !h.leaving) { // priced out this year: walk off the map
         h.leaving = true; h.entering = false;
         const [x, z] = edgeOf(h.home);
         sim.sendPed(h.ped, x, z, 'leaving town');
-      } else if (!h.leaving) { if (h.ped) sim.removePed(h.ped); live.delete(key); }
+      } else if (!played || !h.leaving) drop(key, h); // a leaver already on its way off finishes the walk
     }
     for (const [key, [a, home]] of want) {
       const h = live.get(key);
-      if (h) { h.a = a; continue; } // the same household in a newer run: its year's rent and income are on a
+      if (h && played) { h.a = a; continue; } // carries on with its day; its year's rent and income are on a
+      if (h) drop(key, h); // a seek or a new run: placed afresh below, at its home in this run, with no walk under way
       const n = make(a, home);
       live.set(key, n);
       if (played && a.joined === year && year > 0) { // moving in: from the map's edge to the new home
@@ -91,19 +110,18 @@ export function createHouseholds({ sim, doors, exits, ext }) {
     }
   }
 
-  /** Per frame: start each household's next walk once it has finished the last. */
+  /** Per frame: send each household on to where the hour says it should be, mid-walk or not. */
   function update(hour) {
     for (const [key, h] of live) {
       const p = h.ped;
       if (h.leaving) { if (!p || sim.idle(p)) { if (p) sim.removePed(p); live.delete(key); } continue; }
       if (h.entering) { if (sim.idle(p)) h.entering = false; continue; }
-      if (p && !sim.idle(p)) continue;
       const where = placeAt(h, hour);
       if (where === h.at) {
-        if (h.at === 'away' && p && h.exit) { sim.removePed(p); h.ped = null; } // reached 15-501: on to Durham
+        if (h.at === 'away' && p && h.exit && sim.idle(p)) { sim.removePed(p); h.ped = null; } // reached 15-501: on to Durham
         continue;
       }
-      h.at = where;
+      h.at = where; // the schedule moved on: turn for the new place, even mid-walk
       if (where === 'away' && h.exit) sim.sendPed(p, h.exit[0], h.exit[1], 'Durham, by 15-501');
       else if (where === 'home' && !p) sim.sendPed(spawn(h, h.exit), h.home[0], h.home[1], 'home'); // back from Durham
       else if (where === 'work') { const [x, z] = workOf(h); sim.sendPed(p, x, z, h.work?.label ?? 'work'); }

@@ -65,7 +65,8 @@ export interface Metrics {
 
 export interface SimResult {
   scenarioId: string;
-  policies: { id: string; title: string; params: Record<string, number> }[];
+  // start: the year a card was enacted, when not year 0 (a later turn)
+  policies: { id: string; title: string; params: Record<string, number>; start?: number }[];
   years: number;
   timeline: { year: number; zoneStates: Record<string, ZoneState>; metrics: Metrics }[];
   // changePts: the change in percentage points, for treeCoverPct, storefrontVacancy and trafficIndex (shared/combined.js)

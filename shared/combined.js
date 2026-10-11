@@ -7,11 +7,11 @@
 //                                   vacancy, home value, town budget, bus ridership, car traffic
 //   household model (agents.js)     households and priced out (year-0 households who have left), and the map's households,
 //                                   whose rents and commutes follow CH-LUTI's for their zone
-// All run at central assumptions; shared/luti/run.js adds CH-LUTI's ranges. Deltas compare year 10 with the same models run
-// with no new policy, so the town's growth isn't put down to the policy.
+// All run at central assumptions; shared/luti/run.js adds CH-LUTI's ranges. Deltas compare the last year (10, or later in a
+// game of turns) with the same models run with no new policy, so the town's growth isn't put down to the policy.
 import { runScenario } from './sim.js';
 import { averageRuns, homesByYear } from './agents.js';
-import { createModel, QUARTERS } from './luti/model.js';
+import { createModel } from './luti/model.js';
 import { cardPolicies } from './luti/levers.js';
 import { ZONES as LUTI_ZONES, ZONE_IDS } from './luti/data.js';
 import { toLocal } from './geo.js';
@@ -48,7 +48,7 @@ function landUseInputs(raw, zones, assumptions) {
     for (const z of zones) if (zoneStates[z.id] !== z.state) out[where.get(z.id)] += (upa[zoneStates[z.id]] - upa[z.state]) * z.areaAcres;
     return out;
   });
-  const quarterly = f => Array.from({ length: QUARTERS }, (_, q) => f(Math.floor(q / 4), (q % 4 + 1) / 4));
+  const quarterly = f => Array.from({ length: 4 * raw.years }, (_, q) => f(Math.floor(q / 4), (q % 4 + 1) / 4));
   const lerp = (a, b, f) => a + (b - a) * f, tree = y => raw.timeline[y].metrics.treeCoverPct;
   return {
     byYear,
@@ -69,13 +69,14 @@ const indexOf = (run, key, y, zone) => {
  * Runs the three models. result is the SimResult without deltas (see withDeltas); inputs feed the household model's
  * runs; policies and landUse are CH-LUTI's inputs, for its Monte Carlo ranges (landUse is null when no zone changed);
  * luti is CH-LUTI's central run (api/resident-bank.js reads owners' tax rate and home value from it).
+ * years: how long to run (a decade more per turn of a game); starts: card id -> the year it is enacted (default 0).
  * @param {PolicyCard[]} cards @param {Record<string, Record<string, number>>} params @param {Zone[]} zones
- * @param {Assumptions} assumptions @param {Baselines} baselines
+ * @param {Assumptions} assumptions @param {Baselines} baselines @param {{ years?: number, starts?: Record<string, number> }} [game]
  */
-export function runModels(cards, params, zones, assumptions, baselines) {
-  const raw = runScenario(cards, params, zones, assumptions, baselines), landUse = landUseInputs(raw, zones, assumptions);
-  const model = createModel(assumptions, baselines), policies = cardPolicies(cards, params);
-  const luti = model.simulate(model.midParams(), policies, { landUse, seedEvents: false });
+export function runModels(cards, params, zones, assumptions, baselines, { years = 10, starts = {} } = {}) {
+  const raw = runScenario(cards, params, zones, assumptions, baselines, years, starts), landUse = landUseInputs(raw, zones, assumptions);
+  const model = createModel(assumptions, baselines), policies = cardPolicies(cards, params, starts);
+  const luti = model.simulate(model.midParams(), policies, { landUse, seedEvents: false, quarters: 4 * years });
   // The household model gets every new home: the zone rules' by parcel, CH-LUTI's other homes by its zone.
   const inputs = {
     homes: homesByYear(raw, zones, assumptions).map((rules, y) => {
@@ -105,7 +106,7 @@ export function runModels(cards, params, zones, assumptions, baselines) {
 }
 
 /**
- * The SimResult with each metric's year-10 change against `none`, the same models run with no new policy. Shares and indexes
+ * The SimResult with each metric's change by the last year against `none`, the same models run with no new policy. Shares and indexes
  * (tree cover, storefront vacancy, car traffic) also get changePts, the change in percentage points, as the panel shows them.
  * @param {SimResult} result @param {SimResult} none
  */

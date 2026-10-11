@@ -14,36 +14,41 @@ const unique = list => [...new Set(list)];
  * @param {PolicyCard[]} cards active cards
  * @param {Record<string, Record<string, number>>} params card id -> param key -> value; missing values use the card's default
  * @param {Zone[]} zones @param {Assumptions} assumptions @param {Baselines} baselines
+ * @param {Record<string, number>} [starts] card id -> the year it is enacted (default 0). Its rules convert and protect only
+ *   after that year, so a card enacted in year 10 leaves years 0 to 10 exactly as they were without it.
  * @returns {SimResult}
  */
-export function runScenario(cards, params, zones, assumptions, baselines, years = 10) {
+export function runScenario(cards, params, zones, assumptions, baselines, years = 10, starts = {}) {
   const A = Object.fromEntries(Object.entries(assumptions).map(([k, v]) => [k, v.value]));
   const B = Object.fromEntries(Object.entries(baselines).map(([k, v]) => [k, v.value]));
   const canopy = s => (s === 'forest' ? 1 : A.canopyMinPct[s]);
   cards = [...cards].sort(byId);
   const order = [...zones].sort((a, b) => a.edgeDistM - b.edgeDistM || byId(a, b)); // closest to the map edge converts first
   const state = Object.fromEntries(zones.map(z => [z.id, z.state]));
+  const startOf = c => starts?.[c.id] ?? 0;
   const policies = cards.map(c => ({
     id: c.id, title: c.title,
     params: Object.fromEntries(c.params.map(p => [p.key, clamp(params?.[c.id]?.[p.key] ?? p.default, p.min, p.max)])),
+    ...(startOf(c) && { start: startOf(c) }),
   }));
   // Running totals per card, so each card's percentage effects can be summed and clamped.
   const fx = cards.map(() => ({ units: 0, edgeUnits: 0, canopyAcres: 0, acres: {}, done: [] }));
-  // Protect rules from every active card: a zone one of them matches, in its protected state, is never converted.
-  const protects = cards.flatMap(c => (c.zoneRules ?? []).filter(r => 'protect' in r));
-  const isProtected = z => protects.some(p => state[z.id] === p.protect && matchesWhere(p.where, z));
+  // Protect rules from every card enacted before this year: a zone one of them matches, in its protected state, isn't converted.
+  const protects = cards.flatMap(c => (c.zoneRules ?? []).filter(r => 'protect' in r).map(r => ({ ...r, start: startOf(c) })));
+  const isProtected = (z, year) => protects.some(p => year > p.start && state[z.id] === p.protect && matchesWhere(p.where, z));
 
   const timeline = [];
   for (let year = 0; year <= years; year++) {
-    if (year) cards.forEach((card, ci) => (card.zoneRules ?? []).forEach((rule, ri) => {
-      if ('protect' in rule) return;
+    cards.forEach((card, ci) => (card.zoneRules ?? []).forEach((rule, ri) => {
+      const since = year - startOf(card); // years the card has been in force
+      if ('protect' in rule || since <= 0) return;
       const f = fx[ci], pool = order.filter(z => matchesWhere(rule.where, z));
       const cap = rule.capParam ? policies[ci].params[rule.capParam] : Infinity;
-      let quota = Math.round(rule.ratePerYear * year * pool.length) - (f.done[ri] ?? 0);
+      let quota = Math.round(rule.ratePerYear * since * pool.length) - (f.done[ri] ?? 0);
       for (const z of pool) {
         if (quota <= 0) break;
         const used = f.acres[rule.capParam] ?? 0;
-        if (state[z.id] !== rule.from || used + z.areaAcres > cap || isProtected(z)) continue;
+        if (state[z.id] !== rule.from || used + z.areaAcres > cap || isProtected(z, year)) continue;
         state[z.id] = rule.to;
         f.acres[rule.capParam] = used + z.areaAcres;
         f.done[ri] = (f.done[ri] ?? 0) + 1;
@@ -59,7 +64,7 @@ export function runScenario(cards, params, zones, assumptions, baselines, years 
 
   const first = timeline[0].metrics, last = timeline[years].metrics;
   return {
-    scenarioId: policies.map(p => p.id + Object.entries(p.params).map(([k, v]) => `:${k}=${v}`).join('')).join('+') || 'baseline',
+    scenarioId: policies.map(p => p.id + Object.entries(p.params).map(([k, v]) => `:${k}=${v}`).join('') + (p.start ? `@${p.start}` : '')).join('+') || 'baseline',
     policies,
     years,
     timeline,

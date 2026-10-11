@@ -23,8 +23,9 @@ export const MODEL = {
   name: 'Chapel Hill Land-Use/Transport Interaction model',
   method: 'System-dynamics LUTI (MARS-style) · multinomial-logit location & mode choice · residual-land-value pro forma · paired Monte Carlo',
 };
-export const QUARTERS = 40;
-export const YEARS = Array.from({ length: QUARTERS }, (_, q) => BASE_YEAR + q / 4);
+export const QUARTERS = 40; // one decade, the default run; a game of turns runs a decade more per turn
+export const yearsOf = (quarters = QUARTERS) => Array.from({ length: quarters }, (_, q) => BASE_YEAR + q / 4);
+export const YEARS = yearsOf();
 
 const MODES = ['car', 'bus', 'bike', 'walk'];
 const N = ZONE_DATA.length;
@@ -164,7 +165,8 @@ export function createModel(assumptions, baselines) {
   // shock (tests only): { units: 0.01 } adds 1% to every zone's housing stock in the first quarter.
   // landUse: homes the land-use sim's zone rules build, { unitsAdded: [quarter] → { zoneId: homes added so far }, treeCoverPct:
   // [quarter] } (see shared/combined.js). They join the stock at the start of each quarter, like completions.
-  function simulate(params, policies = [], { seedEvents = true, shock = null, landUse = null } = {}) {
+  // quarters: how long to run, from 2027 Q1.
+  function simulate(params, policies = [], { seedEvents = true, shock = null, landUse = null, quarters = QUARTERS } = {}) {
     const p = params, cal = calibrate(p);
     const schedule = buildSchedule(policies, ZID, { 'housing.parkingMinimum': F.parkingMinimum });
     const jps = p.jobsPerStorefront;
@@ -206,7 +208,7 @@ export function createModel(assumptions, baselines) {
     start.netFiscal = start.propertyTax + start.salesTax;
     start.zones = ZONES.map((z, i) => ({ units: z.units, households: z.households, rent: rent0[i], commute: cal.travel0.zones[i].time * cal.timeScale }));
 
-    for (let q = 0; q < QUARTERS; q++) {
+    for (let q = 0; q < quarters; q++) {
       const L = schedule(q), year = BASE_YEAR + q / 4;
       const rateDelta = L['tax.rateDelta'];
       if (landUse) ZONES.forEach((z, i) => { // homes the zone rules finished this quarter

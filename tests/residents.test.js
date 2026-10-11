@@ -1,5 +1,4 @@
-// Every person on the map is a resident: one id, one state, the same in the browser (the dots and the resident card) and
-// on the server (the bank and its Nessie ledger).
+// Every person on the map is a resident: one id, one state, read alike by the dots and the resident card.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildRoadNet, buildWalkNet } from '../meridian-city/world/roadnet.js';
@@ -7,12 +6,14 @@ import { createStreetSim } from '../meridian-city/world/street-sim.js';
 import { createHouseholds } from '../meridian-city/world/households.js';
 import { runModels } from '../shared/combined.js';
 import { simulate, streetAgent, STREET_RESIDENTS } from '../shared/agents.js';
-import { residentId, residentIn, residentLabels, validResidentId } from '../shared/residents.js';
-import { loadData, statementFor } from '../api/resident-bank.js';
+import { readFileSync } from 'node:fs';
+import { residentId, residentIn, validResidentId } from '../shared/residents.js';
 import { loadCards } from '../api/narration.js';
 import { zones, assumptions, baselines } from './data.js';
 
-const d = await loadData();
+// The showcase residents (data/residents.json): id -> agent id, and back.
+const { residents: showcase } = JSON.parse(readFileSync(new URL('../data/residents.json', import.meta.url), 'utf8'));
+const d = { showcaseAgents: new Map(showcase.map(r => [r.id, r.agent])), residents: new Map(showcase.map(r => [r.id, r])) };
 const showcaseIds = new Map([...d.showcaseAgents].map(([id, agent]) => [agent, id]));
 const TAX = [{ id: 'property-tax-adjustment', params: { cents_per_100: 10 } }];
 const cards = await loadCards(false);
@@ -70,22 +71,4 @@ test('a street resident is drawn from its number alone and follows its run\'s re
   const hhRent = median(base.agents.filter(h => h.renter && h.joined === 0).map(h => h.hist[0].rent));
   const stRent = median(Array.from({ length: 1000 }, (_, n) => streetAgent(n, base.street, assumptions)).filter(h => h.renter).map(h => h.hist[0].rent));
   assert.ok(Math.abs(stRent / hhRent - 1) < .15, `street ${stRent} vs households ${hhRent}`);
-});
-
-test('the bank reads the same state as the map: income and rent in a statement are the resident\'s own, year by year', async () => {
-  const household = base.agents.find(a => a.joined === 0 && a.renter && !showcaseIds.has(a.id) && a.left === null);
-  const newcomer = taxed.agents.find(a => a.joined > 0 && a.renter);
-  const cases = [[residentId(household, showcaseIds), base, []], [residentId(newcomer, showcaseIds), taxed, TAX], ['st-7', base, []], ['st-311', taxed, TAX]];
-  for (const [id, run, policies] of cases) {
-    const a = residentIn(run, id, d.showcaseAgents, assumptions), s = await statementFor(id, policies);
-    assert.equal(s.resident.id, id);
-    assert.equal(s.resident.street, id.startsWith('st-'));
-    assert.equal(s.policy.years[0].t, a.joined, `${id} starts the year it arrived`);
-    for (const y of s.policy.years) {
-      assert.equal(y.income, a.hist[y.t].income, `${id} income, year ${y.t}`);
-      if (a.renter) assert.equal(y.housing, a.hist[y.t].rent, `${id} rent, year ${y.t}`);
-    }
-    const labels = residentLabels(a);
-    assert.deepEqual([s.resident.type, s.resident.mode], [labels.type, labels.mode]);
-  }
 });

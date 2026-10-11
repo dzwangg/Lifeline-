@@ -1,5 +1,5 @@
 // Residents: every person on the map, under one id that stays the same across reloads and scenarios. The map's dots, the
-// resident card and the Nessie bank (api/resident-bank.js) all find a person by this id, then read the same state: a
+// resident card all find a person by this id, then read the same state: a
 // household agent (shared/agents.js simulate) or a street resident (streetAgent), with its income, rent, burden and commute
 // by year. Pure: no DOM, no fetch.
 //   uma, keisha, ...            showcase households (data/residents.json), year-0 households by agent id
@@ -41,19 +41,4 @@ export function residentIn(run, id, showcaseAgents, assumptions) {
   if (!a) return null;
   if (hh[2] === undefined) return a.joined === 0 ? a : null;
   return a.joined === +hh[2] && a.first.toLowerCase() === hh[3] ? a : null;
-}
-
-/**
- * The labels the bank's budget needs and the model doesn't have, for a resident without a showcase entry: tax filing
- * status (owners file jointly, renters and students singly, as the showcase residents do) and how they get to work, drawn
- * from the agent's own placement draws so they never change. Simulated, like the showcase labels.
- * @returns {{ type: 'student' | 'renter' | 'owner', filing: 'single' | 'joint', mode: string }}
- */
-export function residentLabels(a) {
-  const u = (a.x * 104729) % 1;
-  const mode = a.work === 'remote' ? 'none'
-    : a.work === 'durham' ? (u < .8 ? 'car' : 'bus')
-    : a.work === 'campus' ? (u < .4 ? 'bus' : u < .6 ? 'bike' : u < .8 ? 'walk' : 'car')
-    : (u < .35 ? 'walk' : u < .6 ? 'bus' : u < .75 ? 'bike' : 'car');
-  return { type: a.student ? 'student' : a.renter ? 'renter' : 'owner', filing: a.renter ? 'single' : 'joint', mode };
 }

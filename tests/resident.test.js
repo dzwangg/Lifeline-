@@ -3,8 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
 import { runModels } from '../shared/combined.js';
 import { simulate } from '../shared/agents.js';
-import { POST as bankPOST, handle as bankHandle, budget, customerTag, ledgerEntries, loadData, savingsAt, scenarioCached, seedBank, seedLedgers, spendingAt, statementFor, taxes, writeLedger } from '../api/resident-bank.js';
-import { residentId } from '../shared/residents.js';
+import { POST as bankPOST, handle as bankHandle, budget, ledgerEntries, loadData, savingsAt, scenarioCached, seedBank, seedLedgers, spendingAt, statementFor, taxes, writeLedger } from '../api/resident-bank.js';
 import { POST as talkPOST, handle as talkHandle, VOICES, answerKey, clipFiles, facts, namedYears, templateAnswer } from '../api/resident.js';
 import { assignModels, audioOf, jobs } from '../scripts/pregen-demo.js';
 import { badNumbers, loadCards, parseInput, validPolicies } from '../api/narration.js';
@@ -24,8 +23,6 @@ function fakeNessie() {
     let m;
     if (method === 'POST' && path === '/merchants') return { objectCreated: { _id: id(), ...body } };
     if (method === 'POST' && path === '/customers') { const c = { _id: id(), ...body }; store.customers[c._id] = c; return { objectCreated: c }; }
-    if (method === 'GET' && path === '/customers') return Object.values(store.customers);
-    if ((m = path.match(/^\/customers\/(\w+)\/accounts$/)) && method === 'GET') return Object.values(store.accounts).filter(a => a.customer_id === m[1]);
     if ((m = path.match(/^\/customers\/(\w+)\/accounts$/)) && method === 'POST') { const a = { _id: id(), customer_id: m[1], ...body }; store.accounts[a._id] = a; return { objectCreated: a }; }
     if ((m = path.match(/^\/accounts\/(\w+)$/)) && method === 'GET') return store.accounts[m[1]];
     if ((m = path.match(/^\/accounts\/(\w+)\/(deposits|bills|purchases|withdrawals|loans)$/))) {
@@ -354,97 +351,6 @@ test('handler: "You" gets a Nessie customer on the first ledger write, and only 
     assert.equal(made.filter(c => c.method === 'POST').length, a.ledger.entries.length, 'each entry posted once');
     assert.deepEqual(a.ledger.entries, b.ledger.entries);
   });
-});
-
-// ---- every other map resident (shared/residents.js): linked to Nessie on first use, found again after ----
-
-let instances = 0; // a fresh copy of the endpoint: a reload of the server, or a second instance, with nothing cached
-const instance = async () => (await import(`../api/resident-bank.js?instance=${++instances}`)).handle;
-const quietly = async fn => { const error = console.error; console.error = () => {}; try { await fn(); } finally { console.error = error; } };
-const tagged = (nessie, id) => Object.values(nessie.store.customers).filter(c => c.last_name === customerTag(id));
-
-test('handler: a map resident gets a Nessie customer on its first ledger write, and a reload finds it again, making nothing', async () => {
-  await withFetch({}, async (calls, nessie) => {
-    const first = await bank({ resident: 'st-17', policies: NONE, ledger: true });
-    assert.deepEqual([first.link.status, first.ledger.source, first.retryAfter], ['linked', 'nessie', undefined]);
-    assert.equal(tagged(nessie, 'st-17').length, 1);
-    assert.equal(nessie.store.customers[first.link.customer].first_name, first.resident.name.split(' ')[0]);
-    assert.deepEqual(Object.values(nessie.store.accounts).filter(a => a.customer_id === first.link.customer).map(a => a.type).sort(), ['Checking', 'Credit Card', 'Savings']);
-    const held = Object.keys(nessie.store.txns).length;
-    assert.equal(held, first.ledger.entries.length);
-    // a reload: a new server instance with nothing cached finds the same customer and accounts, and writes nothing
-    const again = await call(await instance(), { resident: 'st-17', policies: NONE, ledger: true }, { NESSIE_API_KEY: KEY });
-    assert.deepEqual(again.link, first.link);
-    assert.deepEqual([again.ledger.source, again.ledger.written], ['nessie', 0]);
-    assert.equal(tagged(nessie, 'st-17').length, 1);
-    assert.equal(Object.keys(nessie.store.accounts).length, 3);
-    assert.equal(Object.keys(nessie.store.txns).length, held);
-    // households too, newcomers included; and the key is never in a reply
-    const hh = await bank({ resident: 'hh-5', policies: TAX, ledger: true });
-    const cards = await loadCards(false), { inputs } = runModels(TAX.map(p => cards.get(p.id)), { [TAX[0].id]: TAX[0].params }, zones, assumptions, baselines);
-    const newcomer = await bank({ resident: residentId(simulate(inputs, assumptions, baselines).agents.find(a => a.joined > 0)), policies: TAX, ledger: true });
-    assert.deepEqual([hh.link.status, newcomer.link.status, newcomer.ledger.source], ['linked', 'linked', 'nessie']);
-    assert.equal(newcomer.policy.years[0].t, newcomer.resident.joined);
-    assert.ok(!JSON.stringify([first, again, hh, newcomer]).includes(KEY));
-  });
-});
-
-test('handler: first requests for one resident at once, in one instance or in two, settle on one customer and its accounts', async () => {
-  await withFetch({}, async (calls, nessie) => {
-    const body = { resident: 'st-23', policies: NONE, ledger: true };
-    const [a, b] = await Promise.all([bank(body), bank(body)]);
-    assert.deepEqual(a.link, b.link);
-    assert.equal(tagged(nessie, 'st-23').length, 1, 'one instance: one customer');
-    const [one, two] = await Promise.all([instance(), instance()]), race = { ...body, resident: 'st-24' };
-    for (const handle of [one, two]) await call(handle, { ...race, ledger: false }, { NESSIE_API_KEY: KEY }); // warm: their model runs done, so their Nessie calls interleave
-    const [x, y] = await Promise.all([call(one, race, { NESSIE_API_KEY: KEY }), call(two, race, { NESSIE_API_KEY: KEY })]);
-    assert.deepEqual(x.link, y.link, 'two instances: the same customer and accounts');
-    assert.equal(tagged(nessie, 'st-24').length, 2, 'the race made two customers');
-    assert.equal(x.link.customer, tagged(nessie, 'st-24').map(c => c._id).sort()[0], 'the first made');
-    const later = await call(await instance(), race, { NESSIE_API_KEY: KEY });
-    assert.deepEqual(later.link, x.link);
-  });
-});
-
-test('handler: when Nessie fails a resident is left unlinked, saying so and when to retry, and the retry links it', async () => {
-  const body = { resident: 'st-31', policies: NONE, ledger: true };
-  await quietly(() => withFetch({ fail: 503 }, async () => {
-    const r = await bank(body);
-    assert.equal(r.status, 200);
-    assert.equal(r.link.status, 'unlinked');
-    assert.match(r.link.reason, /Nessie is unavailable \(Nessie GET \/customers: HTTP 503\)/);
-    assert.ok(r.retryAfter > 0 && r.link.retryAfter > 0);
-    assert.equal(r.ledger.source, 'local');
-    assert.equal(r.policy.years.length, 11, 'the money is still there');
-  }));
-  await withFetch({}, async () => assert.equal((await bank(body)).link.status, 'linked'));
-  // not configured, or demo mode: unlinked, and no retry offered, since one can't help
-  for (const env of [{}, { NESSIE_API_KEY: KEY, DEMO_MODE: '1' }]) {
-    const off = await bank({ ...body, resident: 'st-33' }, env);
-    assert.deepEqual([off.link.status, off.retryAfter, off.link.retryAfter], ['unlinked', undefined, undefined]);
-  }
-  // a ledger not asked for: unlinked so far, and asking can link it
-  const plain = await bank({ resident: 'st-32', policies: NONE });
-  assert.equal(plain.link.status, 'unlinked');
-  assert.ok(plain.retryAfter > 0);
-});
-
-test('handler: map residents link 20 per IP per minute; past that, unlinked with a wait', async () => {
-  await withFetch({}, async () => {
-    const ip = '192.0.2.77';
-    for (let n = 0; n < 20; n++) assert.equal((await bank({ resident: `st-${100 + n}`, policies: NONE, ledger: true }, undefined, ip)).link.status, 'linked');
-    const r = await bank({ resident: 'st-120', policies: NONE, ledger: true }, undefined, ip);
-    assert.equal(r.link.status, 'unlinked');
-    assert.ok(r.retryAfter > 0 && r.retryAfter <= 60);
-    assert.equal((await bank({ resident: 'st-100', policies: NONE, ledger: true }, undefined, ip)).ledger.cached, true, 'linked ones are still served');
-  });
-});
-
-test('handler: a resident the scenario doesn\'t have is a 404; a malformed id is a 400', async () => {
-  assert.equal((await bank({ resident: 'hh-9999', policies: NONE })).status, 404);
-  assert.equal((await bank({ resident: 'hh-3-y2-nobody', policies: NONE })).status, 404);
-  assert.equal((await bank({ resident: 'st-99999', policies: NONE })).status, 400);
-  assert.equal((await bank({ resident: 'hh-3; drop', policies: NONE })).status, 400);
 });
 
 test('handler: rejects bad bodies', async () => {

@@ -14,7 +14,6 @@ import { paramRanges } from '../../shared/luti/params.js';
 import { ZONES as LUTI_ZONES, SOURCES } from '../../shared/luti/data.js';
 import { paramStep } from '../../shared/schema.js';
 import { residentState, statusOf, STATUS } from './residents.js';
-import { bankFor, bankPolicies, onBank, retryBank } from './bank.js';
 
 // Colour each change by whether it helps most people (green) or hurts (red). false shows every change in one neutral ink.
 const VERDICT_COLORS = true;
@@ -520,13 +519,9 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
   }
 
   // ---------- the resident picked on the map, as of the shown year ----------
-  // Its state is the one its dot reads (residents.js); its money and Nessie link come from the bank (bank.js), in moneyEl.
-  const moneyEl = h('section', { class: 'resident__money', 'aria-live': 'polite' });
-  let shownResident = null; // [id, the run's households, year] the card shows
-  onBank(() => { if (shownResident) renderMoney(...shownResident); });
+  // Its state is the one its dot reads (residents.js).
   function renderResident(households, resident, yr) {
     const a = residentState(households, resident);
-    shownResident = a ? [resident, a, yr] : null;
     const close = h('button', { class: 'resident__close', type: 'button', 'aria-label': 'Close resident card', onclick: () => scenario.set({ resident: null }) }, '×');
     if (resident == null) return residentEl.replaceChildren();
     if (!a) return residentEl.replaceChildren(h('section', { class: 'resident' }, h('header', { class: 'resident__head' }, h('h3', {}, 'Not in this scenario'), close),
@@ -545,43 +540,7 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
         h('dt', {}, 'Rent'), h('dd', {}, a.renter ? `${money(at.rent)}/mo · ${share(at.burden)} of income` : 'None, owns home'),
         h('dt', {}, 'Commute'), h('dd', {}, a.work === 'remote' ? 'None, works from home' : `${at.commute} min`)),
       h('p', { class: 'resident__story' }, story(a, yr, at)),
-      a.renter && ResidentSpark(a, yr),
-      moneyEl));
-    renderMoney(resident, a, yr);
-  }
-
-  // The resident's money in the shown year, and whether its ledger is in Nessie: loading, linked, or why not, with Retry.
-  function renderMoney(id, a, yr) {
-    const { policies, left } = bankPolicies(), e = bankFor(id, policies), r = e.reply;
-    const retry = h('button', { class: 'resident__retry', type: 'button', disabled: e.busy, onclick: () => retryBank(e) }, e.busy ? 'Trying…' : 'Retry');
-    const when = e.retryIn ? ` Trying again in ${e.retryIn}s.` : '';
-    const body = [];
-    if (!r) body.push(e.status === 'loading'
-      ? h('p', { class: 'resident__bank is-loading' }, `Linking ${a.name} to the Nessie sandbox…`)
-      : h('p', { class: 'resident__bank is-error' }, `Couldn't load ${a.name}'s money: ${e.error}.${when} `, retry));
-    else {
-      const y = r.policy.years.find(x => x.t === Math.min(Math.max(yr, r.policy.years[0].t), r.policy.years.at(-1).t));
-      const usd = v => `${v < 0 ? '−' : ''}${money(Math.abs(v))}`;
-      body.push(h('dl', { class: 'resident__facts' },
-        h('dt', {}, 'Savings'), h('dd', {}, y.borrowed ? `None left · ${money(y.borrowed)} borrowed` : y.behind ? `None left · ${money(y.behind)} behind on bills` : `${money(y.savings)} at year end`),
-        h('dt', {}, 'Take-home'), h('dd', {}, `${money(y.pay)}/mo`),
-        h('dt', {}, a.renter ? 'Rent' : 'Housing'), h('dd', {}, `${money(y.housing)}/mo`),
-        h('dt', {}, 'Commute cost'), h('dd', {}, `${money(y.commute)}/mo`),
-        h('dt', {}, 'Other spending'), h('dd', {}, `${money(y.basket)}/mo`),
-        h('dt', {}, 'Left over'), h('dd', {}, `${usd(y.net)}/mo`)));
-      const link = r.link, nessie = r.ledger.source === 'nessie';
-      body.push(link?.status === 'linked'
-        ? h('p', { class: 'resident__bank is-linked' }, `Nessie sandbox: linked (customer …${link.customer.slice(-6)}). `,
-          nessie ? 'Ledger read back from Nessie.' : [`Ledger not in Nessie yet: ${r.ledger.note}${when} `, retry])
-        : h('p', { class: 'resident__bank is-unlinked' }, `Not linked to Nessie: ${link?.reason ?? r.ledger.note}${when} `, retry));
-      if (e.error) body.push(h('p', { class: 'resident__bank is-error' }, `Last try failed: ${e.error}.`));
-    }
-    moneyEl.replaceChildren(...[
-      h('h4', {}, `Money, year ${yr}`, e.busy && r ? h('span', { class: 'resident__busy' }, ' · updating…') : null),
-      ...body,
-      left.length > 0 && h('p', { class: 'resident__sim' }, `Leaves out ${left.join(', ')}: the bank prices published cards only.`),
-      h('p', { class: 'resident__sim' }, h('strong', {}, 'Simulated person. '),
-        'Income, rent, commute, savings and spending come from Prosperia\'s resident model, not a real household. Nessie holds a synthetic sandbox ledger (paycheck, rent bill, purchases, savings), not real money; rent burden, tenure, job and commute aren\'t Nessie fields, so they stay in the model.')].filter(Boolean));
+      a.renter && ResidentSpark(a, yr)));
   }
 
   // ---------- assumptions, sources and checks (built when opened) ----------

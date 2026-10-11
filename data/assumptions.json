@@ -502,6 +502,12 @@
     "source": "Katz, L., Roth, J., Hendra, R. and Schaberg, K. (2022), Why Do Sectoral Employment Programs Work? Lessons from WorkAdvance, Journal of Labor Economics 40(S1): S249-S291: substantial and persistent earnings gains of 12% to 34% following training. https://www.nber.org/papers/w28248",
     "note": "A trained household's income rises by this share from the year after training, while it lives here. Near the middle of the published range."
   },
+  "lutiOtherPropertyTaxCents": {
+    "value": 82.84,
+    "unit": "\u00a2 per $100",
+    "source": "Orange County 2025 tax bill insert: county 68.05\u00a2 and Chapel Hill-Carrboro City Schools district 14.79\u00a2, on top of the Town's own rate. https://www.orangecountync.gov/DocumentCenter/View/39001/tax-bill-insert",
+    "note": "The rest of a Chapel Hill homeowner's property tax bill, which the Town does not set. The combined rate today is 132.84\u00a2 per $100, so the Town's 50.0\u00a2 is 38% of it: a player's rate change moves about a third of the bill."
+  },
   "lutiWorkdaysPerYear": {
     "value": 250,
     "unit": "days",

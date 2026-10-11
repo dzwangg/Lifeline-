@@ -1,0 +1,80 @@
+{
+  "id": "inclusionary-set-aside",
+  "title": "Require below-market homes in every new building",
+  "summary": "Raises the share of homes in a new development that must sell below market, and drops the density bonus that pays developers back for them.",
+  "category": "housing",
+  "icon": "tower",
+  "decider": {
+    "body": "Chapel Hill Town Council",
+    "how": [
+      "Planning staff draft the change to the inclusionary section of the Land Use Management Ordinance.",
+      "The Planning Commission and the Housing Advisory Board review it.",
+      "Residents comment at a Town Council public hearing.",
+      "Town Council votes on the change."
+    ]
+  },
+  "params": [
+    {
+      "key": "percent_below_market",
+      "label": "Share of new homes that must be below market",
+      "min": 5,
+      "max": 40,
+      "default": 20,
+      "step": 5,
+      "unit": "% of new homes"
+    }
+  ],
+  "levers": [
+    {
+      "lever": "housing.inclusionaryPct",
+      "param": "percent_below_market"
+    }
+  ],
+  "timing": {
+    "delayQuarters": 2,
+    "phaseInQuarters": 2
+  },
+  "evidence": [
+    {
+      "claim": "Chapel Hill has required 10% of homes in the town centre and 15% elsewhere to be affordable in qualifying for-sale developments since the ordinance took effect in 2011, and pairs the requirement with density and floor area bonuses that pay for it",
+      "source": "Town of Chapel Hill Land Use Management Ordinance §3.10, Table 3.10-1; HR&A Advisors, Affordable Housing Plan & Investment Strategy (2023)",
+      "url": "https://www.chapelhillnc.gov/files/assets/town/v/1/housing/documents/chapel-hill-affordable-housing-plan-investment-strategy-rev-101323.pdf"
+    },
+    {
+      "claim": "The ordinance has entitled about 150 affordable homes and delivered 9 at 65-80% of area median income since 2013",
+      "source": "HR&A Advisors for the Town of Chapel Hill, Affordable Housing Plan & Investment Strategy, revised October 2023",
+      "url": "https://www.chapelhillnc.gov/files/assets/town/v/1/housing/documents/chapel-hill-affordable-housing-plan-investment-strategy-rev-101323.pdf"
+    },
+    {
+      "claim": "In the Baltimore-Washington region each year of a mandatory requirement raised house prices by about 1.1% per square foot, with no evidence that it reduced new housing supply",
+      "source": "Emily Hamilton, Inclusionary Zoning and Housing Market Outcomes, Mercatus Center at George Mason University (September 2019)",
+      "url": "https://www.mercatus.org/media/70376/download"
+    },
+    {
+      "claim": "The Furman Center found inclusionary zoning raised prices and lowered production in suburban Boston but had no such effect in the Bay Area, so the supply evidence depends heavily on where you look",
+      "source": "Schuetz, Meltzer & Been, The Effects of Inclusionary Zoning on Local Housing Markets, NYU Furman Center (2007); published in Urban Studies (2011)",
+      "url": "https://www.rachelmeltzer.com/uploads/1/4/5/3/14532900/wp_long_working_paper_08_iz.pdf"
+    },
+    {
+      "claim": "Measured by how hard each ordinance bites rather than whether one exists, the estimated effect on building is about four times larger in the most stringent quartile of towns, and not significant at all in the least",
+      "source": "Kouchekinia, Inclusionary Zoning and Housing Supply: Evidence from California's Palmer Fix, UC Irvine (June 2026) — an unpublished working paper",
+      "url": "https://bpb-us-e2.wpmucdn.com/sites.uci.edu/dist/b/5302/files/2026/06/IZ_Kouchekinia.pdf"
+    },
+    {
+      "claim": "North Carolina bars towns from regulating rents, so a set-aside can only be required of homes for sale; Chapel Hill's own ordinance says it “shall not be construed to establish rent control” and makes rental units voluntary",
+      "source": "N.C. Gen. Stat. §42-14.1; Town of Chapel Hill LUMO §3.10(f)",
+      "url": "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_42/GS_42-14.1.html"
+    }
+  ],
+  "tradeoffs": {
+    "pros": [
+      "It makes permanently affordable homes in expensive neighbourhoods at no cost to the Town's budget, which is how the Community Home Trust's portfolio was built.",
+      "Where the requirement is mild the measured price effect is small — about 1% a year in the Baltimore-Washington region — and two of the careful studies find no drop in building at all."
+    ],
+    "cons": [
+      "With no density bonus the requirement is simply a cost on building with nothing given back, and the evidence that it is harmless comes from mild 10-15% programmes that do carry bonuses.",
+      "The harm grows with how hard the requirement bites: the one study that measures stringency finds the effect about four times larger in the most demanding quartile of towns.",
+      "North Carolina bars rent regulation, so this reaches homes for sale only; the Town has to fall back on voluntary incentives for apartments, which have delivered 5 homes since 2013."
+    ]
+  }
+}

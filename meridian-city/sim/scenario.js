@@ -58,19 +58,14 @@ export const scenario = {
   },
 };
 
-// A view setting, not a sim input: whether zones a policy changed are coloured on the map. Remembered across visits.
-const HIGHLIGHT_KEY = 'meridian.highlightChanges';
+// A view setting, not a sim input: whether zones a policy changed are coloured on the map. Always on, since the page
+// has no toggle for it (and an "off" remembered from an earlier version would hide every change).
 let highlightOn = true;
-try { highlightOn = localStorage.getItem(HIGHLIGHT_KEY) !== 'off'; } catch {} // storage blocked: default on
 const highlightListeners = new Set();
 export const highlight = {
   get: () => highlightOn,
   subscribe(fn) { highlightListeners.add(fn); fn(highlightOn); return () => highlightListeners.delete(fn); },
-  set(on) {
-    highlightOn = !!on;
-    try { localStorage.setItem(HIGHLIGHT_KEY, highlightOn ? 'on' : 'off'); } catch {} // private mode: just not remembered
-    highlightListeners.forEach(fn => fn(highlightOn));
-  },
+  set(on) { highlightOn = !!on; highlightListeners.forEach(fn => fn(highlightOn)); },
 };
 
 // Predictions: one step's { zoneStates, metrics } for a scenario version. The whole timeline is computed in the

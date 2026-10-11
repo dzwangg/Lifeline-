@@ -26,9 +26,10 @@ const CAPACITY = 800; // markers; the model makes ~350-450 households
 const MARKER_PX = 9, LIFT_PX = 6, BORDER_PX = 1.5; // marker width, how far it floats and its ink border, in rendered pixels at every zoom
 const FADE_YEARS = .4; // leavers fade out over this much of their last year's simulated time; paused, they stay faint
 const FLY_MS = 1400;
-// The road tint, mixed into the asphalt colour: subtle by default, strong on hover or in the 15-501 view. Its width is
-// a share of the carriageway, never under 3 rendered pixels so it survives the far zooms.
-const ASPHALT = new THREE.Color(P.asphalt), TINT = { rest: .35, focus: .9 }, TINT_SHARE = .4, TINT_MIN_PX = 3;
+// The road tint, mixed into the asphalt colour: subtle by default, strong on hover, and full strength in the 15-501
+// view. Its width is a share of the carriageway, never under 3 rendered pixels so it survives the far zooms; in the
+// 15-501 view it covers the whole carriageway and at least 6 pixels, since that view is zoomed far out.
+const ASPHALT = new THREE.Color(P.asphalt), TINT = { rest: .35, hover: .9, view: 1 }, TINT_SHARE = .4, TINT_MIN_PX = 3, VIEW_MIN_PX = 6;
 const COS_EL = Math.cos(THREE.MathUtils.degToRad(CAMERA.elevationDeg)), SIN_EL = Math.sin(THREE.MathUtils.degToRad(CAMERA.elevationDeg));
 
 export function mountAgentLayer({ world, osm, zones }) {
@@ -98,7 +99,8 @@ export function mountAgentLayer({ world, osm, zones }) {
   function shapeRoad(ppm) { // the tint's width depends on the zoom, so it is rebuilt when the zoom level changes
     roadPpm = ppm;
     road.geometry.dispose();
-    road.geometry = ribbons(trunks.map(q => [q.r, Math.min(q.w, Math.max(q.w * TINT_SHARE, TINT_MIN_PX / ppm))]), .06, E);
+    const width = q => (saved ? Math.max(q.w, VIEW_MIN_PX / ppm) : Math.min(q.w, Math.max(q.w * TINT_SHARE, TINT_MIN_PX / ppm)));
+    road.geometry = ribbons(trunks.map(q => [q.r, width(q)]), .06, E);
   }
 
   const _m = new THREE.Matrix4(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), HIDE = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -124,7 +126,7 @@ export function mountAgentLayer({ world, osm, zones }) {
   }
 
   let hovered = false, saved = null;
-  const tint = () => { roadMat.color.copy(ASPHALT).lerp(road.userData.color, hovered || saved ? TINT.focus : TINT.rest); };
+  const tint = () => { roadMat.color.copy(ASPHALT).lerp(road.userData.color, saved ? TINT.view : hovered ? TINT.hover : TINT.rest); };
   simClock.subscribe(({ shown, before, frac }) => {
     if (!shown?.data) return;
     const r = shown.data.run, y = before ? 0 : shown.step;
@@ -143,20 +145,19 @@ export function mountAgentLayer({ world, osm, zones }) {
     if (!!s.roadView !== !!saved) roadView(!!s.roadView);
   });
 
-  // View 15-501 and back. The corridor is the trunk road inside the map east of S Columbia St (x > -270 m; see
-  // docs/sources.md). The view turns a quarter if that lays the road more across the screen, takes the closest zoom
-  // level that fits it, and centres it in the part of the screen the sim panel leaves free.
+  // View 15-501 and back. The view takes in 15-501 inside the map (Fordham Blvd, and 15-501 South west of the NC 86
+  // interchange) and the corridor parcels along it, so every parcel a corridor card converts is in frame. It turns a
+  // quarter if that lays the road more across the screen, takes the closest zoom level that fits it all, and centres it
+  // in the part of the screen the sim panel leaves free.
   const seg = [];
-  for (const { r } of trunks) for (let i = 0; i + 3 < r.length; i += 2) {
-    const mx = (r[i] + r[i + 2]) / 2, mz = (r[i + 1] + r[i + 3]) / 2;
-    if (mx > -270 && Math.max(Math.abs(mx), Math.abs(mz)) < E) seg.push([r[i], r[i + 1], r[i + 2], r[i + 3]]);
-  }
-  let len = 0, cx = 0, cz = 0, dxx = 0, dxz = 0, dzz = 0; // length-weighted centre and direction tensor
+  for (const { r } of trunks) for (let i = 0; i + 3 < r.length; i += 2)
+    if (Math.max(Math.abs((r[i] + r[i + 2]) / 2), Math.abs((r[i + 1] + r[i + 3]) / 2)) < E) seg.push([r[i], r[i + 1], r[i + 2], r[i + 3]]);
+  const pts = [...seg.flatMap(([ax, az, bx, bz]) => [[ax, az], [bx, bz]]), ...zones.filter(z => z.tags.includes('corridor')).flatMap(z => z.ring.flatMap((v, i) => (i % 2 ? [] : [[v, z.ring[i + 1]]])))];
+  let dxx = 0, dxz = 0, dzz = 0; // the road's direction tensor, length-weighted
   for (const [ax, az, bx, bz] of seg) {
     const l = Math.hypot(bx - ax, bz - az), ux = (bx - ax) / (l || 1), uz = (bz - az) / (l || 1);
-    len += l; cx += (ax + bx) / 2 * l; cz += (az + bz) / 2 * l; dxx += ux * ux * l; dxz += ux * uz * l; dzz += uz * uz * l;
+    dxx += ux * ux * l; dxz += ux * uz * l; dzz += uz * uz * l;
   }
-  cx /= len; cz /= len;
   const ang = Math.atan2(2 * dxz, dxx - dzz) / 2, dir = [Math.cos(ang), Math.sin(ang)]; // the corridor's main direction
   const right = az => [Math.cos(az), -Math.sin(az)], fwd = az => [-Math.sin(az), -Math.cos(az)]; // on the ground, as the camera sees it
   const dot = (a, b) => a[0] * b[0] + a[1] * b[1];
@@ -164,14 +165,14 @@ export function mountAgentLayer({ world, osm, zones }) {
   view.onChange(({ azimuth }) => { azGoal = azimuth; });
   function corridorView() {
     const turn = Math.abs(dot(dir, right(azGoal + Math.PI / 2))) > Math.abs(dot(dir, right(azGoal))) + .1 ? 1 : 0, az = azGoal + turn * Math.PI / 2;
-    const span = axis => { const v = seg.flatMap(([ax, az0, bx, bz]) => [dot([ax, az0], axis), dot([bx, bz], axis)]); return Math.max(...v) - Math.min(...v); };
+    const R = right(az), F = fwd(az), range = axis => { const v = pts.map(p => dot(p, axis)); return [Math.min(...v), Math.max(...v)]; };
+    const [r0, r1] = range(R), [f0, f1] = range(F), mr = (r0 + r1) / 2, mf = (f0 + f1) / 2; // the frame's centre, in view axes
     const w = dom.clientWidth, h = dom.clientHeight, plate = document.querySelector('.plate.sim')?.getBoundingClientRect();
     const free = plate && plate.width && plate.left > w / 2 ? plate.left : w; // the map left of the panel
-    const across = span(right(az)), up = span(fwd(az)) * SIN_EL;
     let level = 0;
-    ZOOMS.forEach((z, i) => { const k = z * PIXEL_SCALE; if (across * k <= free * .85 && up * k <= h * .75) level = i; });
-    const shift = (w / 2 - free / 2) / (ZOOMS[level] * PIXEL_SCALE), [rx, rz] = right(az);
-    return { x: cx + rx * shift, z: cz + rz * shift, level, turn };
+    ZOOMS.forEach((z, i) => { const k = z * PIXEL_SCALE; if ((r1 - r0) * k <= free * .9 && (f1 - f0) * SIN_EL * k <= h * .8) level = i; });
+    const shift = (w / 2 - free / 2) / (ZOOMS[level] * PIXEL_SCALE);
+    return { x: R[0] * (mr + shift) + F[0] * mf, z: R[1] * (mr + shift) + F[1] * mf, level, turn };
   }
   let flight = null;
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -190,6 +191,7 @@ export function mountAgentLayer({ world, osm, zones }) {
       flight = { x0: view.target.x, z0: view.target.z, x1: back.x, z1: back.z, p: 0 };
     }
     if (road.userData.color) tint();
+    shapeRoad(ZOOMS[view.level]); // the width the view is zooming to
   }
 
   onFrame(dt => { // real time: the camera moves while the sim is paused

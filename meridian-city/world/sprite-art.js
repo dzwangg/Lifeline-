@@ -314,6 +314,13 @@ export function spriteAtlas() {
     outline(p, x - 1, y - 1, 11, 15);
   });
   add('civicBanner', 30, 9, (x, y) => { p.rect(x, y, 30, 9, P.goldDark); p.rect(x + 1, y + 1, 28, 7, P.gold); text(x + 3, y + 2, 'NEW', P.ink); text(x + 16, y + 2, 'OPEN', P.ink); outline(p, x - 1, y - 1, 32, 11); });
+  // The changes tour's marker over each item of its stop (drawn over buildings): a gold arrow pointing down.
+  add('pin', 9, 11, (x, y) => {
+    for (let j = 0; j < 5; j++) p.rect(x, y + j, 9, 1, j === 0 ? P.goldLight : P.gold);
+    for (let j = 0; j < 5; j++) p.rect(x + j, y + 5 + j, 9 - 2 * j, 1, j < 2 ? P.gold : P.goldDark);
+    p.set(x + 4, y + 10, P.goldDark); p.rect(x + 1, y + 1, 2, 1, P.paper);
+    outline(p, x - 1, y - 1, 11, 13);
+  });
   // A tower crane: a lattice mast, a jib with a hook, and a counterweight.
   add('crane', 34, 72, (x, y) => {
     const Y1 = P.gold, Y2 = P.goldDark, mx = x + 12;

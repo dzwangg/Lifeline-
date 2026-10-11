@@ -101,7 +101,7 @@ export function mountEffectsLayer({ world, zones = [] }) {
 
   // Shops' doors (open, for lease, grand openings, racks), offices', houses', apartments', civic and campus doors.
   const shopDoors = doorsOf(['shop'], 21);
-  const spot = (m, out, side) => { const [x, z] = doorSpot(m, out, side); return { x, z }; };
+  const spot = (m, out, side) => { const [x, z] = doorSpot(m, out, side), dx = m.door[0] - m.cx, dz = m.door[1] - m.cz, l = Math.hypot(dx, dz) || 1; return { x, z, face: [dx / l, dz / l] }; }; // face: the way the door looks out
   kind('shops',
     take(shopDoors, KINDS.shops.max).map(({ m }) => { const s = spot(m, 1.6, 1.2); return { ...s, parts: [part('near', 'openSign', s.x, s.z)] }; }),
     take(shopDoors, KINDS.shops.max).map(({ m }) => { const s = spot(m, 1.6, 1.2); return { ...s, parts: [part('near', 'forLease', s.x, s.z)] }; }));
@@ -338,6 +338,53 @@ export function mountEffectsLayer({ world, zones = [] }) {
   });
   for (const ev of ['pointerleave', 'pointerdown', 'wheel']) dom.addEventListener(ev, () => { tip.hidden = true; }, { passive: true });
 
-  // For the console and the browser checks (?debug): what stands now.
-  world.effects = { items, bike, busLane, get state() { return state; }, counts: () => Object.fromEntries(Object.entries(items).map(([k, v]) => [k, { pos: v.pos.filter(i => i.k > .5).length, neg: v.neg.filter(i => i.k > .5).length }])) };
+  // Where a year's items of these kinds stand: row is one year of run.effects (shown or not). For the changes tour
+  // (focus.js), which frames them. Painted lanes give points along what is painted, a few per route.
+  function points(kinds, row) {
+    const out = [];
+    for (const k of kinds) {
+      const r = row?.[k];
+      if (!r?.i) continue;
+      if (k === 'bikeLanes' || k === 'busLanes') {
+        const P = k === 'bikeLanes' ? bike : busLane, f = Math.max(0, r.i);
+        for (const R of P.routes) if (R.start / P.total < f) { const { q } = R; for (let i = 0; i < q.r.length; i += Math.max(2, 2 * Math.floor(q.r.length / 8))) out.push([q.r[i], q.r[i + 1]]); }
+      } else if (items[k]) for (const it of (r.i < 0 ? items[k].neg : items[k].pos).slice(0, r.n)) out.push([it.x, it.z, ...(it.face ?? [])]);
+    }
+    return out;
+  }
+
+  // The changes tour's pins: a gold arrow bobbing over each standing item of the stop's kinds, drawn over buildings so
+  // a sign behind a roof is still found (focus.js calls highlight(kinds), and highlight(null) when the tour ends).
+  const PINS = 64, pins = world.sprites.dynamicLayer(scene, PINS, { minZoom: LOD.macro, renderOrder: 1002 });
+  pins.material.depthTest = false; pins.mesh.layers.set(2);
+  { const s = art.sprites.pin; for (let i = 0; i < PINS; i++) { pins.uv.array.set(s.uv, i * 4); pins.size.array.set([s.w * 2, s.h * 2, 0], i * 3); } pins.uv.needsUpdate = pins.size.needsUpdate = true; }
+  pins.mesh.count = 0;
+  let pinKinds = null, pinAt = [];
+  function placePins() {
+    pinAt = [];
+    if (pinKinds) for (const k of pinKinds) {
+      if (k === 'bikeLanes') { const shown = bollards.filter(b => b.part.k > .5); for (let i = 0; i < shown.length; i += 12) pinAt.push([shown[i].part.x, shown[i].part.z, 2.5]); continue; }
+      if (k === 'busLanes') { for (const R of busLane.routes) if (R.start / busLane.total < state.busFrac) pinAt.push([R.q.r[0], R.q.r[1], 2.5]); continue; }
+      for (const it of [...(items[k]?.pos ?? []), ...(items[k]?.neg ?? [])]) if (it.k > .5) pinAt.push([it.x, it.z, Math.max(4, ...it.parts.map(p => (p.size?.[1] ?? 2) + p.y)) + 1.5]);
+    }
+    pinAt = pinAt.slice(0, PINS);
+    pins.mesh.count = pinAt.length;
+  }
+  // While a stop is pinned, the effect signs draw over buildings too, so the change itself shows, not just where it is.
+  const highlight = kinds => {
+    pinKinds = kinds?.length ? kinds : null;
+    for (const L of [near, far]) { L.material.depthTest = !pinKinds; L.mesh.renderOrder = pinKinds ? 1001 : 0; }
+    placePins();
+  };
+  let bob = 0;
+  onFrame(dt => {
+    if (!pinAt.length) return;
+    bob += dt;
+    pinAt.forEach(([x, z, y], i) => { _m.makeTranslation(x, y + .5 * Math.sin(bob * 3 + i), z); pins.mesh.setMatrixAt(i, _m); });
+    pins.mesh.instanceMatrix.needsUpdate = true;
+  });
+  simClock.subscribe(() => { if (pinKinds) placePins(); }); // items come and go with the year
+
+  // For the changes tour, the console and the browser checks (?debug): what stands now.
+  world.effects = { items, bike, busLane, points, highlight, get attribution() { return attribution; }, get state() { return state; }, counts: () => Object.fromEntries(Object.entries(items).map(([k, v]) => [k, { pos: v.pos.filter(i => i.k > .5).length, neg: v.neg.filter(i => i.k > .5).length }])) };
 }

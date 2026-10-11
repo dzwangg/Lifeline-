@@ -350,7 +350,9 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
     yearIn.value = c.shown.step;
     when.replaceChildren(h('strong', {}, yearLabel(y)), h('span', {}, c.before ? 'year 0 (before)' : `year ${y}`));
     const first = run.result.timeline[0].zoneStates, last = run.result.timeline.at(-1).zoneStates;
-    changesBtn.disabled = !scenario.get().focus && Object.keys(last).every(id => last[id] === first[id]); // nothing to show
+    // nothing to show: no parcel changes use, and no policy puts anything on the street (effects-layer.js)
+    const onStreet = run.effects?.some(row => Object.values(row).some(v => v.n));
+    changesBtn.disabled = !scenario.get().focus && !onStreet && Object.keys(last).every(id => last[id] === first[id]);
     meta.replaceChildren(
       h('strong', {}, 'Under these assumptions, this is a plausible range of outcomes, not a forecast. '),
       luti ? `${MODEL.id} v${MODEL.version} · ${luti.runs} paired runs · seed ${luti.seed}` : `${MODEL.id} v${MODEL.version} · ranges loading…`);

@@ -126,3 +126,10 @@ test('the construction subsidy card has no dead range: at the default yearly lim
   assert.ok(!binds(max), 'the limit does not bind at the slider max');
   assert.ok(raw(max * 1.05), 'a little more per home and it would');
 });
+
+test('construction subsidy spending never exceeds the selected yearly limit', () => {
+  for (const [perHome, limit] of [[7500, 3e6], [60000, 3e6], [60000, 1e6], [25000, 0], [2000, 1e7]]) {
+    const run = model.simulate(p, [{ id: 's', levers: [{ lever: 'housing.subsidyPerUnit', value: perHome }, { lever: 'housing.subsidyCap', value: limit }] }], { seedEvents: false });
+    for (const r of run.series) assert.ok(r.subsidyPerHome * r.starts <= limit + 1e-6, `$${perHome}/home, $${limit} limit, quarter ${r.q}: $${Math.round(r.subsidyPerHome * r.starts)}/yr`);
+  }
+});

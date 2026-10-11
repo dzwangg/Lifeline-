@@ -2,7 +2,8 @@
 // scenario.focus is null, 'road' or 'changes'; scenario.focusZones narrows 'changes' to some parcels (null: every
 // parcel the forecast converts). The panel's buttons set it, and so does this module: when a card with zone rules is
 // applied it frames the parcels that card converts, and when Play starts it frames the changes if the view is free.
-// Moving between the two views keeps the place to go back to.
+// Moving between the two views keeps the place to go back to; the 15-501 view goes back there, while ending the changes
+// tour leaves the camera where the tour was.
 import { scenario, simClock, onFrame } from './scenario.js';
 import { ZOOMS, PIXEL_SCALE, CAMERA, LOD } from '../world/palette.js';
 import { CONSTRUCT } from './zone-layer.js';
@@ -215,8 +216,10 @@ export function mountFocus({ world, osm, zones }) {
     }
     if (focus !== 'changes' || ids) { tour = null; world.effects?.highlight(null); }
     caption.hidden = !tour?.length; caption.style.display = tour?.length ? 'flex' : 'none'; // its inline flex would beat [hidden]
+    const was = current;
     current = focus; currentZones = ids;
     if (to) fly(to, again ? FOLLOW_MS : FLY_MS);
+    else if (!focus && was === 'changes') { saved = null; flight = null; } // ending the changes tour stays where it is
     else if (!focus && saved) {
       const back = saved;
       saved = null;

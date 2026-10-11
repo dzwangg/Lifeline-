@@ -84,12 +84,6 @@ function model(kind, A) {
       b.p.forEach((_, i) => { if (i % 3 === 0 && i >= b.p.length - 90) b.p[i] += 2.5; }); // move the cab forward
       b.box(2.5, 0, 1.6, .8, 2.2, 1.8, 0, W, f('cabinSide', 'cabinFront', 'cabinFront', 'cabinTop'));
       wheels(7, 2.4, .48); break;
-    case 'bike': // a cyclist (sim/effects-layer.js): two thin wheels, a frame, and a rider in the instance colour
-      for (const sx of [-1, 1]) b.box(sx * .55, 0, .7, .7, .08, 0, 0, W, () => A.uv('tire'));
-      b.box(0, 0, 1.1, .12, .1, .45, 0, W, () => A.uv('bodyTop'));
-      b.box(-.1, 0, .34, .62, .36, .62, 0, W, () => A.uv('bodyTop'));
-      b.box(-.02, 0, .26, .24, .26, 1.24, 0, W, () => A.uv('cabinTop'));
-      break;
   }
   return b.build();
 }
@@ -385,8 +379,8 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
     /** fn() each frame once the walkers are placed (residentHeads is current): the dots draw then, so they keep up. */
     onPeopleDrawn(fn) { onPeople = fn; },
     pickAt, residentHeads, doors,
-    /** An instanced mesh of `count` vehicles of `kind` (TYPES, or 'bike') in the street's own art, for layers that move
-     *  their own vehicles (sim/effects-layer.js: cyclists, buses at stops). Instance colour paints the body. */
+    /** An instanced mesh of `count` vehicles of `kind` (TYPES) in the street's own art, for layers that move their own
+     *  vehicles (sim/effects-layer.js: buses at stops). Instance colour paints the body. */
     vehicleMesh(kind, count) {
       const m = new THREE.InstancedMesh(model(kind, A), mat, Math.max(1, count));
       m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; m.count = 0;

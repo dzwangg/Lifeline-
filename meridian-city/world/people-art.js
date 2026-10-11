@@ -23,11 +23,11 @@ const mix = (a, b, t) => { const A = rgb(a), B = rgb(b); return hex(A.map((v, i)
 const tones = base => [mix(base, INK, .38), base, mix(base, '#ffffff', .34), mix(base, '#ffffff', .78)];
 
 // ---------- the cast: skin, hair, outfits in the Aero palette ----------
-const SKIN = ['#f7d7bd', '#efc3a0', '#dca27a', '#c08258', '#94603e', '#6b4330'];
-const HAIR = ['#2a1d18', '#4a2f22', '#7a4b2a', '#b5793a', '#e2c178', '#d9d4cc', '#8c2f2a', '#2f6fb0'];
-const TOPS = ['#3fb6e8', '#7ab8f0', '#f4f8fb', '#6fe0c0', '#9be15a', '#ffd166', '#ff8a7a', '#b39ddb', '#5aaee8', '#ffffff', '#4fcf9a', '#ff9ed6'];
-const BOTTOMS = ['#2b3f6b', '#4f6b8f', '#f2f6f8', '#c9b38a', '#8a99ab', '#3a4a5e', '#6fbfae'];
-const SHOES = ['#ffffff', '#f4f8fb', '#3fb6e8', '#2b3f6b', '#ff8a7a', '#e8eef2'];
+export const SKIN = ['#f7d7bd', '#efc3a0', '#dca27a', '#c08258', '#94603e', '#6b4330'];
+export const HAIR = ['#2a1d18', '#4a2f22', '#7a4b2a', '#b5793a', '#e2c178', '#d9d4cc', '#8c2f2a', '#2f6fb0'];
+export const TOPS = ['#3fb6e8', '#7ab8f0', '#f4f8fb', '#6fe0c0', '#9be15a', '#ffd166', '#ff8a7a', '#b39ddb', '#5aaee8', '#ffffff', '#4fcf9a', '#ff9ed6'];
+export const BOTTOMS = ['#2b3f6b', '#4f6b8f', '#f2f6f8', '#c9b38a', '#8a99ab', '#3a4a5e', '#6fbfae'];
+export const SHOES = ['#ffffff', '#f4f8fb', '#3fb6e8', '#2b3f6b', '#ff8a7a', '#e8eef2'];
 const BAGS = ['#3fb6e8', '#ff8a7a', '#9be15a', '#ffd166', '#b39ddb', '#2b3f6b'];
 const STYLES = ['short', 'long', 'ponytail', 'bun', 'cap', 'curly', 'short', 'long'];
 

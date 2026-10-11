@@ -18,6 +18,7 @@ import { LOD } from '../world/palette.js';
 import { OCC } from '../world/geometry.js';
 import { MAJOR, along } from '../world/streets.js';
 import { CONSTRUCT } from './zone-layer.js';
+import { createCyclists } from '../world/cyclists.js';
 
 const DOWNTOWN = [-800, -900, 0, -300], CAMPUS = [-400, -650, 600, 300]; // as agent-layer.js: x0, z0, x1, z1
 const inBox = (b, x, z) => x >= b[0] && x <= b[2] && z >= b[1] && z <= b[3];
@@ -210,15 +211,15 @@ export function mountEffectsLayer({ world, zones = [] }) {
   flush();
 
   // ---------- movers: cyclists on painted lanes, buses pulling in at stops ----------
-  let bikes = null, buses = null, t = 0;
-  const CYCLIST_COLORS = ['#c0392b', '#2f5f8f', '#e8b33c', '#3f6b4f', '#6e4f7f', '#d98b6a', '#4f9dc9'];
+  // Cyclists are people on bikes (world/cyclists.js), dressed like the walkers; buses are the street's own.
+  const bikes = createCyclists(scene, KINDS.cyclists.max);
+  for (const m of bikes.meshes) { m.layers.set(2); world.lod(m, { minZoom: LOD.cars }); }
+  let buses = null, t = 0;
   world.trafficReady?.then(traffic => {
     if (!traffic.vehicleMesh) return;
-    bikes = traffic.vehicleMesh('bike', KINDS.cyclists.max);
     buses = traffic.vehicleMesh('bus', newStops.length + oldStops.length);
-    for (let i = 0; i < KINDS.cyclists.max; i++) bikes.setColorAt(i, new THREE.Color(CYCLIST_COLORS[i % CYCLIST_COLORS.length]));
     for (let i = 0; i < newStops.length + oldStops.length; i++) buses.setColorAt(i, new THREE.Color('#2f6fb8'));
-    for (const m of [bikes, buses]) { m.layers.set(2); scene.add(m); lodVehicles(m); }
+    buses.layers.set(2); scene.add(buses); lodVehicles(buses);
   });
   const lodVehicles = m => world.lod(m, { minZoom: LOD.cars });
   // A point s metres along a polyline, with its direction.
@@ -230,22 +231,22 @@ export function mountEffectsLayer({ world, zones = [] }) {
     }
     return out;
   };
-  const tmp = {}, UP = new THREE.Vector3(0, 1, 0), ONE = new THREE.Vector3(1, 1, 1), RIDER = new THREE.Vector3(1.35, 1.35, 1.35);
+  const tmp = {}, UP = new THREE.Vector3(0, 1, 0), ONE = new THREE.Vector3(1, 1, 1), RIDER = new THREE.Vector3(1.6, 1.6, 1.6); // as big on screen as the walkers
   let state = { bikeFrac: 0, busFrac: 0, cyclists: 0, buses: 0 };
   function moveVehicles(dt) {
     t += dt;
-    if (bikes) {
+    {
       const painted = bike.routes.filter(r => r.end / bike.total <= state.bikeFrac + 1e-6);
       const n = painted.length ? state.cyclists : 0;
       for (let i = 0; i < n; i++) {
-        const R = painted[i % painted.length], L = R.q.len - 16, s = ((i * 97.3 + t * (3.8 + (i % 5) * .4)) % (2 * L) + 2 * L) % (2 * L), back = s > L;
+        const R = painted[i % painted.length], L = R.q.len - 16, ride = i * 97.3 + t * (3.8 + (i % 5) * .4), s = (ride % (2 * L) + 2 * L) % (2 * L), back = s > L;
         pointAt(R.q.r, 8 + (back ? 2 * L - s : s), tmp);
         const side = back ? 1 : -1, o = R.o * side; // ride on the right of their way
         const ux = back ? -tmp.ux : tmp.ux, uz = back ? -tmp.uz : tmp.uz;
         _m.compose(_p.set(tmp.x + tmp.uz * o, .06, tmp.z - tmp.ux * o), _q.setFromAxisAngle(UP, Math.atan2(-uz, ux)), RIDER);
-        bikes.setMatrixAt(i, _m);
+        bikes.set(i, _m, Math.floor(ride / .9) % 2); // a pedal stroke every 0.9 m
       }
-      bikes.count = n; bikes.instanceMatrix.needsUpdate = true;
+      bikes.show(n);
     }
     if (buses) {
       let k = 0;
@@ -261,7 +262,7 @@ export function mountEffectsLayer({ world, zones = [] }) {
       buses.count = k; buses.instanceMatrix.needsUpdate = true;
     }
   }
-  onFrame(dt => { if (bikes || buses) moveVehicles(Math.min(dt, .1)); });
+  onFrame(dt => moveVehicles(Math.min(dt, .1)));
 
   // ---------- the clock: how many of each kind stand, and the year's new ones coming in ----------
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;

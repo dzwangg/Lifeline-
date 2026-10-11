@@ -4,6 +4,7 @@ import { simulate } from '../../shared/agents.js';
 import { validateCard } from '../../shared/schema.js';
 import { toLocal } from '../../shared/geo.js';
 import { POLICIES } from '../policy/policies.js';
+import { createClock } from './clock.js';
 
 const json = path => fetch(new URL(path, import.meta.url)).then(r => (r.ok ? r.json() : Promise.reject(new Error(`${path}: HTTP ${r.status}`))));
 const query = new URLSearchParams(location.search);
@@ -39,36 +40,75 @@ export const panelPolicies = cards => [
   ...cards.map(c => ({ id: c.id, title: c.title, category: c.category ?? 'housing', icon: c.icon ?? 'house', summary: c.summary })),
 ];
 
-// cards: the applied cards. params: card id -> param key -> value. before: show year 0 whatever the year slider says.
-// result: the full SimResult (shared/combined.js), what the panel and the narration pipeline use. noPolicy: the same
-// without the cards, which every change is compared with. averages: the household model's yearly averages behind result.
-// households: one household-model run (seed 7), drawn on the map. resident: the household picked on the map.
-// roadView: the camera is flown to 15-501. luti: CH-LUTI's 200-run ranges and "why" traces (shared/luti/run.js runScenario).
-let state = { cards: [], params: {}, year: 10, before: false, result: null, averages: null, noPolicy: null, households: null, resident: null, roadView: false, luti: null };
+// The scenario's inputs. cards: the applied cards. params: card id -> param key -> value. Changing either bumps the
+// version; the clock (clock.js) drops predictions made for older versions. The rest is view state, which never touches
+// the forecast: result, the latest full SimResult (shared/combined.js), for the narration pipeline (the panel and map read
+// the clock's shown year instead); resident, the household picked on the map; roadView, the camera is on 15-501;
+// luti, CH-LUTI's 200-run ranges and "why" traces (shared/luti/run.js runScenario).
+let state = { cards: [], params: {}, version: 0, result: null, resident: null, roadView: false, luti: null };
 const listeners = new Set();
 export const scenario = {
   get: () => state,
   subscribe(fn) { listeners.add(fn); fn(state); return () => listeners.delete(fn); },
   set(patch) {
-    state = { ...state, ...patch };
+    const input = 'cards' in patch || 'params' in patch; // view state (a picked resident, the camera) keeps the forecast
+    state = { ...state, ...patch, version: state.version + (input ? 1 : 0) };
     listeners.forEach(fn => fn(state));
-    if ('cards' in patch || 'params' in patch) rerun();
+    if (input) rerun();
   },
 };
-export const shownYear = s => (s.before ? 0 : s.year);
-export const shownStates = s => s.result?.timeline[shownYear(s)].zoneStates;
 
-let timer;
-function rerun() { // debounced: a dragged slider fires many inputs
+// A view setting, not a sim input: whether zones a policy changed are coloured on the map. Remembered across visits.
+const HIGHLIGHT_KEY = 'meridian.highlightChanges';
+let highlightOn = true;
+try { highlightOn = localStorage.getItem(HIGHLIGHT_KEY) !== 'off'; } catch {} // storage blocked: default on
+const highlightListeners = new Set();
+export const highlight = {
+  get: () => highlightOn,
+  subscribe(fn) { highlightListeners.add(fn); fn(highlightOn); return () => highlightListeners.delete(fn); },
+  set(on) {
+    highlightOn = !!on;
+    try { localStorage.setItem(HIGHLIGHT_KEY, highlightOn ? 'on' : 'off'); } catch {} // private mode: just not remembered
+    highlightListeners.forEach(fn => fn(highlightOn));
+  },
+};
+
+// Predictions: one step's { zoneStates, metrics } for a scenario version. The whole timeline is computed in the
+// browser here (debounced, as a dragged slider fires many inputs); a forecast backend would answer the same call.
+// ?latency=ms delays each answer, to see the clock hold and the loading indicator.
+export const YEARS = 10;
+const latency = +query.get('latency') || 0;
+const runs = new Map(); // version -> { promise, resolve, reject }
+const runFor = version => {
+  if (!runs.has(version)) { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); promise.catch(() => {}); runs.set(version, { promise, resolve, reject }); }
+  return runs.get(version);
+};
+let timer, noPolicy = null; // noPolicy: the same models with no card, run once
+function rerun() {
   clearTimeout(timer);
+  const version = state.version;
   timer = setTimeout(async () => {
     const [zones, assumptions, baselines] = await dataReady;
-    const noPolicy = state.noPolicy ?? runModels([], {}, zones, assumptions, baselines).result;
-    const run = runModels(state.cards, state.params, zones, assumptions, baselines);
-    scenario.set({ result: withDeltas(run.result, noPolicy), noPolicy, averages: run.averages, households: simulate(run.inputs, assumptions, baselines) });
-    runLuti({ policies: run.policies, landUse: run.landUse, assumptions, baselines });
+    if (version !== state.version) return;
+    for (const [v, run] of runs) if (v < version) { run.reject(new Error('stale scenario')); runs.delete(v); }
+    let run;
+    try {
+      noPolicy ??= runModels([], {}, zones, assumptions, baselines).result;
+      const m = runModels(state.cards, state.params, zones, assumptions, baselines);
+      run = { result: withDeltas(m.result, noPolicy), noPolicy, averages: m.averages, households: simulate(m.inputs, assumptions, baselines) };
+      runLuti({ policies: m.policies, landUse: m.landUse, assumptions, baselines });
+    } catch (e) { return runFor(version).reject(e); }
+    runFor(version).resolve(run);
+    scenario.set({ result: run.result });
   }, 120);
 }
+// One step of a version's run: that year's { zoneStates, metrics }, plus the whole run for the layers that need more
+// (the no-policy comparison, the household model's averages and households). Every step of a version shares one run.
+export const predict = async (version, step) => {
+  const run = await runFor(version).promise;
+  if (latency) await new Promise(r => setTimeout(r, latency * (.5 + Math.random())));
+  return { ...run.result.timeline[step], run };
+};
 
 // CH-LUTI runs 2 × 200 simulations (about a second), in a worker. While one run is busy only the newest request waits,
 // and a result that a newer request has made stale is dropped.
@@ -86,3 +126,19 @@ lutiWorker.onmessage = ({ data }) => {
 };
 lutiWorker.onerror = e => { lutiBusy = false; console.warn('CH-LUTI did not run, so its metrics stay empty.', e); };
 rerun(); // the baseline, before any card is applied
+
+// The shared clock, and the one animation loop that drives it. onFrame callbacks get the real seconds since the
+// last frame (for the camera and other inspection) and the simulated seconds (for everything the clock freezes).
+export const START_YEAR = 2026, YEAR_MS = 3000; // 1x: three seconds per simulated year (2x and 4x: 1.5 s and 0.75 s)
+export const simClock = createClock({ steps: YEARS, predict, yearMs: YEAR_MS });
+let clockVersion = 0;
+scenario.subscribe(s => { if (s.version !== clockVersion) simClock.invalidate(clockVersion = s.version); }); // inputs only, not view state
+const frames = new Set();
+export const onFrame = fn => { frames.add(fn); return () => frames.delete(fn); };
+let last = performance.now();
+requestAnimationFrame(function loop(now) {
+  const dt = Math.min(Math.max((now - last) / 1000, 0), .25); last = now;
+  const simDt = simClock.tick(dt);
+  for (const fn of frames) fn(dt, simDt);
+  requestAnimationFrame(loop);
+});

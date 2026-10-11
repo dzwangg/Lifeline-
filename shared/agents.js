@@ -17,6 +17,11 @@
  * @property {Record<AgentZone, number>[]} [rent] rent by household zone, as a multiple of year 0's (1 if missing)
  * @property {Record<AgentZone, number>[]} [commute] commute by household zone, as a multiple of year 0's
  * @property {number[]} [traffic] car traffic, as a multiple of year 0's (for 15-501's load on the map)
+ * @property {number[]} [incomeIndex] household incomes by year, as a multiple of year 0's, when a scenario sets inflation
+ * @property {{ rentHouseholds: number, rentMonthly: number, cashHouseholds: number, cashMonthly: number, trainees: number,
+ *   affordable: number, incomeLimit: number }[]} [help] by year: real households getting rental assistance or monthly cash
+ *   and how much each gets, residents put through job training that year, and finished income-restricted homes, which
+ *   rent lutiAffordableGap below market to renters earning under incomeLimit (year-0 dollars)
  */
 /**
  * @typedef {object} Agent
@@ -35,13 +40,18 @@
  * @property {number | null} left year it left, if it did
  * @property {number} hazard leaving pressure so far @property {number} leaveAt it leaves once hazard reaches this (an Exp(1) draw on arrival)
  * @property {number | null} burden0 rent burden on arrival
- * @property {({ rent: number | null, income: number, burden: number | null, commute: number, here: boolean } | undefined)[]} hist by year, while here
+ * @property {({ rent: number | null, income: number, burden: number | null, commute: number, here: boolean } | undefined)[]} hist by year, while
+ *   here: rent is what the household pays (after any rental assistance) and income includes any monthly cash and training gain
+ * @property {{ rent: number, cash: number, train: number, afford: number }} help share of a place in each programme (0 = none,
+ *   1 = a full place); afford is a home under an affordable-housing requirement
+ * @property {number | null} trainedAt year the household's job training ended, if it had any
  */
 /**
  * @typedef {object} AgentYear
  * @property {number} t @property {Record<AgentZone, number>} units simulated homes (fractional) @property {number} pop households here
  * @property {number} medianRent renters' median monthly rent @property {number} commute mean commute, minutes
  * @property {number} displaced year-0 households that have left so far (newcomers who leave don't count)
+ * @property {number} renters renter households here @property {number} burdened those paying 30% or more of income in rent
  * @property {number} roadRatio 15-501 volume / capacity
  * @property {number} roadTime 15-501 travel time, minutes
  */
@@ -126,7 +136,17 @@ export function simulate(inputs, assumptions, baselines, seed = 7) {
     const added = inputs?.homes[t] ?? NO_HOMES, units = {};
     for (const z in A.agentUnits) units[z] = A.agentUnits[z] + added[z] / A.agentScale; // fractional, so a few homes still count
     const live = () => agents.filter(a => a.left === null);
-    const rentOf = a => a.rentBase * index('rent', t, a.zone), incomeOf = a => a.income * growth ** t;
+    const rentOf = a => a.rentBase * index('rent', t, a.zone), incomeOf = a => a.income * (inputs?.incomeIndex?.[t] ?? growth ** t);
+    // what a household pays and lives on this year: rental assistance pays the rent above 30% of income, up to the monthly
+    // amount; monthly cash adds income; job training raises earnings by lutiTrainingEarningsGain from the year after it
+    const help = inputs?.help?.[t];
+    const trained = a => (a.trainedAt !== null && a.trainedAt < t ? A.lutiTrainingEarningsGain * a.help.train : 0);
+    const incomeNow = a => incomeOf(a) * (1 + trained(a)) + 12 * (help?.cashMonthly ?? 0) * a.help.cash;
+    // an income-restricted home rents lutiAffordableGap below market; rental assistance then pays down what is left
+    const leaseOf = a => rentOf(a) * (1 - A.lutiAffordableGap * a.help.afford);
+    const paidOf = a => leaseOf(a) - Math.min((help?.rentMonthly ?? 0) * a.help.rent, Math.max(0, leaseOf(a) - A.agentBurdenLine * incomeNow(a) / 12));
+    // burdened: paying more than 30% of income (assistance that pays the rest leaves a household at 30%, so it isn't counted)
+    const burdened = a => paidOf(a) * 12 / incomeNow(a) > A.agentBurdenLine + 1e-9;
     if (t > 0) {
       // arrivals: newcomers bring the town up to CH-LUTI's household count, which also replaces households that left.
       // Each moves where the most homes stand empty; everyone CH-LUTI counts lives somewhere, so a zone can run over.
@@ -140,12 +160,29 @@ export function simulate(inputs, assumptions, baselines, seed = 7) {
         a.rentBase *= k; // at this year's market rent, through rentOf
         agents.push(a);
       }
+      // help: places go to the renters paying the most of their income in rent, and stay theirs while they live here; a
+      // place left empty goes to the next. A fraction of a place is a household getting that share of the help. Students
+      // aren't eligible, as in HUD's rental assistance (its student rule) and most guaranteed-income pilots.
+      // Income-restricted homes go the same way, to renters earning under the limit, as they are finished.
+      if (help) for (const [kind, n, eligible] of [['rent', help.rentHouseholds], ['cash', help.cashHouseholds], ['afford', help.affordable, a => a.income <= help.incomeLimit]]) {
+        const places = (n ?? 0) / A.agentScale, held = live().filter(a => a.help[kind] > 0);
+        let free = places - held.reduce((s, a) => s + a.help[kind], 0);
+        if (free < 0) held.forEach(a => { a.help[kind] *= places / (places - free); }); // a programme cut shrinks every place
+        const queue = live().filter(a => a.renter && !a.student && a.help[kind] === 0 && (!eligible || eligible(a))).sort((x, y) => rentOf(y) / incomeOf(y) - rentOf(x) / incomeOf(x));
+        for (const a of queue) { if (free <= 1e-9) break; a.help[kind] = Math.min(1, free); free -= a.help[kind]; }
+      }
+      // job training: this year's places go to the lowest-income non-student renters not yet trained; the gain follows them
+      let seats = (help?.trainees ?? 0) / A.agentScale;
+      if (seats > 0) for (const a of live().filter(x => x.renter && !x.student && x.trainedAt === null).sort((x, y) => incomeOf(x) - incomeOf(y))) {
+        if (seats <= 1e-9) break;
+        a.help.train = Math.min(1, seats); a.trainedAt = t; seats -= a.help.train;
+      }
       // displacement: each year a renter leaves with chance 1 - e^(-agentLeaveRate x points of burden), counting only the
       // burden above 30% (agentBurdenLine) that has built up since arrival. The draw that decides when is made on arrival,
       // so a scenario and the no-policy run compare the same households, not fresh dice.
       for (const a of live()) {
         if (!a.renter || a.burden0 === null) continue;
-        const b = rentOf(a) * 12 / incomeOf(a);
+        const b = paidOf(a) * 12 / incomeNow(a);
         a.hazard += A.agentLeaveRate * 100 * Math.max(0, b - Math.max(A.agentBurdenLine, a.burden0));
         if (a.hazard >= a.leaveAt) a.left = t;
       }
@@ -154,17 +191,19 @@ export function simulate(inputs, assumptions, baselines, seed = 7) {
     const commute = a => raw(a) * calib * index('commute', t, a.zone);
     for (const a of agents) {
       if (a.left !== null && a.left < t) continue;
-      const rent = a.renter ? Math.round(rentOf(a)) : null, income = Math.round(incomeOf(a));
+      const rent = a.renter ? Math.round(paidOf(a)) : null, income = Math.round(incomeNow(a));
       const burden = a.renter ? rent * 12 / income : null;
       if (a.burden0 === null && a.renter) a.burden0 = rentOf(a) * 12 / incomeOf(a); // unrounded, as the leaving rule compares it
       a.hist[t] = { rent, income, burden, commute: Math.round(commute(a) * 10) / 10, here: a.left === null };
     }
+    const here = L.filter(a => a.renter);
     const renters = L.filter(a => a.renter).map(rentOf).sort((x, y) => x - y), ratio = ratio0 * (inputs?.traffic?.[t] ?? 1);
     years.push({
       t, units, pop: L.length,
       medianRent: Math.round(renters[Math.floor(renters.length / 2)]),
       commute: Math.round(commuters.reduce((s, a) => s + commute(a), 0) / commuters.length * 10) / 10,
       displaced: agents.filter(a => a.joined === 0 && a.left !== null).length, roadRatio: ratio, roadTime: road(ratio) * calib,
+      renters: here.length, burdened: here.filter(burdened).length,
     });
   }
   // street: what streetAgent() needs to draw street residents on this run's paths (plain data, so it crosses to a worker)
@@ -182,6 +221,7 @@ function drawAgent(r, A, id, zone, year) {
   return {
     id, first: NAMES[Math.floor(r() * NAMES.length)], zone, renter, student, income: Math.round(income / 100) * 100, work,
     rentBase: A.agentZoneRent[zone] * (A.agentRentSpread.min + r() * A.agentRentSpread.range), x: r(), y: r(), joined: year, left: null, hazard: 0, leaveAt: -Math.log(1 - r()), burden0: null, hist: [],
+    help: { rent: 0, cash: 0, train: 0, afford: 0 }, trainedAt: null,
   };
 }
 const roadMin = (A, ratio) => A.roadT0Min * (1 + A.roadBpr.alpha * Math.pow(ratio, A.roadBpr.beta));
@@ -232,6 +272,7 @@ export function averageRuns(inputs, assumptions, baselines, seeds = SEEDS) {
     avgCommuteMin: round1(mean(t, y => y.commute)),
     households: Math.round(mean(t, y => y.pop) * scale),
     pricedOut: Math.round(mean(t, y => y.displaced) * scale),
+    rentBurden: Math.round(mean(t, y => y.burdened) / mean(t, y => y.renters) * 1e4) / 1e4,
     roadRatio: mean(t, y => y.roadRatio),
     roadTime: round1(mean(t, y => y.roadTime)),
   }));

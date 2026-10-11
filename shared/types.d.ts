@@ -61,6 +61,9 @@ export interface Metrics {
   // CH-LUTI: jobs in town, storefront businesses, downtown storefront vacancy (share), median home value ($),
   // town budget net of policy and service costs ($/yr), bus trips a year, car traffic (1 = year 0)
   jobs?: number; businesses?: number; storefrontVacancy?: number; homeValue?: number; netFiscal?: number; transitRidership?: number; trafficIndex?: number;
+  // city-health indicators (shared/indicators.js): rentBurden and carShare are fractions, jobAccess an index (1 = today),
+  // commuteCO2 tonnes a year
+  rentBurden?: number; priceToIncome?: number; affordableHomes?: number; carShare?: number; jobAccess?: number; commuteCO2?: number;
 }
 
 export interface SimResult {
@@ -69,10 +72,13 @@ export interface SimResult {
   policies: { id: string; title: string; params: Record<string, number>; start?: number }[];
   years: number;
   timeline: { year: number; zoneStates: Record<string, ZoneState>; metrics: Metrics }[];
-  // changePts: the change in percentage points, for treeCoverPct, storefrontVacancy and trafficIndex (shared/combined.js)
+  // changePts: the change in percentage points, for treeCoverPct, storefrontVacancy, trafficIndex, rentBurden, carShare and
+  // jobAccess (shared/combined.js)
   deltas: { metric: string; baseline: number; final: number; changePct: number; changePts?: number; comparedWith?: 'year 0' | 'no new policy' }[];
   tradeoffs: { pros: string[]; cons: string[] };
   assumptions: { key: string; value: number; source: string }[];
+  // scenario what-ifs (shared/luti/drivers.js), applied with and without the policies alike; absent when none are set
+  drivers?: { inflation?: number | 'fed'; uncJobsGrowth?: number; regionalGrowth?: number; constructionCost?: number };
 }
 
 // data/baselines.json and data/assumptions.json. A source starting "PLACEHOLDER" or "VERIFY" is not yet citable.

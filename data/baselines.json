@@ -1,28 +1,31 @@
 {
   "medianGrossRent": {
-    "value": 1483,
-    "year": 2023,
-    "source": "Median gross rent, ACS 2019-2023 5-year estimates, U.S. Census Bureau QuickFacts: Chapel Hill town, North Carolina"
+    "value": 1613,
+    "year": 2024,
+    "source": "Median gross rent, ACS 2020-2024 5-year estimates (table B25064), U.S. Census Bureau: Chapel Hill town, North Carolina. https://censusreporter.org/data/table/?table=B25064&geo_ids=16000US3711800",
+    "note": "The newest town-level survey: Chapel Hill (about 62,000 people) is too small for 1-year ACS estimates, and the 2021-2025 5-year release comes in December 2026. Earlier vintage: $1,483 (2019-2023)."
   },
   "meanCommuteMin": {
-    "value": 19.6,
-    "year": 2023,
-    "source": "Mean travel time to work (minutes), ACS 2019-2023 5-year estimates, U.S. Census Bureau QuickFacts: Chapel Hill town, North Carolina"
+    "value": 19.5,
+    "year": 2024,
+    "source": "Mean travel time to work = aggregate minutes (B08013) / workers who did not work from home (B08303), ACS 2020-2024 5-year, Chapel Hill town: 19.52 minutes. https://censusreporter.org/data/table/?table=B08013&geo_ids=16000US3711800"
   },
   "medianHomeValue": {
-    "value": 576500,
-    "year": 2023,
-    "source": "Median value of owner-occupied housing units, ACS 2019-2023 5-year estimates, U.S. Census Bureau QuickFacts: Chapel Hill town, North Carolina"
+    "value": 613700,
+    "year": 2024,
+    "source": "Median value of owner-occupied housing units, ACS 2020-2024 5-year estimates (table B25077), Chapel Hill town, North Carolina. https://censusreporter.org/data/table/?table=B25077&geo_ids=16000US3711800"
   },
   "population": {
-    "value": 61960,
-    "year": 2020,
-    "source": "2020 Decennial Census, Chapel Hill town, North Carolina"
+    "value": 63565,
+    "year": 2025,
+    "source": "U.S. Census Bureau, Vintage 2025 population estimates for cities and towns (SUB-EST2025), Chapel Hill town, NC, July 1, 2025 (Orange County part 60,643 + Durham County part 2,922). https://www2.census.gov/programs-surveys/popest/datasets/2020-2025/cities/totals/sub-est2025_37.csv",
+    "note": "2020 Census count: 61,960. ACS 2020-2024 (household population 50,403 + group quarters 11,204): 61,607."
   },
   "housingUnits": {
-    "value": 23713,
-    "year": 2020,
-    "source": "U.S. Census Bureau, 2020 Census Redistricting Data (P.L. 94-171), Table H1 \"Occupancy Status\", Chapel Hill town, NC: 22,118 occupied and 1,595 vacant. https://data.census.gov/table/DECENNIALPL2020.H1?g=160XX00US3711800"
+    "value": 23581,
+    "year": 2024,
+    "source": "Housing units, ACS 2020-2024 5-year estimates (table B25001), Chapel Hill town, NC: 21,189 occupied and 2,392 vacant (B25002). https://censusreporter.org/data/table/?table=B25001&geo_ids=16000US3711800",
+    "note": "Same survey as the households, renters and incomes in shared/luti/data.js, so vacancy is measured consistently. The Census Bureau publishes no newer count of homes for towns (its housing-unit estimates stop at counties). 2020 Census: 23,713. Building permits since (Census BPS): 151 in 2020, 450 in 2021, 200 in 2022, 739 in 2023, 159 in 2024, 155 in 2025 and 109 in January-August 2026."
   },
   "treeCoverPct": {
     "value": 46.9,

@@ -1,5 +1,5 @@
-// The playback toolbar: one Play/Pause toggle, Fast (2x) and Faster (4x) speed toggles, the simulated date and
-// speed beside them, and a loading badge while the clock holds for a prediction. The speed is the clock's own, so
+// The playback toolbar: one Play/Pause toggle, Fast (2x) and Faster (4x) speed toggles, the simulated month and
+// year and the speed beside them, and a loading badge while the clock holds for a prediction. The speed is the clock's own, so
 // it holds through pause and resume; picking one never plays or pauses, and pressing the lit one goes back to 1x.
 // Keys: Space plays or pauses, 1, 2 and 4 pick that speed. The map toolbar's pixel-icon buttons and glass plate,
 // so retro-ui.css skins it like the rest.

@@ -47,7 +47,7 @@ test('a card whose id the catalog now uses is left out of the deck', () => {
 
 test('remembering a redraft supersedes the draft before it, and says which card to drop', () => {
   store.set(KEY, JSON.stringify([entry('morrison-homes-a1')]));
-  assert.deepEqual(rememberPlayerCard(entry('morrison-homes-b2')), ['morrison-homes-a1']);
+  assert.deepEqual(rememberPlayerCard(entry('morrison-homes-b2')).map(e => e.card.id), ['morrison-homes-a1']);
   assert.deepEqual(saved(), ['morrison-homes-b2']);
   assert.deepEqual(rememberPlayerCard(entry('granville-c3', { title: 'Homes near Granville' })), [], 'a different policy supersedes nothing');
   assert.deepEqual(saved(), ['morrison-homes-b2', 'granville-c3']);
@@ -108,13 +108,46 @@ test('a redraft never supersedes a draft a decade enacted; the two stand side by
   assert.deepEqual(saved(), ['morrison-a1', 'morrison-b2'], 'the enacted draft stays saved beside the new one');
   // and with nothing enacted it supersedes as before
   store.set(KEY, JSON.stringify([entry('morrison-a1')]));
-  assert.deepEqual(rememberPlayerCard(entry('morrison-b2')), ['morrison-a1']);
+  assert.deepEqual(rememberPlayerCard(entry('morrison-b2')).map(e => e.card.id), ['morrison-a1']);
 });
 
 test('the same ask twice is one card however the zones came back ordered', () => {
   const zoned = (id, zones) => entry(id, { levers: [{ lever: 'housing.farMultiplier', param: 'floor_area', zones }] });
   store.set(KEY, JSON.stringify([zoned('a1', ['downtown', 'north']), zoned('b2', ['north', 'downtown'])]));
   assert.deepEqual(loadPlayerCards().map(e => e.card.id), ['b2']);
+});
+
+// A drafted card is what it does, not what it is called: the same policy at two settings is two policies.
+test('two drafts of one policy at different settings are both kept', () => {
+  const bus = (id, dflt) => entry(id, {
+    title: 'More frequent buses', category: 'transport', icon: 'bus',
+    params: [{ key: 'service', label: 'Bus service', min: 1, max: 3, default: dflt, step: 0.1, unit: '\u00d7' }],
+    levers: [{ lever: 'transit.serviceMultiplier', param: 'service' }],
+  });
+  store.set(KEY, JSON.stringify([bus('buses-2x', 2), bus('buses-3x', 3)]));
+  assert.deepEqual(loadPlayerCards().map(e => e.card.id), ['buses-2x', 'buses-3x'], 'running buses twice as often is not running them three times as often');
+  // and the same setting twice really is one card
+  store.set(KEY, JSON.stringify([bus('buses-a', 2), bus('buses-b', 2)]));
+  assert.deepEqual(loadPlayerCards().map(e => e.card.id), ['buses-b']);
+});
+
+test('a draft that only differs in when it starts is kept too', () => {
+  const slow = (id, delay) => entry(id, { timing: { delayQuarters: delay, phaseInQuarters: 4 } });
+  store.set(KEY, JSON.stringify([slow('now', 0), slow('later', 8)]));
+  assert.deepEqual(loadPlayerCards().map(e => e.card.id), ['now', 'later']);
+});
+
+test('what a redraft replaced comes back whole, so Undo can restore it', () => {
+  store.set(KEY, JSON.stringify([entry('morrison-a1')]));
+  const [gone] = rememberPlayerCard(entry('morrison-b2'));
+  assert.equal(gone.card.id, 'morrison-a1');
+  assert.equal(gone.signature, 'sig-morrison-a1', 'the signature too, or narration stops trusting it');
+  assert.deepEqual(saved(), ['morrison-b2']);
+
+  // what the ask bar's Undo does: take the redraft back out, then put the old entry back
+  forgetPlayerCard('morrison-b2');
+  rememberPlayerCard(gone);
+  assert.deepEqual(saved(), ['morrison-a1'], 'the library is as it was before the prompt');
 });
 
 test('a discard this browser refuses to save says so instead of promising it is gone', () => {

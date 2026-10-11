@@ -57,3 +57,16 @@ test("the models' year 0 is today", () => {
   assert.equal(y0.affordableHomes, 0);
   assert.ok(y0.commuteCO2 > 5e4 && y0.commuteCO2 < 2e5, `commute CO2 ${y0.commuteCO2} t`);
 });
+
+// The checks above name one indicator at a time, so a new one can describe a calculation the models don't do and nothing
+// says a word. This catches that for all of them at once: whatever "Today" claims has to be the number year 0 produces.
+// The gap allowed is wide, because a few readings are honestly near-misses — the model's median income against the
+// published one, car share counting people who work from home differently — but a reading of a different quantity
+// altogether is nowhere near 10%.
+test('what the panel calls today is the number the models start at, for every indicator that names one', () => {
+  for (const i of INDICATORS.filter(x => typeof x.today?.value === 'number')) {
+    const now = y0[i.key], today = i.today.value;
+    const off = today ? Math.abs(now - today) / Math.abs(today) : Math.abs(now - today);
+    assert.ok(off < 0.1, `${i.key}: year 0 is ${now}, but today says ${today} (${Math.round(off * 100)}% apart) — ${i.today.source}`);
+  }
+});

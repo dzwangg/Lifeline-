@@ -103,7 +103,7 @@ is tempting for a real reason, and each costs more than it brings in. Scored at 
 | Require below-market homes in every new building | 39.4 | 32.4 | A steep set-aside with no density bonus is a cost on building with nothing given back; new homes a year falls to 0 |
 | Send new buildings back for more review | 45.7 | 39.3 | Months of hearings are about 1% of build cost each, and land in rents |
 | Impact fee on each new home | 47.0 | 43.7 | The Town's budget goes to 100 and the fee lands on buyers, about $1.60 of price per $1 charged |
-| Cut the charge for downtown parking | 48.6 | 44.4 | The economy holds at 50 while residents drop to 38: the deck debt moves onto the property tax |
+| Cut the charge for downtown parking | 48.6 | 44.4 | The economy holds at 50 while residents drop to 38: the Town's budget loses the fees and keeps the deck debt, and a more desirable downtown lifts home values, rents and the households priced out |
 | Bring back parking minimums | 46.0 | 40.3 | Already in the library. The worst single setting in the game |
 | Property tax cut of 10¢ | — | 49.0 | Economy 59.5, residents 38.4. The halves disagree more than anywhere else |
 

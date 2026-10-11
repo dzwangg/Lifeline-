@@ -166,9 +166,9 @@ export const INDICATORS = [
     why: 'The largest source of Town revenue; it rises with homes and values, and with the rate.',
     model: 'CH-LUTI: homes × median home value × rate (our formula)' },
   { key: 'taxBurden', pillar: 'finances', label: 'Property tax on the median home, as a share of income', short: 'Tax burden', fmt: 'pct', better: 'lower',
-    today: { value: 0.0338, text: 'about 3.4% of a median income', source: 'Our calculation: the median home ($613,700) at the FY2026–27 rate of 50.0¢ per $100, over the model’s median household income' },
-    why: 'What the Town takes from a typical household each year: the cost side of every policy that raises the rate or the value it is charged on.',
-    model: 'CH-LUTI: median home value × the tax rate, over the household model’s median income',
+    today: { value: 0.0447, text: 'about 4.5% of an owner household’s income', source: 'Our calculation: the median home ($613,700) at the combined 132.84¢ per $100 — the Town’s 50.0¢ plus Orange County’s 68.05¢ and the school district’s 14.79¢ — over the model’s median owner-household income' },
+    why: 'The whole property tax bill on a typical home, against the income of the households that actually pay it: the cost side of every policy that raises the rate or the value it is charged on. The Town sets 50.0¢ of the 132.84¢, so a player moves about a third of this.',
+    model: 'CH-LUTI: median home value × the combined tax rate, over the household model’s median owner income',
     score: { category: 'social', basis: 'level', swing: 0.0035, target: 0.02, floor: 0.09, weight: 1.5,
       why: 'The whole bill against the income of the households that pay it, scored on the spread across US states (ACS 2024, median tax paid \u00f7 median income): 2.0% is the 10th percentile and 9.0% is New Jersey, the worst in the country. The Town sets 50.0\u00a2 of the 132.84\u00a2 combined rate, so a player moves about a third of this.' } },
 ];

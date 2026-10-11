@@ -9,7 +9,7 @@ import { validateCard } from '../../shared/schema.js';
 import { LEVERS } from '../../shared/luti/levers.js';
 import { describeDrivers } from '../../shared/luti/drivers.js';
 import { scenario } from '../sim/scenario.js';
-import { loadPlayerCards, rememberPlayerCard } from './player-cards.js';
+import { forgetPlayerCard, loadPlayerCards, rememberPlayerCard } from './player-cards.js';
 
 const EXAMPLES = [
   'Run buses twice as often on the MLK corridor',
@@ -41,7 +41,6 @@ export function mountAskBar({ store, cards, game = null, host = document.body })
   const form = h('form', { class: 'plate ask', 'aria-label': 'Ask the city' }, out, h('div', { class: 'ask__row' }, input, send));
   host.append(form);
   let busy = false, undo = null;
-  const replaced = new Map(); // an earlier draft a redraft took the place of, so Undo can still fill its slot
   placeBar(form);
   // An enacted card is in force for the rest of the game at the settings it was enacted with: it can't be applied again
   // (the store refuses) and its sliders can't move. Ending a decade also drops the Undo button, which would otherwise
@@ -90,6 +89,7 @@ export function mountAskBar({ store, cards, game = null, host = document.body })
   function apply(r, prompt) {
     const before = { applied: { ...store.getState().applied }, params: scenario.get().params, drivers: scenario.get().drivers };
     const done = [];
+    let superseded = []; // earlier drafts this prompt's card replaced, kept whole so Undo can put them back
     if (r.kind === 'refuse') {
       return show('ask__out--refuse', h('p', { class: 'ask__kicker' }, 'Can’t simulate that'), h('p', { class: 'ask__lede' }, r.refusal?.reason ?? r.reply),
         r.refusal?.alternative && h('p', { class: 'ask__note' }, r.refusal.alternative), notesOf(r));
@@ -99,10 +99,9 @@ export function mountAskBar({ store, cards, game = null, host = document.body })
       if (errors.length) return show('ask__out--error', h('p', { class: 'ask__lede' }, 'The drafted card didn’t pass the checks, so nothing changed.'));
       addCard(r.card);
       // An earlier draft of the same policy steps aside, unless a decade already enacted it: that one is in force for
-      // good, so the new draft is a second card beside it. Undo fills the old card's slot with the one that replaced it.
-      for (const old of rememberPlayerCard({ card: r.card, signature: r.signature ?? null }, enacted())) {
-        if (store.dropPolicy(old)) replaced.set(old, r.card.id);
-      }
+      // good, so the new draft is a second card beside it.
+      superseded = rememberPlayerCard({ card: r.card, signature: r.signature ?? null }, enacted())
+        .filter(e => store.dropPolicy(e.card.id));
       const placed = place(r.card);
       done.push(h('div', { class: 'ask__card' },
         h('p', { class: 'ask__kicker' }, placed ? appliedIn('Applied in', placed) : 'Added to your library; no slot could take it'),
@@ -148,8 +147,15 @@ export function mountAskBar({ store, cards, game = null, host = document.body })
     }
     const changed = r.card || library || adjust.length || r.drivers;
     if (changed) undo = () => { // the last change stays undoable until another one replaces it
+      // A redraft put the draft before it out of the library and out of this browser. Undo puts it back and takes the
+      // redraft out again, so "how it was" is true of the deck as well as the slots.
+      if (superseded.length) {
+        forgetPlayerCard(r.card.id);
+        store.dropPolicy(r.card.id);
+        for (const e of superseded) { rememberPlayerCard(e); addCard(e.card); }
+      }
       store.clear();
-      for (const [slot, id] of Object.entries(before.applied)) if (id) store.place(replaced.get(id) ?? id, slot);
+      for (const [slot, id] of Object.entries(before.applied)) if (id) store.place(id, slot);
       store.apply();
       scenario.set({ params: before.params, drivers: before.drivers });
       show('ask__out--plain', h('p', { class: 'ask__lede' }, 'Undone. The city is back to how it was before that prompt.'));

@@ -30,12 +30,15 @@ function write(next) {
   }
 }
 
-// Two drafts are the same policy when they ask the city for the same thing: same name, and the same levers and zone rules.
-// Each reply carries a fresh id, so without this, asking twice for homes near Morrison left two identical cards.
-const shapeOf = ({ title, category, levers = [], zoneRules = [] }) => JSON.stringify([
+// Two drafts are the same policy when they ask the city for the same thing — the same name, levers, zone rules, slider
+// settings and timing. Each reply carries a fresh id, so without this, asking twice for homes near Morrison left two
+// identical cards. The settings have to count too: "more buses" at 2× and at 3× are two policies, not one.
+const shapeOf = ({ title, category, levers = [], zoneRules = [], params = [], timing = {} }) => JSON.stringify([
   title.trim().toLowerCase().replace(/\s+/g, ' '), category ?? null,
   levers.map(l => `${l.lever}=${'value' in l ? l.value : `:${l.param}`}@${[...(l.zones ?? [])].sort().join('+')}`).sort(),
   zoneRules.map(r => JSON.stringify(Object.entries(r).sort())).sort(),
+  params.map(p => `${p.key}=${p.default}[${p.min},${p.max},${p.step ?? ''}]`).sort(),
+  [timing.delayQuarters ?? 0, timing.phaseInQuarters ?? 0],
 ]);
 
 // Newest wins: a redraft of the same policy supersedes the one before it.
@@ -58,7 +61,8 @@ export function loadPlayerCards(taken = new Set()) {
 }
 
 /**
- * Keeps a fresh draft for later visits. Returns the ids of earlier drafts of the same policy it replaces.
+ * Keeps a fresh draft for later visits. Returns the earlier drafts of the same policy it replaced — whole entries, not
+ * just their ids, so Undo can put them back exactly as they were.
  * @param {Set<string>} [keep] ids never superseded — a card a decade has enacted is in force for good, so a later
  *   draft of the same policy is a new card beside it, not a replacement for it.
  */
@@ -68,7 +72,7 @@ export function rememberPlayerCard(entry, keep = new Set()) {
   const after = [...safe, ...dedupe([...before.filter(e => !keep.has(e.card.id)), entry])];
   write(after);
   const left = new Set(after.map(e => e.card.id));
-  return before.filter(e => !left.has(e.card.id)).map(e => e.card.id);
+  return before.filter(e => !left.has(e.card.id));
 }
 
 /** Drops a drafted card from this browser for good. False if it wasn't there, or if this browser refused the write. */

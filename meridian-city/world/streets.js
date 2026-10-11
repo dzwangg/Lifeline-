@@ -159,7 +159,7 @@ export function buildStreets({ osm, grid, ground, parent }) {
     if (!MAJOR.has(cls)) along(r, 13, t0 + 6, t1 + 6, (x, z, ux, uz) => {
       for (const side of [-1, 1]) {
         const off = half + SIDEWALK_W + 1.6, px = x + uz * side * off, pz = z - ux * side * off;
-        if (hash(px, pz, 11) < .7 && grid.clear(px, pz, 2, OCC.building | OCC.road | OCC.sidewalk | OCC.keepClear | OCC.decor)) {
+        if (hash(px, pz, 11) < .7 && grid.clear(px, pz, 2, OCC.building | OCC.road | OCC.sidewalk | OCC.keepClear | OCC.decor | OCC.zone)) { // sim zones plant their own
           trees.push({ x: px, z: pz, kind: 'street' });
           grid.fill(px - 1, pz - 1, px + 1, pz + 1, OCC.decor);
         }

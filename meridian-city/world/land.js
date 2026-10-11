@@ -14,12 +14,9 @@ const COVER = { // OSM area kind → ground texture, height layer
 };
 const BLOCK = OCC.building | OCC.road | OCC.sidewalk | OCC.keepClear | OCC.decor | OCC.water | OCC.lot;
 
-export function buildLand({ osm, grid, ground, zones, waterFrames, parent }) {
+export function buildLand({ osm, grid, ground, waterFrames, parent }) {
   const batches = new Batches(), r = seeded(2024);
   const trees = [], shrubs = [], flowers = [], props = [], fences = [];
-
-  // Sim zones keep base-map trees out; the zone layer plants its own there.
-  for (const { ring } of zones) grid.fillRing(ring, OCC.zone);
 
   // ---------- cover ----------
   const covered = [];

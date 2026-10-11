@@ -3,7 +3,7 @@
 // fill what is left, so decorations never block roads, entrances or each other.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
 import { LOD, hash, pickBy } from './palette.js';
-import { Grid, Batch } from './geometry.js';
+import { Grid, Batch, OCC } from './geometry.js';
 import { createView } from './view.js';
 import { detailAtlas, groundTextures, waterFrames as makeWaterFrames } from './textures.js';
 import { spriteAtlas, TREE_KINDS, canopyTone } from './sprite-art.js';
@@ -21,6 +21,8 @@ export async function buildWorld({ container, osm, names = [], zones = [], progr
   const view = createView(container, { ext: osm.ext });
   const { scene } = view;
   const grid = new Grid(osm.ext + 250, 1);
+  // Sim zones keep base-map trees out (street trees and planting); the zone layer plants its own there.
+  for (const { ring } of zones) grid.fillRing(ring, OCC.zone);
   const details = detailAtlas(), art = spriteAtlas(), sprites = createSpriteSystem(art), ground = groundTextures();
 
   // Base ground: one big lawn, so the map edge fades into countryside rather than a void.
@@ -37,7 +39,7 @@ export async function buildWorld({ container, osm, names = [], zones = [], progr
   progress('Paving streets…'); await tick();
   const streets = buildStreets({ osm, grid, ground, parent: scene });
   progress('Planting trees…'); await tick();
-  const land = buildLand({ osm, grid, ground, zones, waterFrames: makeWaterFrames(), parent: scene });
+  const land = buildLand({ osm, grid, ground, waterFrames: makeWaterFrames(), parent: scene });
   land.plantYards(buildings.meta);
   land.fillOpen(buildings.meta, osm.ext);
   const landMeshes = land.build(details);

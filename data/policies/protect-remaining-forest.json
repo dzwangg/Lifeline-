@@ -1,0 +1,31 @@
+{
+  "id": "protect-remaining-forest",
+  "title": "Protect remaining forest",
+  "summary": "Keeps every wooded parcel on the map as forest, so no other policy can clear it for building while this one is in place.",
+  "category": "housing",
+  "icon": "sprout",
+  "decider": {
+    "body": "Chapel Hill Town Council",
+    "how": [
+      "Planning staff draft an amendment to the Land Use Management Ordinance that bars building on the protected woods.",
+      "The Planning Commission reviews the amendment and makes a recommendation.",
+      "Residents comment at a Town Council public hearing.",
+      "Town Council votes on the amendment."
+    ]
+  },
+  "params": [],
+  "zoneRules": [
+    { "where": "all", "protect": "forest" }
+  ],
+  "tradeoffs": {
+    "pros": [
+      "Keeps the woods' tree canopy and wildlife habitat.",
+      "Keeps forested land that soaks up stormwater."
+    ],
+    "cons": [
+      "Blocks the homes other policies would build on these woods.",
+      "Owners of the protected land can no longer build on it.",
+      "New building has to go to land that is already developed, such as parking lots."
+    ]
+  }
+}

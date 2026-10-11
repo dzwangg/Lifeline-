@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateCard } from '../shared/schema.js';
+import { matchesWhere, validateCard } from '../shared/schema.js';
 import { stub } from './data.js';
 
 test('the stub card is valid', () => assert.deepEqual(validateCard(stub), []));
@@ -38,4 +38,13 @@ test('a param default must be reachable with its slider step', () => {
   const p = { key: 'spaces', label: 'Spaces', min: 0, max: 1.5, default: 0.5, unit: '' }; // implicit step 0.015 skips 0.5
   assert.ok(validateCard({ ...stub, params: [...stub.params, p] }).some(e => e.startsWith('params[1].default')));
   assert.deepEqual(validateCard({ ...stub, params: [...stub.params, { ...p, step: 0.01 }] }), []);
+});
+
+test('a protect rule is { where, protect: <state> }; "all" selects every zone', () => {
+  const card = { ...stub, zoneRules: [{ where: 'all', protect: 'forest' }, { where: 'tag:corridor', protect: 'parking' }] };
+  assert.deepEqual(validateCard(card), []);
+  const bad = { ...stub, zoneRules: [{ where: 'everything', protect: 'forest' }, { where: 'all', protect: 'meadow' }, { where: 'all', protect: 'forest', to: 'low_res' }] };
+  const errors = validateCard(bad).map(e => e.split(':')[0]);
+  for (const path of ['zoneRules[0].where', 'zoneRules[1].protect', 'zoneRules[2].to']) assert.ok(errors.includes(path), path);
+  assert.ok(matchesWhere('all', { id: 'zone-01-01', tags: [] }));
 });

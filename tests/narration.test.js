@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
-import { POST, badNumbers, hashInput, loadCards, parseInput, speakable, speechKey, templateRecap } from '../api/narration.js';
+import { POST, badNumbers, hashInput, loadCards, modelFor, nextModel, parseInput, speakable, speechKey, templateRecap } from '../api/narration.js';
 
 // A frozen SimResult (the stub card, as of the narration PR), so these tests don't move whenever the models do.
 // The last test checks the current one, tests/fixtures/sim-result.json.
@@ -16,7 +16,7 @@ const GOOD = 'Over 10 years, the simulated policy adds homes, from 23,713 to abo
   + 'about $1,670 instead of $1,714, and about 4,060 households are priced out instead of about 4,400. Tree cover falls from 46.9% to about 43%, '
   + 'and yearly tax revenue grows to $69.8 million. Supporters note that more homes are built; critics note that forest is cleared.';
 const BAD = 'Homes rise by 509 and rent falls $46 by 2035.';
-const KEYS = { GEMINI_API_KEY: 'gem-secret', GEMINI_MODEL: 'gemini-test', ELEVENLABS_API_KEY: 'el-secret', ELEVENLABS_VOICE_ID: 'voice', ELEVENLABS_MODEL: '', GEMINI_THINKING_LEVEL: '', DEMO_MODE: '' };
+const KEYS = { GEMINI_API_KEY: 'gem-secret', GEMINI_MODEL: 'gemini-test', GEMINI_MODEL_NARRATION: '', GEMINI_MODEL_CHAT: '', GEMINI_MODEL_CARDS: '', GEMINI_FALLBACK_MODELS: '', ELEVENLABS_API_KEY: 'el-secret', ELEVENLABS_VOICE_ID: 'voice', ELEVENLABS_MODEL: '', GEMINI_THINKING_LEVEL: '', DEMO_MODE: '' };
 
 /** Runs fn with these env vars and a fake fetch that answers Gemini with `drafts` in turn; returns the calls it saw. */
 async function withMocks(env, drafts, fn) {
@@ -115,6 +115,68 @@ test('handler: one retry listing the bad numbers, then the template', async () =
     const r = await post(variant(3));
     assert.deepEqual([r.text, r.audio, r.fallback], [templateRecap(inputOf(variant(3))), 'AQID', true]);
     assert.equal(calls.filter(c => c.url.includes('generativelanguage')).length, 2);
+  });
+});
+
+test('handler: evaluative words get the same retry, naming the words, then the template', async () => {
+  const SLANTED = GOOD.replace('Supporters note that', 'Unfortunately, critics note that').replace('more homes are built', 'more homes are built, which helps renters');
+  await withMocks(KEYS, [SLANTED, GOOD], async calls => {
+    const r = await post(variant(44));
+    assert.equal(r.text, GOOD);
+    assert.match(JSON.parse(calls[1].init.body).contents.at(-1).parts[0].text, /evaluative or advocacy: Unfortunately, helps\./);
+  });
+  await withMocks(KEYS, [SLANTED, SLANTED], async () => {
+    const r = await post(variant(45));
+    assert.deepEqual([r.text, r.fallback], [templateRecap(inputOf(variant(45))), true]);
+  });
+});
+
+const quota429 = quotaId => () => Response.json({ error: { code: 429, status: 'RESOURCE_EXHAUSTED',
+  details: [{ '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: [{ quotaId }] }, { retryDelay: '77945s' }] } }, { status: 429 });
+const daily = quota429('GenerateRequestsPerDayPerProjectPerModel-FreeTier'), perMinute = quota429('GenerateRequestsPerMinutePerProjectPerModel-FreeTier');
+const modelsCalled = calls => calls.filter(c => c.url.includes('generativelanguage')).map(c => c.url.match(/models\/([^:]+):/)[1]);
+const quietly = async fn => { const warn = console.warn, error = console.error; console.warn = console.error = () => {}; try { await fn(); } finally { console.warn = warn; console.error = error; } };
+
+test('models: each feature reads its own env var, then GEMINI_MODEL, then a free-tier default', () => {
+  assert.equal(modelFor({ GEMINI_MODEL_NARRATION: 'a', GEMINI_MODEL: 'b' }, 'narration'), 'a');
+  assert.equal(modelFor({ GEMINI_MODEL_CHAT: '', GEMINI_MODEL: 'b' }, 'chat'), 'b');
+  assert.deepEqual(['narration', 'chat', 'cards'].map(f => modelFor({}, f)), ['gemini-3.5-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3-flash-preview']);
+  assert.equal(nextModel({}, 'gemini-3-flash-preview'), 'gemini-3.5-flash-lite');
+  assert.equal(nextModel({}, 'gemini-3.5-flash-lite'), 'gemini-3.1-flash-lite');
+  assert.equal(nextModel({}, 'gemini-3.1-flash-lite'), undefined, 'the end of the list');
+  assert.equal(nextModel({}, 'gemini-other'), 'gemini-3-flash-preview', 'a model not listed falls back to the first');
+  assert.equal(nextModel({ GEMINI_FALLBACK_MODELS: 'x, y' }, 'x'), 'y');
+});
+
+test('handler: the recap calls GEMINI_MODEL_NARRATION, else GEMINI_MODEL', async () => {
+  await withMocks({ ...KEYS, GEMINI_MODEL_NARRATION: 'gemini-narration' }, [GOOD], async calls => {
+    await post(variant(46));
+    assert.deepEqual(modelsCalled(calls), ['gemini-narration']);
+  });
+  await withMocks(KEYS, [GOOD], async calls => {
+    await post(variant(47));
+    assert.deepEqual(modelsCalled(calls), ['gemini-test']);
+  });
+});
+
+test('handler: a spent daily quota tries the next model once; a per-minute 429 or a second daily one gives the template', async () => {
+  const env = { ...KEYS, GEMINI_MODEL: 'gemini-3.5-flash-lite' };
+  await quietly(async () => {
+    await withMocks(env, [daily(), GOOD], async calls => {
+      const r = await post(variant(48));
+      assert.deepEqual([r.text, r.fallback], [GOOD, false]);
+      assert.deepEqual(modelsCalled(calls), ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite']);
+    });
+    await withMocks(env, [perMinute()], async calls => {
+      const r = await post(variant(49));
+      assert.deepEqual([r.text, r.fallback], [templateRecap(inputOf(variant(49))), true]);
+      assert.deepEqual(modelsCalled(calls), ['gemini-3.5-flash-lite']);
+    });
+    await withMocks(env, [daily(), daily()], async calls => {
+      const r = await post(variant(50));
+      assert.deepEqual([r.text, r.fallback], [templateRecap(inputOf(variant(50))), true]);
+      assert.deepEqual(modelsCalled(calls), ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'], 'one fallback, not a chain');
+    });
   });
 });
 
@@ -250,9 +312,9 @@ test('handler: client-sent titles and tradeoffs never reach Gemini or ElevenLabs
   });
 });
 
-test('handler: bodies over 16 KB get 413, including a whole SimResult', async () => {
+test('handler: bodies over 32 KB get 413, including a whole SimResult', async () => {
   assert.equal((await post(fixture)).status, 413);
-  assert.equal((await post(`{"pad":"${'x'.repeat(17_000)}"}`)).status, 413);
+  assert.equal((await post(`{"pad":"${'x'.repeat(33_000)}"}`)).status, 413);
 });
 
 test('handler: 10 calls per IP per minute reach the APIs; cache hits and other IPs are not limited', async () => {

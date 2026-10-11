@@ -1,6 +1,4 @@
 // The sim's data and state, shared by the zone layer (renderer) and the sim plate (UI).
-import { runModels, withDeltas } from '../../shared/combined.js';
-import { simulate } from '../../shared/agents.js';
 import { validateCard } from '../../shared/schema.js';
 import { toLocal } from '../../shared/geo.js';
 import { POLICIES } from '../policy/policies.js';
@@ -51,7 +49,9 @@ export const scenario = {
   get: () => state,
   subscribe(fn) { listeners.add(fn); fn(state); return () => listeners.delete(fn); },
   set(patch) {
-    const input = 'cards' in patch || 'params' in patch; // view state (a picked resident, the camera) keeps the forecast
+    // View state (a picked resident, the camera) keeps the forecast, and so does re-sending the same cards.
+    const ids = cards => cards.map(c => c.id).join();
+    const input = ('cards' in patch && ids(patch.cards) !== ids(state.cards)) || 'params' in patch;
     state = { ...state, ...patch, version: state.version + (input ? 1 : 0) };
     listeners.forEach(fn => fn(state));
     if (input) rerun();
@@ -74,7 +74,8 @@ export const highlight = {
 };
 
 // Predictions: one step's { zoneStates, metrics } for a scenario version. The whole timeline is computed in the
-// browser here (debounced, as a dragged slider fires many inputs); a forecast backend would answer the same call.
+// browser, in a worker (sim-worker.js; debounced, as a dragged slider fires many inputs); a forecast backend would
+// answer the same call.
 // ?latency=ms delays each answer, to see the clock hold and the loading indicator.
 export const YEARS = 10;
 const latency = +query.get('latency') || 0;
@@ -83,7 +84,7 @@ const runFor = version => {
   if (!runs.has(version)) { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); promise.catch(() => {}); runs.set(version, { promise, resolve, reject }); }
   return runs.get(version);
 };
-let timer, noPolicy = null; // noPolicy: the same models with no card, run once
+let timer;
 function rerun() {
   clearTimeout(timer);
   const version = state.version;
@@ -91,17 +92,33 @@ function rerun() {
     const [zones, assumptions, baselines] = await dataReady;
     if (version !== state.version) return;
     for (const [v, run] of runs) if (v < version) { run.reject(new Error('stale scenario')); runs.delete(v); }
-    let run;
-    try {
-      noPolicy ??= runModels([], {}, zones, assumptions, baselines).result;
-      const m = runModels(state.cards, state.params, zones, assumptions, baselines);
-      run = { result: withDeltas(m.result, noPolicy), noPolicy, averages: m.averages, households: simulate(m.inputs, assumptions, baselines) };
-      runLuti({ policies: m.policies, landUse: m.landUse, assumptions, baselines });
-    } catch (e) { return runFor(version).reject(e); }
-    runFor(version).resolve(run);
-    scenario.set({ result: run.result });
+    runSim({ version, cards: state.cards, params: state.params, zones, assumptions, baselines });
   }, 120);
 }
+// One run at a time in the worker; while it is busy only the newest request waits, and older answers are dropped.
+const simWorker = new Worker(new URL('./sim-worker.js', import.meta.url), { type: 'module' });
+let simBusy = false, simNext = null;
+function runSim(job) {
+  if (simBusy) { simNext = job; return; }
+  simBusy = true;
+  simWorker.postMessage(job);
+}
+simWorker.onmessage = async ({ data: { version, run, luti, error } }) => {
+  simBusy = false;
+  if (simNext) { const job = simNext; simNext = null; runSim(job); }
+  if (version !== state.version) return;
+  if (error) return runFor(version).reject(new Error(error));
+  runFor(version).resolve(run);
+  scenario.set({ result: run.result });
+  const [, assumptions, baselines] = await dataReady;
+  runLuti({ ...luti, assumptions, baselines });
+};
+simWorker.onerror = e => {
+  simBusy = false;
+  if (simNext) { const job = simNext; simNext = null; runSim(job); }
+  console.warn('The simulation did not run.', e);
+  runFor(state.version).reject(new Error('the simulation did not run'));
+};
 // One step of a version's run: that year's { zoneStates, metrics }, plus the whole run for the layers that need more
 // (the no-policy comparison, the household model's averages and households). Every step of a version shares one run.
 export const predict = async (version, step) => {

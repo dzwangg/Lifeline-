@@ -85,7 +85,7 @@ test('showcase residents are seed-7 year-0 households that still match their lab
   for (const r of residents) {
     const a = agents[r.agent];
     assert.equal(a.joined, 0, r.id);
-    assert.equal(a.name, r.name, `${r.id}: the household at agent ${r.agent} changed; re-pick the showcase`);
+    assert.equal(a.first, r.name, `${r.id}: the household at agent ${r.agent} changed; re-pick the showcase`); // names carry a last initial now ("Uma K.")
     assert.equal(r.mode === 'none', a.work === 'remote', `${r.id}: only remote workers have no commute`);
     assert.equal(r.type === 'student', a.student, r.id);
     if (r.type === 'commuter') assert.equal(a.work, 'durham', r.id);

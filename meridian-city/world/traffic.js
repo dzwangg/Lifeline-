@@ -132,10 +132,32 @@ function roadRaster(lanes, ext) {
   return (x, z) => { const k = Math.floor(x + ext), j = Math.floor(z + ext); return k >= 0 && j >= 0 && k < n && j < n && bits[j * n + k] === 1; };
 }
 
-export function buildTraffic({ lanes, walks, scene, grid, buildings, furniture = [], trees = [], view }) {
+// The people atlas is baked into world/baked/ (npm run bake), which loads far quicker than painting it, which takes most
+// of a second. It is painted here only if the baked files can't be loaded.
+async function peopleAtlas() {
+  try {
+    const base = new URL('./baked/', import.meta.url);
+    const [index, texture] = await Promise.all([
+      fetch(new URL('people-atlas.json', base)).then(r => (r.ok ? r.json() : Promise.reject(new Error(`people-atlas.json: HTTP ${r.status}`)))),
+      new THREE.TextureLoader().loadAsync(new URL('people-atlas.png', base).href),
+    ]);
+    const table = Object.fromEntries(Object.entries(index.table).map(([lod, looks]) => [lod, looks.map(dirs => dirs.map(frames => frames.map(n => index.sprites[n])))]));
+    return { ...index, table, texture };
+  } catch (e) {
+    console.warn('The baked people atlas did not load, so it is painted here.', e);
+    const art = paintPeopleAtlas();
+    return { ...art, texture: new THREE.DataTexture(art.data, art.size, art.size, THREE.RGBAFormat) };
+  }
+}
+
+// pause() is awaited between the heavy steps, so a build that runs after the city is on screen doesn't freeze it.
+export async function buildTraffic({ lanes, walks, scene, grid, buildings, furniture = [], trees = [], view, pause = async () => {} }) {
+  const atlas = peopleAtlas(); // loads while the networks build
   const onRoad = roadRaster(lanes, grid.ext), inBuilding = (x, z) => (grid.at(x, z) & OCC.building) !== 0;
   const net = buildRoadNet(lanes.filter(q => DRIVE.has(q.cls)));
+  await pause();
   const walk = buildWalkNet(net, walks.filter(q => !DRIVE.has(q.cls)), { onRoad, inBuilding });
+  await pause();
 
   // Signal poles stand on the kerb by each stop line; walk heads stand behind the kerb at each end of each crosswalk.
   const heads = [], o = {};
@@ -164,6 +186,7 @@ export function buildTraffic({ lanes, walks, scene, grid, buildings, furniture =
     ...heads.map(h => ({ x: h.x, z: h.z, r: .25 })),
   ];
   const sim = createStreetSim({ net, walk, doors, obstacles, onRoad, vehicleDensity: .8 });
+  await pause();
 
   // ---------- vehicles ----------
   const r = (seed => () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; })(4242);
@@ -179,9 +202,8 @@ export function buildTraffic({ lanes, walks, scene, grid, buildings, furniture =
   }
 
   // ---------- people, shadows, signal heads: one atlas, batched instanced layers ----------
-  const art = paintPeopleAtlas();
-  const tex = new THREE.DataTexture(art.data, art.size, art.size, THREE.RGBAFormat);
-  tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false; tex.flipY = false;
+  const art = await atlas, tex = art.texture;
+  tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false; tex.flipY = false; // rows top-down, as painted
   tex.colorSpace = THREE.SRGBColorSpace; tex.needsUpdate = true;
   const sprites = createSpriteSystem({ texture: tex, sprites: art.sprites });
   const N = sim.peds.length;

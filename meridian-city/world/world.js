@@ -15,9 +15,15 @@ import { buildTraffic } from './traffic.js';
 import { mountSelection } from './select.js';
 import { backdrop } from './aero.js';
 
-const tick = () => new Promise(r => setTimeout(r, 0)); // let the loading message repaint between stages
+// Lets the loading bar repaint between stages: wait for a frame, then a task. A hidden tab gets no frames, so a
+// timer stands in rather than stalling the build.
+const tick = () => new Promise(r => { const t = setTimeout(r, 50); requestAnimationFrame(() => { clearTimeout(t); setTimeout(r, 0); }); });
 
+// progress(message, fraction) reports each stage; fraction runs to 1 when the city can be drawn (the page's own steps
+// fill the rest of its bar). Street life (cars, walkers, signals, street furniture) is built after the first frame:
+// world.traffic is null until then, and world.trafficReady resolves with it. world.timings has each stage's milliseconds.
 export async function buildWorld({ container, osm, names = [], zones = [], progress = () => {} }) {
+  const timings = {}, stage = (() => { let name = 'setup', t = performance.now(); return next => { const now = performance.now(); timings[name] = (timings[name] ?? 0) + Math.round(now - t); name = next; t = now; }; })();
   const view = createView(container, { ext: osm.ext });
   const { scene } = view;
   const grid = new Grid(osm.ext + 250, 1);
@@ -34,12 +40,12 @@ export async function buildWorld({ container, osm, names = [], zones = [], progr
   scene.add(baseMesh);
   const aero = backdrop(scene, osm.ext, ground.grass); // hills and wind turbines beyond the mapped area
 
-  progress('Raising buildings…'); await tick();
-  const buildings = buildBuildings({ osm, names, grid, details, parent: scene });
-  progress('Paving streets…'); await tick();
-  const streets = buildStreets({ osm, grid, ground, parent: scene });
-  progress('Planting trees…'); await tick();
-  const land = buildLand({ osm, grid, ground, waterFrames: makeWaterFrames(), parent: scene });
+  stage('yields'); progress('Raising buildings…', .05); await tick();
+  stage('buildings'); const buildings = buildBuildings({ osm, names, grid, details, parent: scene });
+  stage('yields'); progress('Paving streets…', .35); await tick();
+  stage('streets'); const streets = buildStreets({ osm, grid, ground, parent: scene });
+  stage('yields'); progress('Planting trees…', .55); await tick();
+  stage('land'); const land = buildLand({ osm, grid, ground, waterFrames: makeWaterFrames(), parent: scene });
   land.plantYards(buildings.meta);
   land.fillOpen(buildings.meta, osm.ext);
   const landMeshes = land.build(details);
@@ -53,25 +59,35 @@ export async function buildWorld({ container, osm, names = [], zones = [], progr
   sprites.canopyLayer(scene, treeItems.map(t => ({ x: t.x, z: t.z, r: art.sprites[t.name].w * (t.scale ?? 1) * .62, color: canopyTone(t.name) })), { maxZoom: LOD.macro, name: 'canopy' });
   sprites.layer(scene, land.shrubs, { name: 'shrubs', minZoom: LOD.furniture });
   sprites.layer(scene, land.flowers, { name: 'flowers', minZoom: LOD.flowers });
-  progress('Starting traffic…'); await tick();
-  const traffic = buildTraffic({ lanes: streets.lanes, walks: streets.walks, scene, grid, buildings, view, furniture: [...land.props, ...streets.furniture], trees: treeItems });
-  // The street sim places working signals; drop the decorative ones, and stop signs where a signal now rules.
-  const nearSignal = (x, z) => traffic.signalized.some(([sx, sz]) => (sx - x) ** 2 + (sz - z) ** 2 < 32 * 32);
-  const furniture = streets.furniture.filter(f => f.name !== 'trafficLight' && !(f.name === 'stopSign' && nearSignal(f.x, f.z)));
-  sprites.layer(scene, [...land.props, ...furniture], { name: 'furniture', minZoom: LOD.furniture });
-  const selection = mountSelection({ view, buildings, onSelect: m => { if (m) traffic.select(null); } });
-  traffic.onSelect(() => selection.select(null)); // one info card at a time
+  let traffic = null;
+  const selection = mountSelection({ view, buildings, onSelect: m => { if (m) traffic?.select(null); } });
+  const stats = { buildings: buildings.meta.length, tallest: Math.max(...buildings.meta.map(m => m.height)), trees: treeItems.length };
+  // Street life, once the city is on screen: a few chunks, each in its own task.
+  let startTraffic, frames = 0;
+  const trafficReady = new Promise(r => { startTraffic = r; }).then(async () => {
+    const t0 = performance.now();
+    traffic = await buildTraffic({ lanes: streets.lanes, walks: streets.walks, scene, grid, buildings, view, furniture: [...land.props, ...streets.furniture], trees: treeItems, pause: tick });
+    // The street sim places working signals; drop the decorative ones, and stop signs where a signal now rules.
+    const nearSignal = (x, z) => traffic.signalized.some(([sx, sz]) => (sx - x) ** 2 + (sz - z) ** 2 < 32 * 32);
+    const furniture = streets.furniture.filter(f => f.name !== 'trafficLight' && !(f.name === 'stopSign' && nearSignal(f.x, f.z)));
+    sprites.layer(scene, [...land.props, ...furniture], { name: 'furniture', minZoom: LOD.furniture });
+    traffic.onSelect(() => selection.select(null)); // one info card at a time
+    Object.assign(stats, traffic.count);
+    timings.trafficAfterFirstFrame = Math.round(performance.now() - t0);
+    return traffic;
+  });
   const start = buildings.meta.find(m => m.name === 'Old Well') ?? buildings.meta.find(m => /bell tower/i.test(m.name ?? ''));
   if (start) view.lookAt(start.cx, start.cz); // open on the heart of campus
 
   // Parts for the sim's zone layer, drawn in the same art as everything else.
   const zoneParts = zoneArt({ sprites, buildings });
+  stage('done'); progress('Drawing the city…', 1);
 
   let time = 0, simTime = 0;
   return {
-    view, grid, buildings, streets, traffic, selection, zoneParts, lod: sprites.lod,
+    view, grid, buildings, streets, selection, zoneParts, lod: sprites.lod, timings, trafficReady, stats,
+    get traffic() { return traffic; },
     sprites, art, // the sprite system and its atlas, for layers added from outside (see WORLD.md)
-    stats: { buildings: buildings.meta.length, tallest: Math.max(...buildings.meta.map(m => m.height)), trees: treeItems.length, ...traffic.count },
     gridAt: (x, z) => grid.at(x, z),
     // dt: real seconds, for the camera and inspection (the selection pulse). simDt: simulated seconds from the shared
     // clock (0 while paused or holding), for everything that moves: traffic, walkers, signals, wind, water, turbines.
@@ -82,12 +98,13 @@ export async function buildWorld({ container, osm, names = [], zones = [], progr
       view.update(dt);
       const ppm = view.ppm;
       sprites.update(view.renderCam, simTime, ppm);
-      traffic.update(simDt, time, ppm);
+      traffic?.update(simDt, time, ppm);
       landMeshes.update(Math.min(simDt, .2));
       aero.update(Math.min(simDt, .2));
       selection.update(time);
       buildings.setDetailVisible(ppm >= LOD.details);
       view.render();
+      if (++frames === 2) setTimeout(startTraffic, 0); // once the first frame is on screen
     },
   };
 }

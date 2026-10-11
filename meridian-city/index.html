@@ -61,7 +61,10 @@
     #hud h1 { font-size: 18px; }
     #alt { right: 12px; padding: 8px 12px; font-size: 11px; }
   }
-  #loading { position: fixed; inset: 0; display: grid; place-items: center; font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--load-ink); text-shadow: 0 1px white; }
+  #loading { position: fixed; inset: 0; display: grid; place-content: center; justify-items: center; gap: 12px; font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--load-ink); text-shadow: 0 1px white; }
+  #load-bar { width: min(300px, 70vw); height: 12px; box-sizing: border-box; border: 2px solid var(--load-ink); border-radius: 2px; background: rgba(255, 255, 255, .7); box-shadow: 0 2px 0 rgba(21, 83, 108, .25); }
+  #load-fill { display: block; height: 100%; width: 0; background: repeating-linear-gradient(90deg, var(--sodium) 0 6px, #0aa6b6 6px 8px); transition: width .2s steps(6); }
+  @media (prefers-reduced-motion: reduce) { #load-fill { transition: none; } }
   /* The panels wait for the city: hidden while it builds, then they fade in together. */
   body.city-loading #hud, body.city-loading #alt, body.city-loading #policy-launch, body.city-loading #clock, body.city-loading .plate.sim { visibility: hidden; }
   body.city-ready #hud, body.city-ready #alt, body.city-ready #policy-launch, body.city-ready #clock, body.city-ready .plate.sim { animation: ui-in .35s ease-out; }
@@ -72,7 +75,7 @@
 <body class="city-loading">
 
 <div id="view"></div>
-<div id="loading">Laying out Chapel Hill…</div>
+<div id="loading"><span id="load-msg">Laying out Chapel Hill…</span><span id="load-bar" role="progressbar" aria-label="Loading the city" aria-valuemin="0" aria-valuemax="100" aria-valuenow="5"><span id="load-fill" style="width: 5%"></span></span></div>
 <div id="hud" class="plate">
   <h1>University of North Carolina</h1>
   <div id="stats">Surveying…</div>
@@ -128,25 +131,34 @@ import { mountBubbles } from './world/aero.js';
 import { onFrame } from './sim/scenario.js';
 
 const $ = id => document.getElementById(id);
-await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0))); // let the loading line paint
+// The loading bar: the world's build fills it to 85%, the sim's layers and the first frame the rest.
+const timings = {};
+const progress = (message, fraction) => {
+  $('load-msg').textContent = message;
+  const pct = Math.round(fraction * 100);
+  $('load-fill').style.width = `${pct}%`;
+  $('load-bar').setAttribute('aria-valuenow', pct);
+};
+const frame = () => new Promise(r => { const t = setTimeout(r, 50); requestAnimationFrame(() => { clearTimeout(t); setTimeout(r, 0); }); }); // a paint, or a timer in a hidden tab
+await frame();
 const OSM = window.CHAPEL_HILL;
 if (!OSM) { $('loading').textContent = 'Could not load the Chapel Hill map data.'; throw new Error('chapel-hill.js did not load'); }
 
 const ZONES = await zonesReady;
+timings.modulesAndData = Math.round(performance.now()); // since the page started loading: scripts, map data, zones
 let world;
 try {
-  world = await buildWorld({ container: $('view'), osm: OSM, names: window.CHAPEL_HILL_NAMES ?? [], zones: ZONES, progress: m => { $('loading').textContent = m; } });
+  world = await buildWorld({ container: $('view'), osm: OSM, names: window.CHAPEL_HILL_NAMES ?? [], zones: ZONES, progress: (m, f) => progress(m, .08 + f * .77) });
 } catch (e) {
   $('loading').textContent = /WebGL/i.test(e.message) ? 'This city needs WebGL, which is turned off in this browser.' : `The city could not be built: ${e.message}`;
   throw e;
 }
+progress('Placing households…', .88); await frame();
+let t = performance.now();
 mountZoneLayer({ scene: world.view.scene, zones: ZONES, at: world.gridAt, inside, bounds, parts: world.zoneParts, lod: world.lod });
 mountAgentLayer({ world, osm: OSM, zones: ZONES });
-
+timings.simLayers = Math.round(performance.now() - t);
 $('stats').textContent = `Chapel Hill, NC · ${world.stats.buildings.toLocaleString()} buildings · tallest ${Math.round(world.stats.tallest)} m`;
-$('loading').remove();
-document.body.classList.replace('city-loading', 'city-ready'); // reveal the panels with the city
-mountBubbles(document.body, { onFrame }); // drifting Aero bubbles over the city, under the panels
 
 // Map toolbar: rotate and zoom, mirroring Q/E and +/-.
 const readout = $('zoomv');
@@ -162,7 +174,17 @@ world.view.onChange(({ level }) => {
 
 // One loop for everything: the camera runs on real time, so the map stays usable while paused; traffic and the
 // rest of the city's motion run on the sim clock's time (see sim/clock.js).
+progress('Drawing the city…', .95);
+t = performance.now();
 onFrame((dt, simDt) => world.update(dt, simDt));
+await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); // the first frame is on screen
+timings.firstFrame = Math.round(performance.now() - t);
+$('loading').remove();
+document.body.classList.replace('city-loading', 'city-ready'); // reveal the panels with the city
+mountBubbles(document.body, { onFrame }); // drifting Aero bubbles over the city, under the panels
+timings.total = Math.round(performance.now()); // since the page started loading
+Object.assign(world.timings, timings);
+console.info('City ready in', timings.total, 'ms:', world.timings);
 window.city = world; // for debugging and for the simulation to reach the world
 </script>
 </body>

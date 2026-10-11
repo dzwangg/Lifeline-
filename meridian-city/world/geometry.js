@@ -191,7 +191,23 @@ export class Grid {
       if (!test || test((i + .5) * c - this.ext, (j + .5) * c - this.ext)) this.bits[j * this.n + i] |= bit;
     }
   }
-  fillRing(r, bit) { const [x0, z0, x1, z1] = bounds(r); this.fill(x0, z0, x1, z1, bit, (x, z) => inside(r, x, z)); }
+  // Marks the cells whose centres lie inside ring r: the cells inside() picks, found a row at a time from where the ring
+  // crosses each row's centre line (even-odd), rather than testing every cell of the bounding box.
+  fillRing(r, bit) {
+    const [, z0, , z1] = bounds(r), { cell: c, ext, n } = this, xs = [];
+    const j0 = Math.max(0, Math.floor((z0 + ext) / c)), j1 = Math.min(n - 1, Math.floor((z1 + ext) / c));
+    for (let j = j0; j <= j1; j++) {
+      const z = (j + .5) * c - ext;
+      xs.length = 0;
+      for (let i = 0, k = r.length - 2; i < r.length; k = i, i += 2)
+        if ((r[i + 1] > z) !== (r[k + 1] > z)) xs.push((r[k] - r[i]) * (z - r[i + 1]) / (r[k + 1] - r[i + 1]) + r[i]);
+      xs.sort((a, b) => a - b);
+      for (let m = 0; m + 1 < xs.length; m += 2) { // centres with xs[m] <= x < xs[m + 1]
+        const a = Math.max(0, Math.ceil((xs[m] + ext) / c - .5)), b = Math.min(n - 1, Math.ceil((xs[m + 1] + ext) / c - .5) - 1);
+        for (let i = a; i <= b; i++) this.bits[j * n + i] |= bit;
+      }
+    }
+  }
   // Marks a band of half-width w along a polyline.
   fillLine(r, w, bit) {
     for (let i = 0; i + 2 < r.length; i += 2) {

@@ -243,7 +243,7 @@ export function mountAgentLayer({ world, osm, zones }) {
     const h = view.raycastScreen(e.clientX, e.clientY, [markers])[0];
     if (!h) return;
     e.preventDefault();
-    world.traffic.select(null);
+    world.traffic?.select(null); // street life arrives after the first frame
     world.selection.select(null);
     scenario.set({ resident: agents[h.instanceId].id });
   }, true);

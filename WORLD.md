@@ -18,7 +18,7 @@ or each other.
 | `buildings.js` | Turns each footprint into a styled building: family, walls, roof, doors, awnings, balconies, landmarks. Variation is chosen by a hash of the footprint position, so it is stable across loads. |
 | `streets.js`, `roadnet.js` | Road surfaces, sidewalks, markings, crossings, parking, and the lane and walkway graphs. |
 | `land.js` | Parks, woods, water, and rule-based planting that checks the occupancy grid. |
-| `traffic.js`, `street-sim.js`, `people-art.js` | Cars and walkers on the street graph, with signals. |
+| `traffic.js`, `street-sim.js`, `people-art.js` | Cars and walkers on the street graph, with signals. The people atlas is baked into `world/baked/` (`npm run bake` after changing `people-art.js` or the palette; a test fails while it is stale). |
 | `sprites.js`, `sprite-art.js` | Instanced billboard sprites and the hand-painted sprite atlas. |
 | `textures.js` | Pixel textures, tile atlases and the building detail atlas. |
 | `select.js` | Click a building to outline it and open its info card. |
@@ -45,6 +45,7 @@ when no clock is attached. In `index.html` the sim clock supplies it (see [The c
 ```js
 import { buildWorld } from './world/world.js';
 const world = await buildWorld({ container, osm: window.CHAPEL_HILL, names: window.CHAPEL_HILL_NAMES, zones, progress });
+// progress(message, fraction) reports each stage, with fraction reaching 1 when the city can be drawn.
 // index.html also sets window.city = world, which is handy in the console.
 ```
 
@@ -56,11 +57,12 @@ const world = await buildWorld({ container, osm: window.CHAPEL_HILL, names: wind
 | `buildings.pickables` | Meshes to raycast for buildings. Each mesh's `userData.owner[faceIndex]` is the index into `meta`. |
 | `selection` | `select(meta \| null)`, `selected`. |
 | `streets` | `roads`, `lanes` (drivable) and `walks`: each `{ cls, ow, r, w, len }`, with `r` a flat `[x, z, …]` polyline. |
-| `traffic` | The street simulation; `traffic.select(null)` clears a picked walker. |
+| `traffic` | The street simulation; `traffic.select(null)` clears a picked walker. Street life (cars, walkers, signals and street furniture) is built after the first frame, so this is `null` until `trafficReady` resolves with it. |
+| `timings` | Milliseconds per build stage. `index.html` adds its own stages and logs them when the city is ready. |
 | `sprites`, `art` | The sprite system and its atlas (see [Adding sprites](#adding-sprites)). |
 | `lod(object, { minZoom, maxZoom })` | Shows `object` only between two zoom levels, in pixels per metre. |
 | `zoneParts` | The art the sim's zone layer draws with. |
-| `stats` | `{ buildings, tallest, trees, vehicles, people }`. |
+| `stats` | `{ buildings, tallest, trees }`, plus `vehicles`, `people` and `signals` once street life is built. |
 | `update(dt, simDt)` | Advance and draw one frame. |
 
 ### Scene and camera, compared with the old renderer

@@ -33,12 +33,20 @@ function mount(el) {
   const stopScene = landscape($('.start__scene'), $('.start__logo'), el);
   let lit = false, begin;
   const started = new Promise(r => { begin = r; });
+  // The rest of the page stays inert until Start, so Tab or a click can't reach controls under the screen: those already
+  // here, and those mounted while it is up (the ?forecast dock, whose Play would start the clock). Start frees only those.
+  const shut = new Set(), close = n => { if (n !== el && n.nodeType === 1 && !n.inert) { n.inert = true; shut.add(n); } };
+  [...document.body.children].forEach(close);
+  const watch = new MutationObserver(records => records.forEach(r => r.addedNodes.forEach(close)));
+  watch.observe(document.body, { childList: true });
   el.focus({ preventScroll: true }); // so Enter starts, and the map's keys (which skip dialogs) leave the hidden city alone
 
   function leave() {
     if (!lit || el.classList.contains('is-leaving')) return;
     el.classList.add('is-leaving');
     el.inert = true;
+    watch.disconnect();
+    shut.forEach(n => { n.inert = false; });
     begin(); // the city script reveals the panels now
     setTimeout(() => { // once they are visible: point at where a game begins
       const launch = document.getElementById('policy-launch');
@@ -94,8 +102,8 @@ function mount(el) {
 function landscape(canvas, logo, host) {
   const g = canvas.getContext('2d'), still = reducedMotion();
   let W = 0, H = 0, sun, layers, clouds, turbines, stale = true, t = 0;
-  const mark = () => { stale = true; };
-  addEventListener('resize', mark);
+  const mark = () => { stale = true; }, done = new AbortController(); // done: takes down the listeners and the bubbles
+  addEventListener('resize', mark, { signal: done.signal });
   document.fonts?.ready.then(mark); // the logo's size, and so the sun's place, settle once Pixelify Sans has loaded
 
   function build() {
@@ -176,7 +184,7 @@ function landscape(canvas, logo, host) {
 
   // One loop for the scene and the bubbles, stopped when the screen goes.
   let tick = null, raf = 0, last = performance.now();
-  mountBubbles(host, { onFrame: fn => { tick = fn; } });
+  mountBubbles(host, { onFrame: fn => { tick = fn; }, signal: done.signal });
   draw();
   raf = requestAnimationFrame(function frame(now) {
     const dt = Math.min(.05, (now - last) / 1000);
@@ -186,7 +194,7 @@ function landscape(canvas, logo, host) {
     tick?.(dt, dt);
     raf = requestAnimationFrame(frame);
   });
-  return () => { cancelAnimationFrame(raf); removeEventListener('resize', mark); };
+  return () => { cancelAnimationFrame(raf); done.abort(); };
 }
 
 // ---------- pixel painting ----------

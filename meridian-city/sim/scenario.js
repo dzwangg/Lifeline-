@@ -34,10 +34,9 @@ export const cardsReady = json('../../data/cards.index.json')
   .then(cards => cards.filter((c, i) => c && cards.findIndex(o => o?.id === c.id) === i));
 
 // Cards in the policy panel's shape. A card replaces the hardcoded policy with the same id; the rest stay.
-export const panelPolicies = cards => [
-  ...POLICIES.filter(p => !cards.some(c => c.id === p.id)),
-  ...cards.map(c => ({ id: c.id, title: c.title, category: c.category ?? 'housing', icon: c.icon ?? 'house', summary: c.summary })),
-];
+/** A card as the policy panel lists it. */
+export const panelPolicy = c => ({ id: c.id, title: c.title, category: c.category ?? 'housing', icon: c.icon ?? 'house', summary: c.summary });
+export const panelPolicies = cards => [...POLICIES.filter(p => !cards.some(c => c.id === p.id)), ...cards.map(panelPolicy)];
 
 // The scenario's inputs. cards: the applied cards. params: card id -> param key -> value. Changing either bumps the
 // version; the clock (clock.js) drops predictions made for older versions. The rest is view state, which never touches

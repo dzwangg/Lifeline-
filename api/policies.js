@@ -78,7 +78,7 @@ Rules:
 - tradeoffs: at least one pro and one con, each a short plain sentence about the mechanism. Neutral and factual: no evaluative or advocacy words (such as help, good news, unfortunately, great, crisis, should, must). Use no numbers except ones in the card's own params, levers and evidence or in the idea, and forecast no outcomes: the simulator computes them.
 - decider: who decides it in Chapel Hill, from these: ${[...new Set(cards.map(c => c.decider.body))].join('; ')}; and "how" in 2 to 4 short steps.
 - evidence: optional. Only copy entries exactly from this list, when they support this card: ${JSON.stringify(cards.flatMap(c => c.evidence ?? []))}.
-- category is one of ${CATEGORIES.map(c => c.id).join(', ')}; icon is one of ${Object.keys(ICONS).join(', ')}.
+- category is one of ${CATEGORIES.map(c => c.id).join(', ')}; a card whose zone rules only protect land is environment (icon sprout). icon is one of ${Object.keys(ICONS).join(', ')}.
 - id: lowercase words joined by dashes, not one of: ${cards.map(c => c.id).join(', ')}. Param keys are snake_case.
 Examples of cards (a conversion rule; a protect rule; zoned levers with a fixed value; a param lever; the examples have no lever directions, but you must give them): ${example('corridor-midrise')} ${example('protect-remaining-forest')} ${example('transit-upzoning')} ${example('hiring-subsidy')}`;
 }
@@ -186,6 +186,16 @@ const retryAfter = rateLimiter(5); // drafts per IP per minute; each is one or t
 // like narration's cache; a shared KV if cold starts hurt.
 const drafts = new Map(); // idea hash -> { draft: { card, unmodeled } } | { status, body }
 const ideaKey = idea => hashInput(idea.trim().toLowerCase().replace(/\s+/g, ' '));
+/** The committed draft for an idea (npm run pregen:demo): demo-audio/draft-<idea hash>.json holds what drafts would. */
+export const draftFile = idea => `draft-${ideaKey(idea)}.json`;
+async function committedDraft(idea) {
+  try {
+    const hit = JSON.parse(await readFile(new URL(`../demo-audio/${draftFile(idea)}`, import.meta.url), 'utf8'));
+    return !hit.draft || !validateCard(hit.draft.card).length ? hit : null; // a card from before a schema change is redrafted
+  } catch {
+    return null;
+  }
+}
 
 export async function POST(request) {
   const { body, error } = await readBody(request, MAX_BODY, 'send { idea }');
@@ -193,8 +203,10 @@ export async function POST(request) {
   const idea = body?.idea;
   if (typeof idea !== 'string' || !idea.trim() || idea.length > 1200)
     return Response.json({ error: 'idea must be a description of a policy, 1 to 1200 characters' }, { status: 400 });
-  const id = ideaKey(idea), cached = drafts.has(id);
-  let hit = drafts.get(id);
+  // In-memory drafts, then committed ones (served first, in DEMO_MODE too), then Gemini.
+  const id = ideaKey(idea);
+  let hit = drafts.get(id) ?? await committedDraft(idea);
+  const cached = !!hit;
   if (!hit) {
     if (!process.env.GEMINI_API_KEY || process.env.DEMO_MODE === '1')
       return Response.json({ error: 'Policy drafting is off on this server.' }, { status: 503 });

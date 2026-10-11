@@ -3,9 +3,13 @@ import { createDrag, flyFrom } from './drag.js';
 
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const ARROWS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+const aOr = word => `${/^[aeiou]/i.test(word) ? 'an' : 'a'} ${word}`; // "an Environment slot"
 
 // Mounts the policy overlay. Returns { open(trigger?), close(), isOpen() }.
-export function mountPolicyPanel({ store, host = document.body } = {}) {
+// onDraft(idea) -> Promise<{ card, unmodeled }>: with it, the library offers "Propose a new policy", with `examples` as
+// one-click ideas; it adds the drafted card to the store, and throws an Error (with .unmodeled, if Gemini said why) to refuse.
+// Based on William Chen's form (origin/William, 0f80831).
+export function mountPolicyPanel({ store, host = document.body, onDraft, examples = [] } = {}) {
   const cats = new Map(store.categories.map(c => [c.id, c]));
   const catOf = policy => cats.get(policy.category);
   // armed: a card picked up by click or keyboard, waiting for a destination. from: its slot, if any.
@@ -20,6 +24,20 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
   const chips = h('div', { class: 'pp-chips', role: 'group', 'aria-label': 'Filter by category' });
   const libCount = h('span', { class: 'pp-lib__count' });
   const grid = h('div', { class: 'pp-grid' });
+  const ideaInput = h('textarea', { class: 'pp-create__input', rows: 2, maxlength: 1200, placeholder: 'What should the town do?', 'aria-label': 'Describe a new policy' });
+  const draftButton = GlassButton('Draft policy', { variant: 'primary', type: 'submit' });
+  const draftStatus = h('p', { class: 'pp-create__status', role: 'status', 'aria-live': 'polite' });
+  const draftPreview = h('div', { class: 'pp-create__preview' });
+  const createForm = h('form', { class: 'pp-create__form' },
+    ideaInput,
+    h('div', { class: 'pp-create__examples', role: 'group', 'aria-label': 'Example ideas' },
+      examples.map(idea => h('button', { class: 'pp-create__example', type: 'button', 'data-idea': idea }, idea))),
+    h('div', { class: 'pp-create__actions' }, draftButton, draftStatus),
+    draftPreview);
+  const create = h('details', { class: 'pp-create', open: true },
+    h('summary', { class: 'pp-create__title' }, 'Propose a new policy'),
+    h('p', { class: 'pp-create__hint' }, 'Describe a change in your own words. Gemini drafts a card the simulation can run, and lists what it can’t model. Review it before you apply it.'),
+    createForm);
   const btnClear = GlassButton('Clear selection', { variant: 'quiet' });
   const btnCancel = GlassButton('Cancel');
   const btnApply = GlassButton('Apply policies', { variant: 'primary' });
@@ -33,6 +51,7 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
     h('label', { class: 'pp-search' },
       h('span', { class: 'pp-search__icon', 'aria-hidden': 'true', html: '<svg viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>' }),
       search),
+    onDraft && create,
     chips,
     h('p', { class: 'pp-library__return', 'aria-hidden': 'true' }, 'Drop here to return the card'),
     grid);
@@ -179,7 +198,7 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
         ? `Picked up ${p.title}. Choose another ${cat.label} slot, or press Delete to return it to the library.`
         : `Picked up ${p.title}. Press Delete to return it to the library, or Escape to put it back.`);
     } else {
-      announce(`${p.title} selected. Choose a ${cat.label} slot to place it.`);
+      announce(`${p.title} selected. Choose ${aOr(cat.label)} slot to place it.`);
     }
     if (others.length) {
       const target = others.find(id => !store.getState().draft[id]) ?? others[0];
@@ -237,7 +256,7 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
     }
     if (occupant) return arm(occupant, slotId, viaKeyboard);
     const cat = cats.get(store.getSlot(slotId).category);
-    announce(`Empty ${nameOfSlot(slotId)} slot. Select a ${cat.label.toLowerCase()} card in the library first.`);
+    announce(`Empty ${nameOfSlot(slotId)} slot. Select ${aOr(cat.label.toLowerCase())} card in the library first.`);
   }
 
   function activateLibraryCard(policyId, viaKeyboard) {
@@ -295,7 +314,7 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
   const drag = createDrag({
     root: panel,
     handle: '.pp-card',
-    scrollers: '.pp-rows, .pp-grid, .pp-columns',
+    scrollers: '.pp-rows, .pp-library, .pp-columns',
     payloadOf: el => ({ policyId: el.dataset.policy, from: store.slotOf(el.dataset.policy) }),
     canDrop: (d, target) => target.dataset.drop === 'library'
       ? !!d.from
@@ -383,6 +402,43 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
   });
 
   search.addEventListener('input', () => { ui.query = search.value; render(); });
+  const list = (label, items) => !items?.length ? null : h('div', { class: 'pp-create__list' }, h('strong', {}, label), h('ul', {}, items.map(t => h('li', {}, t))));
+  async function draft(idea) {
+    if (!idea || draftButton.disabled) return;
+    draftButton.disabled = ideaInput.disabled = true;
+    createForm.querySelectorAll('.pp-create__example').forEach(b => { b.disabled = true; });
+    draftStatus.textContent = 'Drafting your policy…';
+    draftPreview.replaceChildren();
+    try {
+      const { card, unmodeled } = await onDraft(idea);
+      const cat = cats.get(card.category ?? 'housing');
+      Object.assign(ui, { query: '', filter: 'all' });
+      search.value = ideaInput.value = '';
+      render();
+      draftPreview.replaceChildren(h('div', { class: 'pp-create__card', style: catVars(cat) },
+        h('p', { class: 'pp-create__kicker' }, h('span', { class: 'pp-ai' }, 'AI-drafted'), ` ${cat.label} card`),
+        h('strong', { class: 'pp-create__name' }, card.title),
+        h('p', {}, card.summary),
+        list('Not modeled, so left out:', unmodeled),
+        h('p', {}, h('strong', {}, 'Decided by: '), card.decider.body),
+        list('Pros', card.tradeoffs.pros),
+        list('Cons', card.tradeoffs.cons)));
+      draftStatus.textContent = `Added “${card.title}” to the library. Select it, then ${aOr(cat.label)} slot, and apply.`;
+      announce(`Drafted ${card.title}. It is in the library: select it, then ${aOr(cat.label)} slot.`);
+      focusByKey(`lib:${card.id}`);
+    } catch (error) {
+      draftStatus.textContent = error.message;
+      if (error.unmodeled?.length) draftPreview.replaceChildren(list('Not modeled:', error.unmodeled));
+    } finally {
+      draftButton.disabled = ideaInput.disabled = false;
+      createForm.querySelectorAll('.pp-create__example').forEach(b => { b.disabled = false; });
+    }
+  }
+  createForm.addEventListener('submit', e => { e.preventDefault(); draft(ideaInput.value.trim()); });
+  createForm.addEventListener('click', e => {
+    const example = e.target.closest('[data-idea]');
+    if (example) { ideaInput.value = example.dataset.idea; draft(example.dataset.idea); }
+  });
   nameInput.addEventListener('input', () => store.setScenarioName(nameInput.value.replace(/\s*\n\s*/g, ' ')));
   nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); nameInput.blur(); } });
   nameInput.addEventListener('blur', () => { if (!nameInput.value.trim()) store.setScenarioName('Untitled scenario'); });

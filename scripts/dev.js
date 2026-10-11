@@ -2,6 +2,7 @@
 // It listens on this machine only (127.0.0.1), and stops reading a request body past MAX_BODY.
 // Usage: npm run dev [-- port]   then open http://127.0.0.1:3000/meridian-city/resident/demo.html
 import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,10 +11,13 @@ try { process.loadEnvFile('.env.local'); } catch {}
 const root = fileURLToPath(new URL('..', import.meta.url));
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.geojson': 'application/json', '.mp3': 'audio/mpeg', '.png': 'image/png', '.svg': 'image/svg+xml' };
 const port = +process.argv[2] || 3000, HOST = '127.0.0.1';
+// vercel.json's rewrites (exact paths, such as /api/policies/generate), as Vercel applies them.
+const REWRITES = new Map((JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8')).rewrites ?? []).map(r => [r.source, r.destination]));
 const MAX_BODY = 65_536; // above every API's own limit (each checks its own), so a huge upload is refused, not held in memory
 
 createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${port}`);
+  url.pathname = REWRITES.get(url.pathname) ?? url.pathname;
   try {
     const api = url.pathname.match(/^\/api\/([a-z-]+)$/);
     if (api) {

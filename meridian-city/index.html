@@ -95,16 +95,34 @@
 // Policy panel: kept apart from the WebGL build below so it works while the city is still loading.
 import { createPolicyStore } from './policy/store.js';
 import { mountPolicyPanel } from './policy/policy-panel.js';
-import { cardsReady, panelPolicies, demoMode } from './sim/scenario.js';
-import { CATEGORIES, slotsOf } from './policy/policies.js';
+import { cardsReady, panelPolicies, panelPolicy, demoMode } from './sim/scenario.js';
+import { CATEGORIES, EXAMPLE_IDEAS, slotsOf } from './policy/policies.js';
+import { loadPlayerCards, savePlayerCards } from './policy/player-cards.js';
 import { mountSimPlate } from './sim/sim-plate.js';
 import { mountClockBar } from './sim/clock-bar.js';
 
 const cards = await cardsReady; // policy cards from data/policies/ join the hardcoded policies in the panel
 // ?demo runs two housing cards together, so housing gets a second slot.
 const categories = demoMode ? CATEGORIES.map(c => (c.id === 'housing' ? { ...c, slots: 2 } : c)) : CATEGORIES;
-const store = createPolicyStore({ policies: panelPolicies(cards), categories, slots: slotsOf(categories) });
-const panel = mountPolicyPanel({ store });
+// Cards drafted from players' ideas (/api/policies/generate) come back from this browser's storage, marked AI-drafted.
+const playerCards = loadPlayerCards(new Set(cards.map(c => c.id)));
+cards.push(...playerCards.map(e => e.card));
+const drafted = new Set(playerCards.map(e => e.card.id));
+const store = createPolicyStore({ policies: panelPolicies(cards).map(p => (drafted.has(p.id) ? { ...p, aiDrafted: true } : p)), categories, slots: slotsOf(categories) });
+const panel = mountPolicyPanel({ store, examples: EXAMPLE_IDEAS, onDraft: async idea => {
+  const res = await fetch('/api/policies/generate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ idea }) });
+  const reply = await res.json().catch(() => null);
+  if (!res.ok || !reply?.card) {
+    throw Object.assign(new Error(reply?.error ?? (res.status === 404 ? 'Drafting needs the server: run npm run dev.' : `Could not draft the policy (HTTP ${res.status}).`)),
+      { unmodeled: reply?.unmodeled });
+  }
+  const { card, signature, unmodeled } = reply;
+  cards.push(card); // the sim plate looks cards up here once they are applied
+  store.addPolicy({ ...panelPolicy(card), aiDrafted: true });
+  playerCards.push({ card, signature, unmodeled });
+  savePlayerCards(playerCards);
+  return { card, unmodeled };
+} });
 const launch = document.getElementById('policy-launch'), count = document.getElementById('policy-count');
 launch.addEventListener('click', () => panel.open(launch));
 addEventListener('keydown', e => {

@@ -1,6 +1,6 @@
-// Player cards from /api/policies/generate, kept in this browser as { card, signature } so /api/narration can trust them on a
-// later visit. Not wired in yet: on load, push loadPlayerCards()' cards into the page's cards and the store (store.addPolicy);
-// after a draft, savePlayerCards([...entries, reply]); send the entries in use as narration's body.cards.
+// Player cards from /api/policies/generate, kept in this browser as { card, signature, unmodeled } so they come back on a
+// later visit, and so /api/narration can trust them (send the ones in use as its body.cards, once narration is on the page).
+// index.html loads them into the page's cards and the store, and saves each new draft.
 // The server makes each id unique, so never rename a card here: that would break its signature.
 // From William Chen's restore code in meridian-city/index.html (origin/William, 0f80831).
 import { validateCard } from '../../shared/schema.js';

@@ -14,7 +14,13 @@ export const CATEGORIES = [
   { id: 'housing',    label: 'Housing',    slots: 1, color: '#45b04f', deep: '#256f2d', light: '#b3f0a5', tint: '#e6f7e3' },
   { id: 'taxation',   label: 'Taxation',   slots: 1, color: '#e8a032', deep: '#8a560b', light: '#ffe196', tint: '#fdf2df' },
   { id: 'transport',  label: 'Transport',  slots: 1, color: '#8a63d2', deep: '#563596', light: '#d9c8ff', tint: '#f1ebfd' },
+  // Its own slot, so a card that protects land can sit beside the housing card it would block.
+  { id: 'environment', label: 'Environment', slots: 1, color: '#7aa82c', deep: '#4a6a14', light: '#d6f09a', tint: '#f1f8e2' },
 ];
+
+// Ideas offered under the panel's "Propose a new policy" box. npm run pregen:demo commits their drafts, so they answer at
+// once and work in DEMO_MODE.
+export const EXAMPLE_IDEAS = ['protect all remaining forest', 'turn parking lots near campus into housing', 'double bus service'];
 
 export const slotsOf = categories => categories.flatMap(c =>
   Array.from({ length: c.slots }, (_, index) => ({ id: `${c.id}-${index + 1}`, category: c.id, index })));

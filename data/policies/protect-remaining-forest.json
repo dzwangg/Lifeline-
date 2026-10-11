@@ -2,7 +2,7 @@
   "id": "protect-remaining-forest",
   "title": "Protect remaining forest",
   "summary": "Keeps every wooded parcel on the map as forest, so no other policy can clear it for building while this one is in place.",
-  "category": "housing",
+  "category": "environment",
   "icon": "sprout",
   "decider": {
     "body": "Chapel Hill Town Council",

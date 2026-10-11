@@ -2,8 +2,9 @@
 // tests/create-policy-card.test.js (origin/William, 0f80831).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { POST, checkCard, directionErrors, generateCard, loadContext, tidy } from '../api/policies.js';
+import { existsSync, mkdirSync, readFileSync, rmSync, rmdirSync, writeFileSync } from 'node:fs';
+import { POST, checkCard, directionErrors, draftFile, generateCard, loadContext, tidy } from '../api/policies.js';
+import { EXAMPLE_IDEAS } from '../meridian-city/policy/policies.js';
 import { POST as narrationPOST, signCard } from '../api/narration.js';
 import { cards } from './data.js';
 
@@ -242,4 +243,35 @@ test('cache: an unsupported verdict is kept; a draft that failed its checks is n
     assert.equal((await generate('great homes on the edge')).status, 422);
     assert.equal(bodies.length, 4, 'two drafts and their retries');
   });
+});
+
+test('committed drafts (npm run pregen:demo) are served without Gemini, in DEMO_MODE too, each reply with its own id and signature', async () => {
+  const dir = new URL('../demo-audio/', import.meta.url), made = !existsSync(dir), files = [];
+  mkdirSync(dir, { recursive: true });
+  const commit = (idea, hit) => { const f = new URL(draftFile(idea), dir); files.push(f); writeFileSync(f, JSON.stringify(hit)); };
+  commit('Committed  homes by the corridor', { draft: { card: zoneCard, unmodeled: ['affordability'] } });
+  commit('committed rent rules', { status: 422, body: { error: "This idea can't be simulated yet: no rent rules.", unsupportedReason: 'no rent rules.', unmodeled: ['rent limits'] } });
+  commit('committed stale card', { draft: { card: { ...zoneCard, category: 'parks' }, unmodeled: [] } }); // from before a schema change
+  try {
+    await withGemini([], async bodies => {
+      const a = await (await generate('committed homes by the CORRIDOR')).json(), b = await (await generate('committed homes by the corridor')).json();
+      assert.deepEqual([a.cached, a.unmodeled, a.card.title], [true, ['affordability'], zoneCard.title]);
+      assert.match(a.card.id, /^corridor-apartments-[0-9a-f]{4}$/);
+      assert.notEqual(a.card.id, b.card.id);
+      assert.equal(b.signature, signCard(b.card, 'sign-secret'));
+      const refused = await generate('Committed rent rules');
+      assert.deepEqual([refused.status, (await refused.json()).unmodeled], [422, ['rent limits']]);
+      assert.equal((await generate('committed stale card')).status, 503, 'an invalid committed card is ignored, and DEMO_MODE drafts nothing');
+      assert.equal(bodies.length, 0);
+    }, { ...ENV, DEMO_MODE: '1' });
+  } finally {
+    for (const f of files) rmSync(f);
+    if (made) rmdirSync(dir);
+  }
+});
+
+test('the panel offers 3 example ideas, each with its own committed draft file', () => {
+  assert.equal(EXAMPLE_IDEAS.length, 3);
+  assert.equal(new Set(EXAMPLE_IDEAS.map(draftFile)).size, 3);
+  for (const f of EXAMPLE_IDEAS.map(draftFile)) assert.match(f, /^draft-[0-9a-f]{16}\.json$/);
 });

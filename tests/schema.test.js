@@ -48,3 +48,12 @@ test('a protect rule is { where, protect: <state> }; "all" selects every zone', 
   for (const path of ['zoneRules[0].where', 'zoneRules[1].protect', 'zoneRules[2].to']) assert.ok(errors.includes(path), path);
   assert.ok(matchesWhere('all', { id: 'zone-01-01', tags: [] }));
 });
+
+test('environment is a category with its own slot, and protect-remaining-forest sits in it beside the housing cards', async () => {
+  const { CATEGORIES, SLOTS } = await import('../meridian-city/policy/policies.js');
+  const { cards } = await import('./data.js');
+  assert.deepEqual(CATEGORIES.find(c => c.id === 'environment')?.slots, 1);
+  assert.ok(SLOTS.some(s => s.id === 'environment-1') && SLOTS.some(s => s.id === 'housing-1'));
+  assert.deepEqual(validateCard({ ...stub, category: 'environment', icon: 'sprout' }), []);
+  assert.equal(cards.find(c => c.id === 'protect-remaining-forest').category, 'environment');
+});

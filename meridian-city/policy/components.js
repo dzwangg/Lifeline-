@@ -35,10 +35,11 @@ export function PolicyCard(policy, category, { place = 'library', key, inUse = n
     'data-place': place,
     'data-key': key,
     'aria-pressed': armed ? 'true' : 'false',
-    'aria-label': `${policy.title}, ${category.label} policy${where}. ${policy.summary}`,
+    'aria-label': `${policy.title}, ${policy.aiDrafted ? 'AI-drafted ' : ''}${category.label} policy${where}. ${policy.summary}`,
     style: catVars(category),
   },
     h('span', { class: 'pp-card__cat' }, category.label),
+    policy.aiDrafted && h('span', { class: 'pp-ai pp-card__ai' }, 'AI-drafted'),
     h('span', { class: 'pp-card__orb', 'aria-hidden': 'true', html: icon(policy.icon) }),
     h('strong', { class: 'pp-card__title' }, policy.title),
     h('span', { class: 'pp-card__desc' }, policy.summary),
@@ -64,7 +65,7 @@ export function PolicySlot(slot, category, policy, { armed = false } = {}) {
   } else {
     el.append(h('div', { class: 'pp-slot__empty', role: 'button', tabindex: 0, 'data-key': `slot:${slot.id}`, 'aria-label': `Empty ${label} slot` },
       h('span', { class: 'pp-slot__label' }, label),
-      h('span', { class: 'pp-slot__hint' }, `Drop a ${category.label.toLowerCase()} card`)));
+      h('span', { class: 'pp-slot__hint' }, `Drop ${/^[aeiou]/i.test(category.label) ? 'an' : 'a'} ${category.label.toLowerCase()} card`)));
   }
   return el;
 }

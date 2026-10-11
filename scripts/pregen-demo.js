@@ -1,6 +1,7 @@
 // Pregenerates the demo's clips into demo-audio/, so the deployed demo (and DEMO_MODE) serves them without calling Gemini
 // or ElevenLabs: for each scenario in data/demo-scenarios.json, the narration recap (as npm run pregen writes it), and
-// each listed resident's answer to each starter question (api/resident.js clipFiles()). ElevenLabs' free characters are
+// each listed resident's answer to each starter question (api/resident.js clipFiles()), and the policy panel's example
+// ideas drafted into cards (api/policies.js draftFile(), on the cards model). ElevenLabs' free characters are
 // few, so only the 3 recaps and the first resident's answers to the first 2 questions in each scenario (9 clips) get
 // audio; the rest are text. The texts come first; then the run prints the characters the audio will take and stops if
 // they are over MAX_TTS_CHARS (default 10,000, ElevenLabs' free month) before calling ElevenLabs.
@@ -15,6 +16,8 @@ import { runCombined } from '../shared/combined.js';
 import { hashInput, loadCards, modelFor, narrate, parseInput, speak, speakable, speechKey } from '../api/narration.js';
 import { VOICES, answer, answerKey, clipFiles, facts } from '../api/resident.js';
 import { loadData, statementFor } from '../api/resident-bank.js';
+import { draftFile, generateCard } from '../api/policies.js';
+import { EXAMPLE_IDEAS } from '../meridian-city/policy/policies.js';
 
 const OUT = new URL('../demo-audio/', import.meta.url);
 const AUDIO_QUESTIONS = 2; // per scenario, the first resident's answers to this many questions get audio
@@ -73,6 +76,19 @@ async function main() {
   const maxChars = Number(process.env.MAX_TTS_CHARS) || 10_000;
   mkdirSync(OUT, { recursive: true });
   const all = await jobs(), saved = j => existsSync(new URL(j.json, OUT));
+
+  // 0. The example ideas' drafts, as /api/policies caches them: a card, or Gemini's verdict that nothing is modelable.
+  for (const idea of EXAMPLE_IDEAS.filter(i => !existsSync(new URL(draftFile(i), OUT)))) {
+    let hit;
+    try {
+      hit = { draft: await generateCard(idea) };
+    } catch (err) {
+      if (!err.extra?.unsupportedReason) throw new Error(`stopped at the idea "${idea}": ${err.message}${err.extra?.problems ? `\n  ${err.extra.problems.join('\n  ')}` : ''}`);
+      hit = { status: err.status, body: { error: err.message, ...err.extra } };
+    }
+    writeFileSync(new URL(draftFile(idea), OUT), JSON.stringify(hit, null, 2) + '\n');
+    console.log(`idea "${idea}" -> demo-audio/${draftFile(idea)}${hit.draft ? ` (${hit.draft.card.title})` : ' (not modelable)'}`);
+  }
 
   // 1. The texts, from Gemini, without audio. Each is saved as it comes, so a stopped run resumes.
   const todo = all.filter(j => !saved(j)), models = assignModels(todo, process.env);

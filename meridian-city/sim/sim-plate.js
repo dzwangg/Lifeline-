@@ -174,7 +174,7 @@ const timing = ({ delayQuarters: d, phaseInQuarters: p }) => `Starts after ${qua
 
 export async function mountSimPlate({ policyStore, cards, host = document.body }) {
   const [, assumptions, baselines] = await dataReady;
-  const cardById = new Map(cards.map(c => [c.id, c]));
+  let cardById = new Map(cards.map(c => [c.id, c])); // rebuilt on each sync: the panel can add drafted cards to `cards`
   const ui = { metric: null, picked: false, active: [] };
 
   // ---------- skeleton ----------
@@ -222,6 +222,7 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
   // ---------- cards applied in the policy panel drive the sim ----------
   let shownIds = null;
   const sync = state => {
+    cardById = new Map(cards.map(c => [c.id, c])); // William Chen's fix (origin/William, 0f80831)
     const ids = Object.values(state.applied).filter(Boolean);
     if (ids.join() === shownIds) return; // the panel also emits while its draft changes
     shownIds = ids.join();

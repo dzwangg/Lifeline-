@@ -267,7 +267,7 @@ html.pp-dragging, html.pp-dragging * { cursor: grabbing !important; }
 @keyframes pp-refused { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
 
 /* ---------- library ---------- */
-.pp-library { overflow: hidden; }
+.pp-library { overflow-y: auto; } /* the whole column scrolls, so the proposal form never squeezes the cards */
 .pp-lib__count { font-size: 13px; color: var(--pp-ink-soft); }
 .pp-search { position: relative; display: block; }
 .pp-search__icon { position: absolute; left: 13px; top: 50%; translate: 0 -50%; display: grid; pointer-events: none; }
@@ -294,7 +294,7 @@ html.pp-dragging, html.pp-dragging * { cursor: grabbing !important; }
 }
 .pp-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); align-content: start; gap: 14px;
-  flex: 1; min-height: 0; overflow-y: auto; padding: 12px 10px 12px; margin: -6px -10px -12px;
+  flex: none; padding: 12px 10px 12px; margin: -6px -10px -12px;
 }
 .pp-empty { grid-column: 1 / -1; margin: 12px 4px; font-size: 14px; line-height: 1.45; color: var(--pp-ink-soft); }
 .pp-library__return {
@@ -397,3 +397,38 @@ html.pp-dragging, html.pp-dragging * { cursor: grabbing !important; }
 @media (prefers-reduced-motion: reduce) {
   .pp-root *, .pp-root, .pp-launch, .pp-ghost { animation: none !important; transition: none !important; }
 }
+
+/* ---------- propose a new policy (AI-drafted cards) ---------- */
+.pp-ai {
+  display: inline-block; padding: 2px 7px 1px; border-radius: 999px; font-size: 10.5px; font-weight: 800; letter-spacing: .02em;
+  color: #fff; background: linear-gradient(180deg, #6f7fd8, #4553b0); vertical-align: 1px;
+}
+.pp-card__ai { margin: -2px 0 -1px; font-size: 9.5px; padding: 1px 6px 0; }
+.pp-create { flex: none; margin: 10px 0 2px; padding: 9px 12px; border: 1px solid rgba(29, 106, 165, .2); border-radius: 12px; background: rgba(255, 255, 255, .5); }
+.pp-create__title { cursor: pointer; font-size: 14px; font-weight: 800; color: var(--pp-ink); }
+.pp-create__title:focus-visible { outline: 3px solid var(--pp-aqua); outline-offset: 2px; border-radius: 4px; }
+.pp-create__hint { margin: 4px 0 8px; font-size: 12.5px; line-height: 1.35; color: var(--pp-ink-soft); }
+.pp-create__form { display: grid; gap: 8px; min-width: 0; }
+.pp-create__input {
+  box-sizing: border-box; width: 100%; min-height: 52px; resize: vertical; padding: 8px 10px; border-radius: 10px;
+  font: 14px/1.4 var(--pp-font); color: var(--pp-ink); background: rgba(255, 255, 255, .85); border: 1px solid rgba(29, 106, 165, .35);
+}
+.pp-create__input:focus { outline: none; border-color: var(--pp-aqua); box-shadow: 0 0 0 3px rgba(47, 208, 224, .3); }
+.pp-create__examples { display: flex; flex-wrap: wrap; gap: 6px; }
+.pp-create__example {
+  padding: 4px 10px 3px; border-radius: 999px; cursor: pointer; font: 600 12.5px/1.25 var(--pp-font); color: var(--pp-carolina-deep);
+  background: rgba(255, 255, 255, .8); border: 1px dashed rgba(29, 106, 165, .45); text-align: left;
+}
+.pp-create__example:hover:not(:disabled) { background: #fff; border-style: solid; }
+.pp-create__example:focus-visible { outline: 3px solid var(--pp-aqua); outline-offset: 2px; }
+.pp-create__example:disabled { opacity: .5; cursor: progress; }
+.pp-create__actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pp-create__actions .pp-btn { padding: 8px 16px 7px; font-size: 14px; }
+.pp-create__status { flex: 1 1 12em; margin: 0; font-size: 12.5px; line-height: 1.35; color: var(--pp-ink-soft); overflow-wrap: anywhere; }
+.pp-create__preview { max-height: 190px; overflow-y: auto; font-size: 12.5px; line-height: 1.38; overflow-wrap: anywhere; }
+.pp-create__preview:empty { display: none; }
+.pp-create__card { padding: 8px 10px; border-radius: 10px; border-left: 4px solid var(--cat); background: var(--cat-tint); }
+.pp-create__kicker { margin: 0 0 3px; font-weight: 700; color: var(--cat-deep); }
+.pp-create__name { display: block; font-size: 14px; color: var(--pp-ink); }
+.pp-create__card p, .pp-create__list { margin: 4px 0; }
+.pp-create__list ul { margin: 2px 0 4px; padding-left: 18px; }

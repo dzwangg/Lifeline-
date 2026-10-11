@@ -240,3 +240,90 @@ test('picking: a household in range wins over a nearer ambient walker; an ambien
   assert.equal(pickWalker([...at(walker, 500, 500), ...at(household, 530, 500)], rect, 500, 500), walker, 'the household is out of range');
   assert.equal(pickWalker([...at(walker, 540, 500)], rect, 500, 500), null);
 });
+
+// ---------- crossings: a new destination waits for the kerb, and a skip never bypasses the crossing check ----------
+import { WALK_TIME, CLEAR_SPEED } from '../meridian-city/world/street-sim.js';
+import { seeded } from '../meridian-city/world/palette.js';
+const edgeKind = (a, b) => a.adj.find(l => l.to === b)?.e.kind;
+const signalled = sim => sim.net.crosswalks.filter(c => c.signalized && c.nodeA && c.nodeB);
+
+test('a walker sent somewhere else mid-crossing finishes the crossing first, counted on it, then goes and arrives', () => {
+  const sim = city(), cw = signalled(sim)[0], A = cw.nodeA, B = cw.nodeB;
+  const p = sim.addPed({ x: A.x, z: A.z, owner: 'x' });
+  sim.sendPed(p, B.x, B.z, 'across');
+  for (let t = 0; t < 120 && p.state !== 'crossing'; t += STEP) { sim.step(STEP); sim.plan(50); }
+  assert.equal(p.state, 'crossing', 'got a walk signal and stepped out');
+  sim.sendPed(p, A.x, A.z, 'back where it came from'); // would mean turning round in the road
+  assert.ok(p.pendingSend && p.state === 'crossing' && cw.peds.has(p), 'deferred, still crossing');
+  let dB = Math.hypot(p.x - B.x, p.z - B.z), sawKerb = false;
+  for (let t = 0; t < 400 && !(sawKerb && sim.idle(p)); t += STEP) {
+    sim.step(STEP); sim.plan(50);
+    if (!sawKerb) {
+      const d = Math.hypot(p.x - B.x, p.z - B.z);
+      if (onRoad(p.x, p.z)) assert.ok(p.state === 'crossing' && [...sim.net.crosswalks].some(c => c.peds.has(p)), 'in the road only on a crosswalk, counted');
+      assert.ok(d <= dB + .05, `turned round in the road: ${d.toFixed(2)} m from the far kerb, was ${dB.toFixed(2)}`);
+      dB = d;
+      if (p.state !== 'crossing') { sawKerb = true; assert.ok(!onRoad(p.x, p.z) && d < 2.5, 'reached the far kerb'); }
+    }
+  }
+  assert.ok(sawKerb && sim.idle(p), 'then went on to the new goal');
+  assert.ok(Math.hypot(p.x - A.x, p.z - A.z) < 3 && p.dest.label === 'back where it came from');
+});
+
+test('a skip that lands on the near kerb of a crossing waits for the signal there, crosses and arrives', () => {
+  const sim = city();
+  let found = null;
+  // A trip of 90-220 m whose skip lands on a kerb just before a signalled crossing, with the goal 10-25 m past it.
+  for (const cw of signalled(sim)) for (const [near, far] of [[cw.nodeA, cw.nodeB], [cw.nodeB, cw.nodeA]]) {
+    if (found) break;
+    const goals = sim.walk.nodes.filter(n => n.kind !== 'kerb' && Math.hypot(n.x - far.x, n.z - far.z) >= 10 && Math.hypot(n.x - far.x, n.z - far.z) <= 25);
+    const starts = sim.walk.nodes.filter(n => n.kind !== 'kerb' && Math.hypot(n.x - near.x, n.z - near.z) > 60 && Math.hypot(n.x - near.x, n.z - near.z) < 180);
+    for (const g of goals) for (const s of starts.slice(0, 40)) {
+      if (found) break;
+      const p = sim.addPed({ x: s.x, z: s.z, owner: 'probe' });
+      sim.sendPed(p, g.x, g.z, 'past the crossing');
+      sim.plan(50);
+      const r = p.route, len = r ? r.slice(1).reduce((t, n, i) => t + Math.hypot(n.x - r[i].x, n.z - r[i].z), 0) : 0;
+      if (p.skip && len >= 90 && len <= 220 && r[p.skip[1]] === near && r[p.skip[1] + 1] === far && edgeKind(near, far) === 'cross') found = { p, cw, near, far, g };
+      else sim.removePed(p);
+    }
+  }
+  assert.ok(found, 'found such a trip on the synthetic city');
+  const { p, cw, far, g } = found;
+  let crossed = false, waitedOrWalk = false, t = 0;
+  for (; t < 300 && !sim.idle(p); t += STEP) {
+    sim.step(STEP); sim.plan(50);
+    if (p.state === 'waiting') waitedOrWalk = true;
+    if (p.state === 'crossing') { crossed = true; if (cw.walk === 'WALK') waitedOrWalk = true; assert.ok(cw.peds.has(p)); }
+    if (p.state !== 'crossing' && !(p.hidden > 0)) assert.ok(!onRoad(p.x, p.z), 'off the road unless crossing');
+  }
+  assert.ok(crossed && waitedOrWalk, 'checked the signal, then crossed');
+  assert.ok(sim.idle(p) && Math.hypot(p.x - g.x, p.z - g.z) < 3, `arrived (after ${t.toFixed(0)} s)`);
+});
+
+test('sweep: two days of household trips with the hour running: nobody lingers in the road, nobody gets stuck', () => {
+  const sim = city(), r = seeded(99);
+  const nodes = sim.walk.nodes.filter(n => n.kind !== 'kerb'), at = () => { const n = r.pick(nodes); return { x: n.x, z: n.z, label: 'a door' }; };
+  const H = createHouseholds({ sim, doors: { campus: [at(), at(), at()], downtown: [at(), at()] }, exits: [[360, 300], [0, 360]], ext: 380 });
+  const kinds = ['campus', 'downtown', 'durham', 'remote'];
+  const agents = Array.from({ length: 48 }, (_, i) => agent(i, { work: kinds[i % 4], student: i % 7 === 0 }));
+  H.sync(agents, agents.map(() => { const n = r.pick(nodes); return [n.x, n.z]; }), 0, false, hourAt(0));
+  const longest = Math.max(...sim.net.crosswalks.map(c => c.len)), roadMax = WALK_TIME + longest / CLEAR_SPEED + 2;
+  const track = new Map(); let worstRoad = 0, worstStill = 0, trips = 0;
+  runFor(sim, 2 * DAY_S, () => {
+    H.update(hourAt(sim.time));
+    H.each((a, p) => {
+      if (!p) return;
+      const k = track.get(p) ?? { road: 0, still: 0, x: p.x, z: p.z };
+      k.road = onRoad(p.x, p.z) && !(p.hidden > 0) ? k.road + STEP : 0;
+      const moved = Math.hypot(p.x - k.x, p.z - k.z) > .3;
+      if (moved || sim.idle(p) || p.hidden > 0 || p.state === 'waiting') { k.still = 0; k.x = p.x; k.z = p.z; } else k.still += STEP;
+      worstRoad = Math.max(worstRoad, k.road); worstStill = Math.max(worstStill, k.still);
+      track.set(p, k);
+    });
+  });
+  H.each((a, p) => { trips += p?.trips ?? 0; });
+  assert.ok(trips > 60, `${trips} trips`);
+  assert.ok(worstRoad <= roadMax, `a walker was in the road ${worstRoad.toFixed(1)} s (most allowed ${roadMax.toFixed(1)})`);
+  assert.ok(worstStill <= 20, `a walker with somewhere to go made no progress for ${worstStill.toFixed(1)} s`);
+});

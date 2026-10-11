@@ -26,7 +26,8 @@ import { seeded } from './palette.js';
 export const STEP = 1 / 20;            // seconds of simulated time per fixed step
 const MAX_STEPS = 16;                  // per frame; beyond this the sim runs slow rather than skip checks
 const A_MAX = 2.2, B_COMF = 3, B_MAX = 8, T_HEAD = 1.1, S_MIN = 2;
-const YELLOW = 3.5, ALL_RED = 2, WALK_TIME = 7, CLEAR_SPEED = 1.0, HOLD_MAX = 30;
+const YELLOW = 3.5, ALL_RED = 2, HOLD_MAX = 30;
+export const WALK_TIME = 7, CLEAR_SPEED = 1.0; // walk signal, and the slowest pace the flashing don't-walk allows for
 const PED_R = .28;                     // personal radius (m)
 export const SHOW_M = 25;              // a sent trip longer than twice this shows only this much at each end: ~20 s of walking
 const HIDE_S = 2;                      // seconds out of sight between a trip's two ends
@@ -406,6 +407,14 @@ export function createStreetSim({ net, walk, seed = 11, doors = [], obstacles = 
       if (i1 > 0 && i2 > i1 + 1) p.skip = [i1, i2];
     }
   }
+  // On a crosswalk, or anywhere in the road: a new destination waits until the walker is back on the sidewalk.
+  const midCrossing = p => p.state === 'crossing' || p.cw?.peds.has(p) || onRoad(p.x, p.z);
+  function send(p, x, z, label) {
+    if (p.cw) { p.cw.waiting.delete(p); p.cw = null; }
+    setState(p, 'walking');
+    p.goal = { x, z, label }; p.dest = { label, node: p.node }; p.route = null; p.skip = null; p.doorLeg = false; p.linger = 0;
+    if (!p.queued) { p.queued = true; tripQueue.push(p); }
+  }
   function jump(p, x, z) { p.x = p.px = x; p.z = p.pz = z; p.hidden = HIDE_S; p.lat = p.latGoal = 0; }
   // The walk node nearest (x, z) on a big component (the given one if it has a node within reach).
   function nearestNode(x, z, comp) {
@@ -464,6 +473,7 @@ export function createStreetSim({ net, walk, seed = 11, doors = [], obstacles = 
   function stepPed(p, dt) {
     p.px = p.x; p.pz = p.z;
     if (p.hidden > 0) { p.hidden -= dt; p.v = 0; return; } // between a long trip's two ends
+    if (p.pendingSend && !midCrossing(p)) { const { x, z, label } = p.pendingSend; p.pendingSend = null; send(p, x, z, label); } // back on the kerb
     if (!p.route) {
       p.v = 0;
       if (p.linger > 0) p.linger -= dt;
@@ -576,9 +586,14 @@ export function createStreetSim({ net, walk, seed = 11, doors = [], obstacles = 
     else if (p.state !== 'walking' && p.state !== 'approaching') setState(p, 'walking');
     if (p.state === 'approaching') setState(p, 'walking');
     p.ri++;
-    if (p.skip && p.ri === p.skip[0]) { // out of sight here, back near the end
+    // Out of sight here, back near the end. The walker lands on node skip[1] and resumes heading for it, so stepPed's
+    // crossing check (mayCross) sees the edge it is about to take, even when that edge crosses the road. >=: a
+    // crossing that ends past skip[0] has moved ri on by itself; the skip then starts at its far kerb.
+    if (p.skip && p.ri > p.skip[1]) p.skip = null; // already past where it would land
+    if (p.skip && p.ri >= p.skip[0] && p.state === 'walking') {
       const n = p.route[p.skip[1]];
-      jump(p, n.x, n.z); p.node = n; p.ri = p.skip[1] + 1; p.skip = null;
+      jump(p, n.x, n.z); p.node = n; p.ri = p.skip[1]; p.skip = null;
+      return;
     }
     if (p.ri >= p.route.length) {
       if (p.door) { p.doorLeg = true; p.route = [T]; p.ri = 0; }
@@ -664,15 +679,14 @@ export function createStreetSim({ net, walk, seed = 11, doors = [], obstacles = 
       if (p.queued) tripQueue.splice(tripQueue.indexOf(p), 1);
       p.removed = true;
     },
-    /** Sends an added walker to (x, z), a door or any point: routed off the frame budget like every trip. */
+    /** Sends an added walker to (x, z), a door or any point: routed off the frame budget like every trip. A walker on
+     *  a crossing (or in the road) finishes it first: the new destination waits in pendingSend for the far kerb. */
     sendPed(p, x, z, label) {
-      if (p.cw) { p.cw.peds.delete(p); p.cw.waiting.delete(p); p.cw = null; }
-      setState(p, 'walking');
-      p.goal = { x, z, label }; p.dest = { label, node: p.node }; p.route = null; p.skip = null; p.doorLeg = false; p.linger = 0;
-      if (!p.queued) { p.queued = true; tripQueue.push(p); }
+      if (midCrossing(p)) p.pendingSend = { x, z, label };
+      else { p.pendingSend = null; send(p, x, z, label); }
     },
-    /** An added walker with nowhere to go: arrived, and not routing or out of sight. */
-    idle: p => !p.route && !p.queued && !p.goal && !(p.hidden > 0),
+    /** An added walker with nowhere to go: arrived, and not routing, out of sight or waiting to be sent on. */
+    idle: p => !p.route && !p.queued && !p.goal && !(p.hidden > 0) && !p.pendingSend,
     counts() {
       const states = {};
       for (const p of peds) states[p.state] = (states[p.state] ?? 0) + 1;

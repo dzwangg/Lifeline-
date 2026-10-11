@@ -9,7 +9,7 @@ import { validateCard } from '../../shared/schema.js';
 import { LEVERS } from '../../shared/luti/levers.js';
 import { describeDrivers } from '../../shared/luti/drivers.js';
 import { scenario } from '../sim/scenario.js';
-import { loadPlayerCards, savePlayerCards } from './player-cards.js';
+import { loadPlayerCards, rememberPlayerCard } from './player-cards.js';
 
 const EXAMPLES = [
   'Run buses twice as often on the MLK corridor',
@@ -19,12 +19,18 @@ const EXAMPLES = [
   'Unlock Durham',
 ];
 const STATES = { forest: 'woods', parking: 'parking lots', low_res: 'houses', mid_res: 'apartments', mixed_use: 'shops with homes above', transit_station: 'a transit station' };
-const panelPolicy = c => ({ id: c.id, title: c.title, category: c.category ?? 'housing', icon: c.icon ?? 'house', summary: c.summary });
+// drafted marks it as the player's own, so the panel offers to discard it again.
+const panelPolicy = c => ({ id: c.id, title: c.title, category: c.category ?? 'housing', icon: c.icon ?? 'house', summary: c.summary, drafted: true });
 
 export function mountAskBar({ store, cards, game = null, host = document.body }) {
   // cards drafted on an earlier visit join the deck (not applied)
-  let saved = loadPlayerCards(new Set(cards.map(c => c.id)));
-  for (const { card } of saved) addCard(card);
+  for (const { card } of loadPlayerCards(new Set(cards.map(c => c.id)))) addCard(card);
+  // Discarded in the panel, or superseded by a redraft: out of the simulator's cards too.
+  store.subscribe((_, change) => {
+    if (change?.type !== 'dropPolicy') return;
+    const i = cards.findIndex(c => c.id === change.policyId);
+    if (i >= 0) cards.splice(i, 1);
+  });
 
   const input = h('input', { class: 'ask__input', type: 'text', maxlength: 1000, autocomplete: 'off', spellcheck: 'true',
     placeholder: 'Ask the city: a policy, a what-if, or a question…', 'aria-label': 'Ask the city' });
@@ -90,8 +96,7 @@ export function mountAskBar({ store, cards, game = null, host = document.body })
       const errors = validateCard(r.card);
       if (errors.length) return show('ask__out--error', h('p', { class: 'ask__lede' }, 'The drafted card didn’t pass the checks, so nothing changed.'));
       addCard(r.card);
-      saved = [...saved.filter(e => e.card.id !== r.card.id), { card: r.card, signature: r.signature ?? null }];
-      savePlayerCards(saved);
+      for (const old of rememberPlayerCard({ card: r.card, signature: r.signature ?? null })) store.dropPolicy(old);
       const placed = place(r.card);
       done.push(h('div', { class: 'ask__card' },
         h('p', { class: 'ask__kicker' }, placed ? appliedIn('Applied in', placed) : 'Added to your library; no slot could take it'),

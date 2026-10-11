@@ -93,6 +93,36 @@ full build-and-transit package reaches 80 on the economy, releasing the edge of 
 45 as the canopy goes, and a tax cut and sprawl together score 65 on the economy against 34 for residents — the whole
 point being that the two halves can disagree.
 
+## Losing
+
+A score only means something if a player can lose it, so the library carries policies that make Chapel Hill worse. Each
+is tempting for a real reason, and each costs more than it brings in. Scored at the slider's default, then at its worst:
+
+| Policy | Default | Worst | What goes wrong |
+|---|---|---|---|
+| Require below-market homes in every new building | 39.4 | 32.4 | A steep set-aside with no density bonus is a cost on building with nothing given back; new homes a year falls to 0 |
+| Send new buildings back for more review | 45.7 | 39.3 | Months of hearings are about 1% of build cost each, and land in rents |
+| Impact fee on each new home | 47.0 | 43.7 | The Town's budget goes to 100 and the fee lands on buyers, about $1.60 of price per $1 charged |
+| Cut the charge for downtown parking | 48.6 | 44.4 | The economy holds at 50 while residents drop to 38: the deck debt moves onto the property tax |
+| Bring back parking minimums | 46.0 | 40.3 | Already in the library. The worst single setting in the game |
+| Property tax cut of 10¢ | — | 49.0 | Economy 59.5, residents 38.4. The halves disagree more than anywhere else |
+
+The two-sided ones are the point. A tax cut reads well on the economy and badly for residents; a tax **rise** is the
+mirror of it (43.6 against 64.2). Grants score 70–79 on the economy and 43–46 for residents, because the growth they
+buy arrives as traffic and rent. Nothing in the library is good on both halves at once except building homes near
+transit.
+
+### A limit worth knowing
+
+Because the score is relative to doing nothing and leans on affordability, **making the town less desirable can read as
+a gain for residents.** Cutting bus service to a quarter takes access to jobs, ridership, traffic, CO₂ and car share all
+to 0 — and still scores 50.1 overall, because fewer people want to live here, so rent burden and displacement go to 100
+and the Town stops paying for buses. The mechanism is real (transit access is capitalised into rents, and Chapel Hill
+Transit is fare-free and Town-funded) but the weighting lets it win: rent burden and displacement carry 3.5 weight
+between them and saturate, while the five transport readings carry 3.25 and bottom out early. No card in the library
+cuts bus service, for this reason. If this matters more later, the fix is in `shared/indicators.js` — a larger transport
+swing, or less weight on affordability — not in the scorer.
+
 ## The anchors
 
 These describe what a good and a bad town look like in **absolute** terms. The score no longer reads them — it reads

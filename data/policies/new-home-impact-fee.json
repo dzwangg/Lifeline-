@@ -1,0 +1,79 @@
+{
+  "id": "new-home-impact-fee",
+  "title": "Impact fee on each new home",
+  "summary": "Charges a one-off fee on every new home toward the streets, sidewalks, bikeways, drainage and parks that growth uses. Chapel Hill is one of a handful of North Carolina towns allowed to.",
+  "category": "taxation",
+  "icon": "percent",
+  "decider": {
+    "body": "Chapel Hill Town Council",
+    "how": [
+      "Staff prepare the capital improvements plan the charter requires a fee to be based on.",
+      "The fee ordinance and schedule go to a Town Council public hearing.",
+      "Town Council adopts the ordinance and sets the amount."
+    ]
+  },
+  "params": [
+    {
+      "key": "dollars_per_home",
+      "label": "Fee charged on each new home",
+      "min": 2000,
+      "max": 30000,
+      "default": 10000,
+      "step": 500,
+      "unit": "$ per home"
+    }
+  ],
+  "levers": [
+    {
+      "lever": "housing.impactFee",
+      "param": "dollars_per_home"
+    }
+  ],
+  "timing": {
+    "delayQuarters": 3,
+    "phaseInQuarters": 1
+  },
+  "evidence": [
+    {
+      "claim": "Chapel Hill has held charter authority to levy impact fees since 1985, for capital improvements to streets, bridges, sidewalks, bikeways, surface water drainage and public recreation — schools, water and sewer are not on the list",
+      "source": "North Carolina Session Laws 1985, Chapter 936, §1, adding Article 7 (§§5.34-5.41) to the Town of Chapel Hill charter",
+      "url": "https://www.ncleg.net/EnactedLegislation/SessionLaws/HTML/1985-1986/SL1985-936.html"
+    },
+    {
+      "claim": "North Carolina gives cities and counties no general power to charge impact fees, and the state Supreme Court held in Lanvale Properties v. County of Cabarrus (2012) that school impact fees are not authorised by general statute; a handful of towns, Chapel Hill among them, hold local-act authority instead",
+      "source": "Legislative Analysis Division, North Carolina General Assembly, An Overview of Impact Fees (March 2026), slides 8 and 24",
+      "url": "https://webservices.ncleg.gov/ViewDocSiteFile/105420"
+    },
+    {
+      "claim": "In Dade County, Florida each extra $1 of impact fee raised the price of new and existing homes alike by about $1.60 and cut the price of vacant land by about $1 — measured where total fees on an average new home were $5,239, so the figure should not be stretched far past that",
+      "source": "Keith Ihlanfeldt, The Effects of Impact Fees on Housing and Land Markets, DeVoe L. Moore Center, Florida State University (2002)",
+      "url": "https://cosspp.fsu.edu/dmc/wp-content/uploads/sites/8/2024/07/08.2002-The-Effects-of-Impact-Fees-on-Housing-and-Land-Markets.pdf"
+    },
+    {
+      "claim": "The same study reads that price rise as buyers paying up front for lower taxes later, worth about $1.20 per $1 of fee, and concludes the real burden falls on the owners of undeveloped land rather than on new buyers",
+      "source": "Keith Ihlanfeldt, The Effects of Impact Fees on Housing and Land Markets, DeVoe L. Moore Center, Florida State University (2002), Policy Implications",
+      "url": "https://cosspp.fsu.edu/dmc/wp-content/uploads/sites/8/2024/07/08.2002-The-Effects-of-Impact-Fees-on-Housing-and-Land-Markets.pdf"
+    },
+    {
+      "claim": "The General Assembly repealed Orange County's authority to charge school impact fees on new homes in 2017, so growth here cannot be made to pay for schools this way",
+      "source": "North Carolina Session Law 2017-36 (House Bill 406), An Act Repealing the Authority of Orange County to Impose Impact Fees, ratified 20 June 2017",
+      "url": "https://www.ncleg.gov/Sessions/2017/Bills/House/PDF/H406v4.pdf"
+    },
+    {
+      "claim": "Chapel Hill charges no impact fee today: its planning fee schedule is application and review fees priced by project and acreage, with no per-home charge anywhere in it",
+      "source": "Town of Chapel Hill, Planning Department Fee Schedule, effective 1 July 2026",
+      "url": "https://www.chapelhillnc.gov/Town-Government/Departments-and-Offices/Planning/Planning-Dept.-Fee-Schedule"
+    }
+  ],
+  "tradeoffs": {
+    "pros": [
+      "Growth pays for the streets, paths and parks it uses, and the money arrives without moving anyone's tax rate.",
+      "On the Dade County evidence households already here come out ahead: each $1 of fee was worth about $1.20 in property tax savings to them."
+    ],
+    "cons": [
+      "The fee shows up in house prices — about $1.60 per $1 charged — so homes get more expensive in the most expensive town in the Triangle, and the model treats that as a cost on building.",
+      "The best estimate of that effect comes from fees of around $5,000 a home. The top of this slider is six times that, well past where anyone has measured.",
+      "The charter only allows streets, bridges, sidewalks, bikeways, drainage and parks, and the fee has to be justified against a capital plan and each development's fair share — so 'growth pays for schools' cannot be delivered, and an unjustified fee is refundable with interest."
+    ]
+  }
+}

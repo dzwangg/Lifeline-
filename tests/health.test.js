@@ -106,6 +106,36 @@ test('a tax cut eases the bill and costs the Town; a rise does the reverse', () 
   assert.match(rise.categories.find(c => c.id === 'social').summary, /tax burden/, 'the summary names the bill');
 });
 
+// The library carries policies that make the town worse on purpose, so a player can lose. Each is tempting for a real
+// reason — revenue, scrutiny, affordability, free parking — and each costs more than it brings in.
+test('the harmful cards score below the town that did nothing, at their own defaults', () => {
+  for (const id of ['development-review-extension', 'new-home-impact-fee', 'downtown-parking-free', 'inclusionary-set-aside']) {
+    const s = score([id]);
+    assert.ok(s.overall < 50, `${id} leaves the town worse off: ${s.overall}`);
+  }
+  // and harder settings hurt more, so the slider is a real choice and not decoration
+  const mild = score(['inclusionary-set-aside'], { 'inclusionary-set-aside': { percent_below_market: 5 } });
+  const steep = score(['inclusionary-set-aside'], { 'inclusionary-set-aside': { percent_below_market: 40 } });
+  assert.ok(steep.overall < mild.overall - 5, `a steep set-aside costs more than a mild one: ${steep.overall} vs ${mild.overall}`);
+  assert.ok(at(steep, 'housingUnits').score < 20, 'because it is building that stops');
+
+  // free parking is the two-sided one: the driving gets easier and the Town pays for it
+  const free = score(['downtown-parking-free'], { 'downtown-parking-free': { dollars_per_day: -10 } });
+  assert.ok(at(free, 'netFiscal').score < 10, "the Town's money goes");
+  assert.ok(at(free, 'avgCommuteMin').score > 50, 'driving in is easier');
+  assert.ok(free.social < 45 && free.economic >= 50, `and residents carry it: ${free.social} against ${free.economic}`);
+});
+
+// Only two settings in the rest of the library leave the town clearly worse off. Both are popular.
+test('maximum parking minimums and a deep tax cut are the catalog\u2019s own ways to lose', () => {
+  const parking = score(['parking-minimum-restore'], { 'parking-minimum-restore': { spaces_per_home: 2 } });
+  assert.ok(parking.overall < 45, `parking minimums at their highest: ${parking.overall}`);
+  assert.ok(at(parking, 'housingUnits').score < 25, 'the homes stop being built');
+
+  const cut = score(['property-tax-adjustment'], { 'property-tax-adjustment': { cents_per_100: -10 } });
+  assert.ok(cut.economic > 55 && cut.social < 42, `a deep tax cut splits the halves: ${cut.economic} against ${cut.social}`);
+});
+
 test('the summary names what carried a half, and says so plainly when nothing did', () => {
   const ind = (key, label, move, weight = 1) => ({ key, label, move, weight });
   assert.equal(summarise([ind('a', 'Jobs', 0)]), 'Nothing moved much either way.');

@@ -1,0 +1,70 @@
+{
+  "id": "development-review-extension",
+  "title": "Send new buildings back for more review",
+  "summary": "Restores the concept plan and advisory board steps the Town removed in January 2026, so every housing project spends longer in hearings before it can start.",
+  "category": "housing",
+  "icon": "house",
+  "decider": {
+    "body": "Chapel Hill Town Council",
+    "how": [
+      "Planning staff draft the change to the Land Use Management Ordinance.",
+      "The Planning Commission reviews the proposal and makes a recommendation.",
+      "Residents comment at a Town Council public hearing.",
+      "Town Council votes on the change."
+    ]
+  },
+  "params": [
+    {
+      "key": "extra_months",
+      "label": "Months added before a project can start",
+      "min": 3,
+      "max": 24,
+      "default": 9,
+      "step": 1,
+      "unit": "months"
+    }
+  ],
+  "levers": [
+    {
+      "lever": "housing.approvalMonths",
+      "param": "extra_months"
+    }
+  ],
+  "timing": {
+    "delayQuarters": 2,
+    "phaseInQuarters": 1
+  },
+  "evidence": [
+    {
+      "claim": "Chapel Hill's own housing plan estimates that its expedited review track, open to projects with 25% or more affordable homes, cuts 4 to 7 months off approval by dropping concept plan review and advisory board review",
+      "source": "HR&A Advisors for the Town of Chapel Hill, Affordable Housing Plan & Investment Strategy, approved 13 September 2023 (rev. October 2023), p. 36",
+      "url": "https://www.chapelhillnc.gov/files/assets/town/v/1/housing/documents/chapel-hill-affordable-housing-plan-investment-strategy-rev-101323.pdf"
+    },
+    {
+      "claim": "On 21 January 2026 the Town Council voted to remove the Concept Plan Review and Site Plan Review steps for all projects; this card puts them back",
+      "source": "Town of Chapel Hill, Town Council adopts LUMO amendments (2026)",
+      "url": "https://engage.chapelhillnc.gov/re-writing-our-rules-lumo-update/news_feed/town-council-adopts-lumo-amendments"
+    },
+    {
+      "claim": "The White House Council of Economic Advisers, citing a Washington homebuilders' report, puts the cost of each extra month in permitting at about $4,400 a home, around 1%",
+      "source": "White House Council of Economic Advisers, Reforming Permitting Requirements to Lower the Cost of Building New Housing (August 2024). The underlying trade-association report is no longer online",
+      "url": "https://bidenwhitehouse.archives.gov/cea/written-materials/2024/08/13/reforming-permitting-requirements-to-lower-the-cost-of-building-new-housing-and-increase-housing-affordability/"
+    },
+    {
+      "claim": "Across every multifamily project permitted in Los Angeles from 2010 to 2022, cutting both the length and the unpredictability of approval by a quarter would raise housing production by about a third — the authors' own partial-equilibrium estimate, and not a straight line",
+      "source": "Gabriel & Kung, Development Approval Timelines, Approval Uncertainty, and New Housing Supply: Evidence from Los Angeles (working paper, June 2024)",
+      "url": "https://www.anderson.ucla.edu/sites/default/files/document/2024-06/2024-10wp-sg-ec.pdf"
+    }
+  ],
+  "tradeoffs": {
+    "pros": [
+      "More hearings are how residents' evidence gets into the record at all, and extra stormwater, traffic and tree review does catch real problems in the Jordan Lake and Bolin Creek watersheds.",
+      "A town with more review has more leverage to negotiate affordable homes, greenway links and design changes it cannot demand from a project approved over the counter."
+    ],
+    "cons": [
+      "Waiting is not free. The best figure anyone publishes is around $4,400 a home for every extra month, and that lands in rents and sale prices rather than on the builder.",
+      "The Los Angeles evidence is that the length and the unpredictability of approval together decide whether projects start at all, so running the lever the other way should mean fewer homes, not just later ones.",
+      "It reverses the Town's own 2023 and 2026 decisions to shorten review, which it adopted as a way to make housing cheaper."
+    ]
+  }
+}

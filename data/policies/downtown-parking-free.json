@@ -1,0 +1,79 @@
+{
+  "id": "downtown-parking-free",
+  "title": "Cut the charge for downtown parking",
+  "summary": "Lowers or scraps the daily charge in Town-run parking downtown, where on-street parking is $2.00 an hour and most lots are $1.50.",
+  "category": "transport",
+  "icon": "parking",
+  "decider": {
+    "body": "Chapel Hill Town Council",
+    "how": [
+      "Staff bring the parking fee schedule to Town Council with the budget.",
+      "Residents and downtown businesses comment at the budget public hearing.",
+      "Town Council adopts the fee schedule."
+    ]
+  },
+  "params": [
+    {
+      "key": "dollars_per_day",
+      "label": "Change in the daily parking charge",
+      "min": -10,
+      "max": 0,
+      "default": -4,
+      "step": 0.5,
+      "unit": "$ a day"
+    }
+  ],
+  "levers": [
+    {
+      "lever": "transport.parkingPriceDelta",
+      "param": "dollars_per_day"
+    }
+  ],
+  "timing": {
+    "delayQuarters": 2,
+    "phaseInQuarters": 1
+  },
+  "evidence": [
+    {
+      "claim": "Chapel Hill charges $2.00 an hour on street from 8am to 6pm Monday to Saturday, and about $1.50 an hour in most Town lots",
+      "source": "Town of Chapel Hill, Parking Fee Schedule",
+      "url": "https://www.chapelhillnc.gov/Town-Government/Financials/Fee-Schedules/Parking-Fee-Schedule"
+    },
+    {
+      "claim": "The Town's Parking Facilities Fund is $6,468,125 in 2026-27, of which about $4.2 million is debt on the 125 East Rosemary deck — already helped by a $1.96 million transfer from the Town's debt fund",
+      "source": "Town of Chapel Hill, 2026-27 Adopted Budget, Parking Facilities Fund, pp. 245-249",
+      "url": "https://www.chapelhillnc.gov/files/assets/town/v/2/bmd/documents/budgets/26-27-budget-development/26-27-adopted-budget/2026-27-adopted-budget.pdf"
+    },
+    {
+      "claim": "Pricing curb spaces so a few stay open cut the miles driven circling for parking, and the emissions from them, by 30% against control blocks in San Francisco's SFpark pilot — a test of demand pricing against flat pricing, not against free",
+      "source": "San Francisco Municipal Transportation Agency, SFpark evaluation (2014) — the agency's own evaluation of its pilot",
+      "url": "https://www.sfmta.com/press-releases/sfpark-evaluation-shows-parking-easier-cheaper-pilot-areas"
+    },
+    {
+      "claim": "Across 22 studies in 15 cities, cars hunting for underpriced curb parking made up between 8% and 74% of traffic — a wide range, and the authors warn researchers tend to count cruising only where they expect to find it",
+      "source": "Hampshire & Shoup, How Much Traffic is Cruising for Parking?, Transfers Magazine no. 4 (2019)",
+      "url": "https://transfersmagazine.org/magazine-article/issue-4/how-much-traffic-is-cruising-for-parking/"
+    },
+    {
+      "claim": "Old Pasadena metered its curb in 1993 and spent the money on its own sidewalks, alleys and services; by 2001 its 690 meters netted $1.2 million a year and its sales tax takings had overtaken the nearby mall that parked people free",
+      "source": "Kolozsvari & Shoup, Turning Small Change into Big Changes, ACCESS no. 23 (2003) — a case study, with no control group",
+      "url": "https://escholarship.org/content/qt3vq8794s/qt3vq8794s.pdf"
+    },
+    {
+      "claim": "North Carolina requires that money from on-street parking meters be spent enforcing and administering traffic and parking rules, so going free also defunds the enforcement of time limits, disabled bays and fire lanes",
+      "source": "N.C. Gen. Stat. §160A-301(a)",
+      "url": "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_160A/GS_160A-301.html"
+    }
+  ],
+  "tradeoffs": {
+    "pros": [
+      "Downtown competes with suburban centres that park people free, and the charge plus the risk of a ticket is the complaint Franklin Street merchants hear most.",
+      "Cheaper parking is an immediate, visible cut in the cost of coming downtown — the fastest thing a council can do that shoppers notice."
+    ],
+    "cons": [
+      "The deck debt still has to be paid, so around $4 million of parking fees has to come off the property tax instead — charging every household for spaces used mostly by people who drive in.",
+      "Spaces priced at nothing stay full, so drivers circle for one. How much traffic that adds is genuinely uncertain, but the pricing experiments all run the other way.",
+      "The retail case is the weakest part of it: Old Pasadena out-earned a free-parking mall by charging for the curb and spending the money on the street."
+    ]
+  }
+}

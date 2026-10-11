@@ -1,4 +1,4 @@
-// The Meridian simulator: pure and deterministic, no DOM and no rendering. Rules are documented in docs/policy-card-spec.md.
+// The Prosperia simulator: pure and deterministic, no DOM and no rendering. Rules are documented in docs/policy-card-spec.md.
 import { matchesWhere } from './schema.js';
 
 /** @typedef {import('./types').PolicyCard} PolicyCard @typedef {import('./types').Zone} Zone @typedef {import('./types').SimResult} SimResult

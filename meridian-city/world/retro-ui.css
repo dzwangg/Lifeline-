@@ -36,7 +36,7 @@ h1, h2, h3, .pp-title, .pp-col__title, .pp-row__title, .building-card__title { f
 
 /* ---------- HUD ---------- */
 #hud h1 { font-size: 20px; text-shadow: none !important; color: var(--ae-navy); }
-#hud::before { content: 'SquidLand · Chapel Hill' !important; color: var(--ae-aqua-dark) !important; font: 600 11px var(--ae-pixel) !important; letter-spacing: .06em !important; }
+#hud::before { content: 'Prosperia · Chapel Hill' !important; color: var(--ae-aqua-dark) !important; font: 600 11px var(--ae-pixel) !important; letter-spacing: .06em !important; }
 #stats { font: 13px var(--ae-pixel) !important; color: var(--ae-ink-soft) !important; }
 #hint b { color: var(--ae-aqua-dark) !important; }
 #credit a { color: var(--ae-ink-soft); }

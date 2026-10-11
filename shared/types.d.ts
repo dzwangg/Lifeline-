@@ -1,4 +1,4 @@
-// The Meridian policy simulator's shared contract. shared/*.js implements it in plain JS (JSDoc points here);
+// The Prosperia policy simulator's shared contract. shared/*.js implements it in plain JS (JSDoc points here);
 // a future TypeScript backend can import these types directly.
 
 export type ZoneState = 'forest' | 'low_res' | 'mid_res' | 'mixed_use' | 'parking' | 'transit_station';

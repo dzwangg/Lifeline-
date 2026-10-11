@@ -33,7 +33,7 @@ def fetch():
     body = urllib.parse.urlencode({"data": QUERY}).encode()
     for _ in range(8):
         try:
-            req = urllib.request.Request("https://overpass-api.de/api/interpreter", body, {"User-Agent": "LifeLine-MeridianCity/1.0"})
+            req = urllib.request.Request("https://overpass-api.de/api/interpreter", body, {"User-Agent": "LifeLine-Prosperia/1.0"})
             with urllib.request.urlopen(req, timeout=200) as r:
                 return json.load(r)["elements"]
         except (urllib.error.URLError, json.JSONDecodeError) as e:  # Overpass is often "too busy"; it clears up

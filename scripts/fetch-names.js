@@ -15,7 +15,7 @@ async function fetchElements() {
   for (let attempt = 1; attempt <= 8; attempt++) {
     try {
       const res = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST', body: new URLSearchParams({ data: QUERY }), headers: { 'user-agent': 'LifeLine-MeridianCity/1.0' },
+        method: 'POST', body: new URLSearchParams({ data: QUERY }), headers: { 'user-agent': 'LifeLine-Prosperia/1.0' },
       });
       const text = await res.text();
       if (text.trimStart().startsWith('{')) return JSON.parse(text).elements;

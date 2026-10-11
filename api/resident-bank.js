@@ -292,7 +292,7 @@ export async function seedBank(env, bank, residents, save = async () => {}) {
     await save(bank);
   }
   for (const r of residents) if (!['customer', ...Object.keys(ACCOUNTS)].every(k => bank.residents[r.id]?.[k])) { // what exists is kept
-    await createCustomer(env, r.name, 'Meridian (simulated)', bank.residents[r.id], async ids => { bank.residents[r.id] = ids; await save(bank); });
+    await createCustomer(env, r.name, 'Prosperia (simulated)', bank.residents[r.id], async ids => { bank.residents[r.id] = ids; await save(bank); });
   }
   return bank;
 }

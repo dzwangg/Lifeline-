@@ -148,16 +148,16 @@ let youQueue = Promise.resolve();
 const post = body => fetch('/api/resident-bank', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 async function youRequest(body) {
   const turn = youQueue.then(async () => {
-    const account = store.get('meridian-you-account');
+    const account = store.get('prosperia-you-account');
     if (account) body.account = account;
     let res = await post(body);
     if (res.status === 400 && body.account) { // made with another key: start a new one
-      store.set('meridian-you-account', null);
+      store.set('prosperia-you-account', null);
       delete body.account;
       res = await post(body);
     }
     const out = await res.json();
-    if (out.account) store.set('meridian-you-account', out.account);
+    if (out.account) store.set('prosperia-you-account', out.account);
     return { res, out };
   });
   youQueue = turn.catch(() => {});

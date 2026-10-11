@@ -273,10 +273,13 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
       const done = e => {
         if (e.target !== backdrop) return;
         backdrop.removeEventListener('animationend', done);
+        clearTimeout(timer);
         backdrop.classList.remove('is-closing');
         if (!ui.open) backdrop.hidden = true;
       };
       backdrop.addEventListener('animationend', done);
+      // The fade-out normally ends it; if the animation never runs (a busy or throttled page), close anyway.
+      const timer = setTimeout(() => done({ target: backdrop }), 400);
     }
     ui.returnFocus?.focus?.();
   }

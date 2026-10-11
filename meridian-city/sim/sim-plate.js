@@ -1,132 +1,246 @@
-// The sim plate: for each card applied in the policy panel, its sliders, decider and tradeoffs; then the year slider, a
-// before/after toggle and the metrics, each as the shown year's value and its change against no new policy. Built only
-// from card data and the SimResult (shared/combined.js), and it never recommends anything.
-// Years, metrics and the resident card follow the shared clock (clock.js); the playback toolbar (clock-bar.js) runs it.
-import { h } from '../policy/components.js';
-import { scenario, simClock, dataReady, devMode, demoMode, stubOn, stubAuto } from './scenario.js';
-import { VARIABLES, explain } from '../../shared/luti/run.js';
+// The sim plate: the results dashboard docked on the right. For the shown year (the shared clock, clock.js) it shows each
+// metric as a tile (its value, its change against no new policy, CH-LUTI's 80% range and a sparkline), then the picked
+// metric in detail: the change and the level over the years, why it changed (CH-LUTI's trace), which card did it and where.
+// Also here: the applied cards' sliders, decider and tradeoffs, the resident picked on the map, the guided views, and the
+// assumptions and sources. Values are the combined SimResult's central run (shared/combined.js); ranges, traces and
+// per-card and per-zone splits come from CH-LUTI's 200 paired runs (shared/luti/run.js), once they arrive.
+import { h, cls } from '../policy/components.js';
+import { scenario, simClock, dataReady, devMode, demoMode, stubOn, stubAuto, START_YEAR } from './scenario.js';
+import { VARIABLES, explain, MODEL } from '../../shared/luti/run.js';
 import { LEVERS } from '../../shared/luti/levers.js';
+import { createModel } from '../../shared/luti/model.js';
+import { paramRanges } from '../../shared/luti/params.js';
+import { ZONES as LUTI_ZONES, SOURCES } from '../../shared/luti/data.js';
 import { paramStep } from '../../shared/schema.js';
 
-// The sources popups, CH-LUTI's P10-P90 ranges, its "why" traces and the cards' timing and evidence, left off so the
-// panel stays simple. true brings them back.
-const DETAILS = false;
+// Colour each change by whether it helps most people (green) or hurts (red). false shows every change in one neutral ink.
+const VERDICT_COLORS = true;
 
+const SVGNS = 'http://www.w3.org/2000/svg';
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+const yearLabel = y => `${START_YEAR + y}`;
 
-const fixed = (n, digits) => n.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
-const int = n => fixed(n, 0), dollarsM = n => `$${fixed(n / 1e6, 1)}M`, points = n => `${fixed(n * 100, 1)} pts`;
-// Each metric comes from one model (see shared/combined.js). dfmt formats a change (default: fmt); pct adds the change in
-// percent. For DETAILS: inputs are the baselines.json / assumptions.json entries behind a metric, luti its CH-LUTI variable.
-const ESTIMATES = 'The household behaviour settings behind this (who rents, incomes, how rent follows vacancy, when renters leave) are estimates, not sourced values.';
-const RENT_INPUTS = ['medianGrossRent', 'lutiRegionalGrowth', 'lutiStartShare', 'unitsPerAcre'];
-const HEADLINE = [
-  { key: 'medianRent', label: 'Median rent', fmt: n => `$${int(n)}`, pct: true, caveat: ESTIMATES, inputs: RENT_INPUTS },
-  { key: 'pricedOut', label: 'Priced out (est.)', title: 'Households living here in year 0 that have moved away because their rent rose faster than their income. An estimate.', fmt: int, caveat: ESTIMATES, inputs: ['agentScale', 'agentBurdenLine', 'agentLeaveRate', 'lutiIncomeGrowth'] },
-  { key: 'housingUnits', label: 'Homes', fmt: int, pct: true, luti: 'housingUnits', inputs: ['housingUnits', 'unitsPerAcre', 'lutiStartShare', 'lutiRegionalGrowth'] },
-  { key: 'treeCoverPct', label: 'Tree cover', fmt: n => `${fixed(n, 1)}%`, dfmt: n => `${fixed(n, 2)} pts`, inputs: ['treeCoverPct', 'mapAreaAcres', 'canopyMinPct'] },
-  { key: 'avgCommuteMin', label: 'Commute', fmt: n => `${fixed(n, 1)} min`, inputs: ['meanCommuteMin', 'lutiSpeedKmh', 'lutiHeadwayMin', 'lutiPeakVC', 'roadBpr'] },
-  { key: 'netFiscal', label: 'Town budget, net', fmt: dollarsM, luti: 'netFiscal' }, // dollars a year
-];
-const MORE = [
-  { key: 'jobs', label: 'Jobs in town', fmt: int, pct: true, luti: 'jobs' },
-  { key: 'businesses', label: 'Storefront businesses', fmt: int, pct: true, luti: 'businesses' },
-  { key: 'storefrontVacancy', label: 'Downtown storefront vacancy', fmt: n => `${fixed(n * 100, 1)}%`, dfmt: points, luti: 'storefrontVacancy' },
-  { key: 'transitRidership', label: 'Bus trips a year', fmt: n => `${fixed(n / 1e6, 2)}M`, dfmt: n => `${fixed(n / 1e3, 0)}k`, pct: true, luti: 'transitRidership' },
-  { key: 'trafficIndex', label: 'Car traffic, % vs. year 0', fmt: n => `${n > 1 ? '+' : n < 1 ? '−' : ''}${fixed(Math.abs(n - 1) * 100, 1)}%`, dfmt: points, luti: 'trafficIndex' },
-  { key: 'homeValue', label: 'Median home value', fmt: n => `$${int(n / 1e3)}k`, dfmt: n => `$${fixed(n / 1e3, 1)}k`, luti: 'homeValue' },
-  { key: 'households', label: 'Households (est.)', fmt: int, pct: true, inputs: ['agentScale', 'agentHouseholds', 'agentUnits', 'lutiRegionalGrowth'] },
-  { key: 'taxRevenue', label: 'Property tax revenue', fmt: dollarsM, dfmt: n => `$${fixed(n / 1e6, 2)}M`, inputs: ['housingUnits', 'medianHomeValue', 'propertyTaxRate'] },
-];
-// "up $12 (0.7%)", or "no change" when the change rounds away.
-function change(m, d, base) {
-  const body = (m.dfmt ?? m.fmt)(Math.abs(d));
-  if (!/[1-9]/.test(body)) return 'no change';
-  return `${d > 0 ? 'up' : 'down'} ${body}${m.pct && base ? ` (${fixed(Math.abs(d / base) * 100, 1)}%)` : ''}`;
-}
-
-// For DETAILS: CH-LUTI's own formats, for its ranges and traces. Shares change in points and indexes in percent.
-const LUTI_FMT = {
-  usd: n => `$${fixed(n, 0)}`, usdk: n => `$${fixed(n / 1e3, 0)}k`, usdm: n => `$${fixed(n / 1e6, 2)}M`, usdb: n => `$${fixed(n / 1e9, 2)}B`,
-  int: n => fixed(n, 0), pct: n => `${fixed(n * 100, 1)}%`, millions: n => `${fixed(n / 1e6, 2)}M`, min: n => `${fixed(n, 1)} min`,
-  index: n => fixed(n, 3), dec: n => fixed(n, 1), cents: n => `${fixed(n, 1)}¢`,
+// ---------- number formats ----------
+const fixed = (n, d) => n.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+const FMT = {
+  usd: v => `$${fixed(v, 0)}`,
+  usdk: v => `$${fixed(v / 1e3, 0)}k`,
+  usdm: v => `$${fixed(v / 1e6, Math.abs(v) < 1e7 ? 2 : 1)}M`,
+  usdb: v => `$${fixed(v / 1e9, 2)}B`,
+  int: v => fixed(v, 0),
+  pct: v => `${fixed(v * 100, 1)}%`,       // shares stored 0–1; changes in points
+  pctRaw: v => `${fixed(v, 1)}%`,          // shares stored 0–100 (tree cover); changes in points
+  millions: v => `${fixed(v / 1e6, 2)}M`,
+  min: v => `${fixed(v, 1)} min`,
+  index: v => fixed(v, 3),
+  dec: v => fixed(v, 1),
+  cents: v => `${fixed(v, 1)}¢`,
 };
-function lutiChange(id, d, base, withPct = true) { // unsigned
-  const f = VARIABLES[id]?.fmt ?? 'dec', a = Math.abs(d), rel = base ? a / Math.abs(base) * 100 : 0;
-  if (f === 'pct') return `${fixed(a * 100, 1)} pts`;
-  if (f === 'index') return `${fixed(rel, 1)}%`;
-  const body = f === 'int' && a < 10 ? fixed(a, 1) : LUTI_FMT[f](a);
-  return withPct && base && f !== 'usdm' && f !== 'cents' ? `${body} (${fixed(rel, 1)}%)` : body;
+const sign = v => (v > 0 ? '+' : v < 0 ? '−' : '');
+// A change: points for shares, percent for indexes, else the unit; "(+x%)" when withPct. Never "−0".
+function fmtChange(fmt, d, base, withPct = false) {
+  if (fmt === 'pct' || fmt === 'pctRaw') { const pts = fixed(Math.abs(fmt === 'pct' ? d * 100 : d), fmt === 'pct' ? 1 : 2); return `${+pts ? sign(d) : ''}${pts} pts`; }
+  if (fmt === 'index') { const p = fixed(Math.abs(d / (base || 1)) * 100, 1); return `${+p ? sign(d) : ''}${p}%`; }
+  const a = Math.abs(d), body = fmt === 'int' && a < 10 && a >= .05 ? fixed(a, 1) : (FMT[fmt] ?? FMT.dec)(a);
+  if (!/[1-9]/.test(body)) return body;
+  return `${sign(d)}${body}${withPct && base && fmt !== 'usdm' && fmt !== 'cents' ? ` (${sign(d)}${fixed(Math.abs(d / base) * 100, 1)}%)` : ''}`;
 }
-const signed = (id, d, base) => { const body = lutiChange(id, d, base, false); return /[1-9]/.test(body) ? `${d > 0 ? '+' : '−'}${body}` : body; }; // never "−0.0"
-const upDown = d => (d > 0 ? 'up' : 'down');
-const OTHER_MODEL = new Set(['rent', 'rentBurden', 'households', 'population', 'commuteTime']); // CH-LUTI's own; the page shows the household model's
 
+// The page's metrics, in tile order. key: the SimResult metric; luti: the CH-LUTI variable behind it (its ranges, trace and
+// splits); model: which model computes it; better: the direction that helps most people (null: neither); zone: CH-LUTI's
+// per-zone field for "Where".
+const METRICS = [
+  { key: 'medianRent', label: 'Median rent', fmt: 'usd', luti: 'rent', better: -1, zone: 'rent', model: 'CH-LUTI' },
+  { key: 'housingUnits', label: 'Homes', fmt: 'int', luti: 'housingUnits', better: 1, zone: 'units', model: 'CH-LUTI, with the homes the zone rules build' },
+  { key: 'pricedOut', label: 'Priced out (est.)', fmt: 'int', better: -1, model: 'the household model',
+    title: 'Households living here in year 0 that have moved away because their rent rose faster than their income. An estimate.' },
+  { key: 'households', label: 'Households (est.)', fmt: 'int', better: null, model: 'the household model' },
+  { key: 'jobs', label: 'Jobs in town', fmt: 'int', luti: 'jobs', better: 1, model: 'CH-LUTI' },
+  { key: 'businesses', label: 'Storefront businesses', fmt: 'int', luti: 'businesses', better: 1, zone: 'businesses', model: 'CH-LUTI' },
+  { key: 'storefrontVacancy', label: 'Downtown storefront vacancy', fmt: 'pct', luti: 'storefrontVacancy', better: -1, zone: 'storefrontVacancy', model: 'CH-LUTI' },
+  { key: 'transitRidership', label: 'Bus ridership', fmt: 'millions', luti: 'transitRidership', better: 1, model: 'CH-LUTI' },
+  { key: 'avgCommuteMin', label: 'Average commute', fmt: 'min', luti: 'commuteTime', better: -1, model: 'CH-LUTI' },
+  { key: 'trafficIndex', label: 'Car traffic', fmt: 'index', luti: 'trafficIndex', better: -1, model: 'CH-LUTI' },
+  { key: 'treeCoverPct', label: 'Tree cover', fmt: 'pctRaw', better: 1, model: 'the land-use rules' },
+  { key: 'homeValue', label: 'Median home value', fmt: 'usdk', luti: 'homeValue', better: null, model: 'CH-LUTI' },
+  { key: 'taxRevenue', label: 'Property tax revenue', fmt: 'usdm', luti: 'propertyTax', better: 1, model: 'CH-LUTI' },
+  { key: 'netFiscal', label: 'Town budget impact', fmt: 'usdm', luti: 'netFiscal', better: 1, diffOnly: true, model: 'CH-LUTI' },
+];
+const OTHER_MODEL = new Set(['households', 'population', 'rentBurden']); // CH-LUTI's own; the page shows the household model's
+function tone(m, d, lo, hi, base) {
+  const rel = Math.abs(base) > 1e-9 ? Math.abs(d / base) : Math.abs(d);
+  if (rel < 5e-4 || (m.fmt === 'usdm' && Math.abs(d) < 5e4)) return 'flat';
+  if (lo != null && lo < 0 && hi > 0) return 'mixed';
+  if (!VERDICT_COLORS || m.better == null) return 'neutral';
+  return Math.sign(d) === m.better ? 'good' : 'bad';
+}
+
+// ---------- charts (plain SVG) ----------
+const svg = (tag, attrs = {}) => { const el = document.createElementNS(SVGNS, tag); for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v); return el; };
+function niceTicks(lo, hi, n = 4) {
+  const span = hi - lo || Math.abs(hi) || 1, step0 = span / n, mag = 10 ** Math.floor(Math.log10(step0));
+  const step = [1, 2, 2.5, 5, 10].map(x => x * mag).find(x => x >= step0);
+  const out = [];
+  for (let v = Math.floor(lo / step) * step; v <= hi + step * 1e-9; v += step) out.push(+v.toFixed(10));
+  if (out.at(-1) < hi) out.push(out.at(-1) + step);
+  return out;
+}
+const path = pts => pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join('');
+const finite = a => a.filter(Number.isFinite);
+
+// series: [{ label, values (one per year), kind: 'policy'|'base', band?: { lo, hi } }]; y is the shown year
+function lineChart({ series, y, tick, tip, zero = false, height = 168, title }) {
+  const W = 400, H = height, P = { l: 58, r: 14, t: 12, b: 24 }, n = series[0].values.length;
+  const vals = finite(series.flatMap(s => [...s.values, ...(s.band ? [...s.band.lo, ...s.band.hi] : [])]));
+  if (zero) vals.push(0);
+  let y0 = Math.min(...vals), y1 = Math.max(...vals);
+  if (y1 - y0 < 1e-9) { y0 -= Math.abs(y0) * .01 || 1; y1 += Math.abs(y1) * .01 || 1; }
+  const ticks = niceTicks(y0, y1, 4);
+  y0 = Math.min(y0, ticks[0]); y1 = Math.max(y1, ticks.at(-1));
+  const X = i => P.l + i / (n - 1) * (W - P.l - P.r), Y = v => P.t + (1 - (v - y0) / (y1 - y0)) * (H - P.t - P.b);
+  const el = svg('svg', { viewBox: `0 0 ${W} ${H}`, class: 'rp-chart', role: 'img', 'aria-label': title, tabindex: 0 });
+  for (const t of ticks) {
+    el.append(svg('line', { x1: P.l, x2: W - P.r, y1: Y(t), y2: Y(t), class: zero && t === 0 ? 'rp-zero' : 'rp-grid' }));
+    const tx = svg('text', { x: P.l - 8, y: Y(t) + 4, class: 'rp-tick', 'text-anchor': 'end' }); tx.textContent = tick(t); el.append(tx);
+  }
+  for (let i = 0; i < n; i += 2) {
+    const tx = svg('text', { x: X(i), y: H - 6, class: 'rp-tick', 'text-anchor': 'middle' }); tx.textContent = yearLabel(i); el.append(tx);
+  }
+  for (const s of series) if (s.band) el.append(svg('path', { d: path([...s.band.hi.map((v, i) => [X(i), Y(v)]), ...s.band.lo.map((v, i) => [X(i), Y(v)]).reverse()]) + 'Z', class: `rp-band is-${s.kind}` }));
+  for (const s of series) el.append(svg('path', { d: path(s.values.map((v, i) => [X(i), Y(v)])), class: `rp-line is-${s.kind}` }));
+  el.append(svg('line', { x1: X(y), x2: X(y), y1: P.t, y2: H - P.b, class: 'rp-now' }));
+  for (const s of series) el.append(svg('circle', { r: 4, cx: X(y), cy: Y(s.values[y]), class: `rp-dot is-${s.kind}` }));
+  // crosshair + tooltip
+  const hair = svg('line', { y1: P.t, y2: H - P.b, class: 'rp-hair', visibility: 'hidden' });
+  el.append(hair);
+  const tipEl = h('div', { class: 'rp-tip', role: 'status', hidden: true });
+  const wrap = h('div', { class: 'rp-chartwrap' }, el, tipEl);
+  let hover = null;
+  function show(i) {
+    hover = i;
+    hair.setAttribute('x1', X(i)); hair.setAttribute('x2', X(i)); hair.setAttribute('visibility', 'visible');
+    tipEl.replaceChildren(h('div', { class: 'rp-tip__when' }, `${yearLabel(i)} · year ${i}`), ...series.map(s => h('div', { class: 'rp-tip__row' },
+      h('span', { class: `rp-key is-${s.kind}`, 'aria-hidden': 'true' }),
+      h('strong', {}, tip(s.values[i])),
+      h('span', {}, s.band && Number.isFinite(s.band.lo[i]) && i ? ` ${s.label} · range ${tip(s.band.lo[i])} to ${tip(s.band.hi[i])}` : ` ${s.label}`))));
+    tipEl.hidden = false;
+    const r = el.getBoundingClientRect(), px = X(i) / W * r.width;
+    tipEl.style.left = `${Math.min(Math.max(px, 90), r.width - 90)}px`;
+  }
+  const hide = () => { hover = null; hair.setAttribute('visibility', 'hidden'); tipEl.hidden = true; };
+  el.addEventListener('pointermove', e => {
+    const r = el.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * W;
+    show(Math.max(0, Math.min(n - 1, Math.round((x - P.l) / (W - P.l - P.r) * (n - 1)))));
+  });
+  el.addEventListener('pointerleave', hide);
+  el.addEventListener('focus', () => show(y));
+  el.addEventListener('blur', hide);
+  el.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault(); show(Math.max(0, Math.min(n - 1, (hover ?? y) + (e.key === 'ArrowRight' ? 1 : -1))));
+  });
+  return wrap;
+}
+
+function sparkline(values, band, y) {
+  const W = 120, H = 30, n = values.length, vals = finite([...values, ...(band ? [...band.lo, ...band.hi] : []), 0]);
+  const y0 = Math.min(...vals), y1 = Math.max(...vals), span = y1 - y0 || 1;
+  const X = i => 2 + i / (n - 1) * (W - 4), Y = v => 3 + (1 - (v - y0) / span) * (H - 6);
+  const el = svg('svg', { viewBox: `0 0 ${W} ${H}`, class: 'rp-spark', 'aria-hidden': 'true' });
+  el.append(svg('line', { x1: 2, x2: W - 2, y1: Y(0), y2: Y(0), class: 'rp-zero' }));
+  if (band) el.append(svg('path', { d: path([...band.hi.map((v, i) => [X(i), Y(v)]), ...band.lo.map((v, i) => [X(i), Y(v)]).reverse()]) + 'Z', class: 'rp-band is-policy' }));
+  el.append(svg('path', { d: path(values.map((v, i) => [X(i), Y(v)])), class: 'rp-line is-policy' }));
+  el.append(svg('circle', { r: 3, cx: X(y), cy: Y(values[y]), class: 'rp-dot is-policy' }));
+  return el;
+}
+
+// horizontal bars around a zero line: rows [{ label, value, text, note? }]
+function barList(rows, caption) {
+  const max = Math.max(...rows.map(r => Math.abs(r.value)), 1e-12);
+  return h('div', { class: 'rp-bars', role: 'list', 'aria-label': caption }, rows.map(r =>
+    h('div', { class: 'rp-barrow', role: 'listitem' },
+      h('span', { class: 'rp-barrow__label' }, r.label, r.note && h('small', {}, r.note)),
+      h('span', { class: 'rp-barrow__track' }, h('span', { class: cls('rp-bar', r.value < 0 && 'is-neg'), style: { '--w': `${Math.abs(r.value) / max * 50}%` } })),
+      h('span', { class: 'rp-barrow__value' }, r.text))));
+}
+
+// ---------- resident card helpers ----------
 const WORK = { remote: 'Works from home', durham: 'Works in Durham', campus: 'Works at UNC', downtown: 'Works downtown' };
 const WHERE = { downtown: 'near Franklin St', campus: 'near campus', edge: 'at the edge of town', corridor: 'along 15-501' };
 const money = n => `$${fixed(n, 0)}`, share = b => `${Math.round(b * 100)}%`;
-const flagOf = source => /^(PLACEHOLDER|VERIFY)/.exec(source)?.[1];
-const showValue = v => (typeof v === 'object' ? Object.entries(v).map(([k, x]) => `${k} ${x}`).join(' · ') : String(v));
+const flagOf = source => /^(PLACEHOLDER|VERIFY)/.exec(source ?? '')?.[1];
+const quarters = n => `${n} quarter${n === 1 ? '' : 's'}`;
+const timing = ({ delayQuarters: d, phaseInQuarters: p }) => `Starts after ${quarters(d)}, ${p > 1 ? `phasing in over ${quarters(p)}` : 'in full at once'}.`;
 
 export async function mountSimPlate({ policyStore, cards, host = document.body }) {
   const [, assumptions, baselines] = await dataReady;
-  const sources = { ...baselines, ...assumptions };
   const cardById = new Map(cards.map(c => [c.id, c]));
+  const ui = { metric: null, picked: false, active: [] };
 
-  const cardsEl = h('div', { class: 'sim__list' }), residentEl = h('div', { class: 'sim__resident', 'aria-live': 'polite' });
-  const yearOut = h('output', { class: 'sim__val' });
-  const yearIn = h('input', { type: 'range', min: 0, max: simClock.get().steps, step: 1, value: 0, oninput: () => simClock.seek(+yearIn.value) });
+  // ---------- skeleton ----------
+  const title = h('h2', { class: 'rp-title' }, 'Policy simulation');
+  const chips = h('div', { class: 'rp-chips' });
+  const toggle = h('button', { class: 'sim__toggle', type: 'button', 'aria-expanded': 'true', 'aria-controls': 'sim-body' }, 'Hide');
+  const playBtn = h('button', { class: 'rp-play', type: 'button', 'aria-label': 'Play the forecast', onclick: () => simClock.toggle() });
+  const yearIn = h('input', { class: 'rp-slider', type: 'range', min: 0, max: simClock.get().steps, step: 1, value: 0, 'aria-label': 'Year shown in the city and the results', oninput: () => simClock.seek(+yearIn.value) });
+  const when = h('output', { class: 'rp-when' });
   const beforeIn = h('input', { type: 'checkbox', onchange: () => simClock.setBefore(beforeIn.checked) });
   // Guided views (focus.js): each button reads "Back" while its view is on. The wipe compares year 0 with the shown year.
   const viewBtn = (focus, label) => h('button', { class: 'sim__road', type: 'button', 'aria-pressed': 'false',
     onclick: () => scenario.set({ focus: scenario.get().focus === focus ? null : focus, focusZones: null }) }, label);
   const changesBtn = viewBtn('changes', 'Show changes'), roadBtn = viewBtn('road', 'View 15-501');
   const wipeBtn = h('button', { class: 'sim__road', type: 'button', 'aria-pressed': 'false', onclick: () => scenario.set({ wipe: !scenario.get().wipe }) }, 'Before / after');
-  const rows = [...HEADLINE, ...MORE].map(Metric), yearHead = h('span', {});
-  const body = h('div', { class: 'sim__body', id: 'sim-body' },
-    h('div', { class: 'sim__cards' }, residentEl, cardsEl),
-    h('div', { class: 'sim__time' },
-      h('div', { class: 'sim__year' }, h('label', { class: 'sim__slider' }, h('span', {}, 'Year ', yearOut), yearIn)),
+  const meta = h('p', { class: 'rp-meta' });
+  const settings = h('details', { class: 'rp-settings' });
+  const residentEl = h('div', { class: 'sim__resident', 'aria-live': 'polite' });
+  const tiles = h('div', { class: 'rp-tiles', role: 'list', 'aria-label': 'Metrics, with their change against no new policy' });
+  const detail = h('section', { class: 'rp-detail', 'aria-live': 'polite' });
+  const assume = h('details', { class: 'rp-assume' }, h('summary', {}, 'Assumptions, sources and checks'));
+  const dlBtn = h('button', { class: 'rp-dl', type: 'button', onclick: download }, 'Download scenario and results (JSON)');
+  const scroll = h('div', { class: 'rp-scroll' }, residentEl, tiles, detail, assume, dlBtn,
+    h('div', { class: 'rp-foot' },
+      h('a', { class: 'sim__sources', href: 'sources.html', target: '_blank', rel: 'noopener' }, 'Sources'),
+      devMode && !stubAuto && h('label', { class: 'sim__check sim__dev' }, h('input', { type: 'checkbox', checked: stubOn, onchange: e => toggleStub(e.target.checked) }), 'Load stub card (dev)')));
+  const body = h('div', { class: 'rp-body', id: 'sim-body' },
+    h('div', { class: 'rp-time' }, playBtn, yearIn, when),
+    h('div', { class: 'rp-views' },
       h('label', { class: 'sim__check' }, beforeIn, 'Show before (year 0)'),
-      h('div', { class: 'sim__views' }, changesBtn, roadBtn, wipeBtn,
-        demoMode && h('button', { class: 'sim__road sim__demo', type: 'button', onclick: runDemo }, 'Demo scenario'))),
-    h('div', { class: 'sim__metrics', role: 'group', 'aria-label': 'Metrics, with their change against no new policy' },
-      h('div', { class: 'sim-metric sim-metric--head', 'aria-hidden': 'true' }, h('span', {}), yearHead, h('span', {}, 'vs. no new policy')),
-      rows.slice(0, HEADLINE.length).map(r => r.el),
-      h('details', { class: 'sim__more' }, h('summary', {}, 'More details'), rows.slice(HEADLINE.length).map(r => r.el))),
-    devMode && !stubAuto && h('label', { class: 'sim__check sim__dev' }, h('input', { type: 'checkbox', checked: stubOn, onchange: e => toggleStub(e.target.checked) }), 'Load stub card (dev)'),
-    h('a', { class: 'sim__sources', href: 'sources.html', target: '_blank', rel: 'noopener' }, 'Sources'));
-  const toggle = h('button', { class: 'sim__toggle', type: 'button', 'aria-expanded': 'true', 'aria-controls': 'sim-body', onclick: () => {
+      changesBtn, roadBtn, wipeBtn,
+      demoMode && h('button', { class: 'sim__road sim__demo', type: 'button', onclick: runDemo }, 'Demo scenario')),
+    meta, settings, scroll);
+  toggle.addEventListener('click', () => {
     body.hidden = !body.hidden;
     toggle.setAttribute('aria-expanded', String(!body.hidden));
     toggle.textContent = body.hidden ? 'Show' : 'Hide';
-  } }, 'Hide');
-  host.append(h('section', { class: 'plate sim', 'aria-label': 'Policy simulation' }, h('header', { class: 'sim__head' }, h('h2', {}, 'Policy simulation'), toggle), body));
-  if (DETAILS) { // a popup opened by a click stays focused until a click elsewhere (the map keeps focus where it is) or Escape
-    addEventListener('pointerdown', e => { const m = document.activeElement?.closest?.('.sim-metric'); if (m && !m.contains(e.target)) m.blur(); }, true);
-    addEventListener('keydown', e => { if (e.key === 'Escape') document.activeElement?.closest?.('.sim-metric')?.blur(); });
-  }
+  });
+  host.append(h('section', { class: 'plate sim rp', 'aria-label': 'Policy simulation results' },
+    h('header', { class: 'rp-head' },
+      h('div', { class: 'rp-head__text' }, h('p', { class: 'rp-kicker' }, 'Scenario results'), title, chips),
+      toggle),
+    body));
 
-  // Cards applied in the policy panel drive the sim. The panel's hardcoded policies have no zone rules or levers to run.
-  let shown = null;
-  const sync = ({ applied }) => {
-    const ids = Object.values(applied).filter(Boolean);
-    if (ids.join() === shown) return; // the panel also emits while its draft changes
-    shown = ids.join();
-    const active = ids.map(id => cardById.get(id)).filter(Boolean);
+  // ---------- cards applied in the policy panel drive the sim ----------
+  let shownIds = null;
+  const sync = state => {
+    const ids = Object.values(state.applied).filter(Boolean);
+    if (ids.join() === shownIds) return; // the panel also emits while its draft changes
+    shownIds = ids.join();
+    const active = ui.active = ids.map(id => cardById.get(id)).filter(Boolean);
     const other = ids.filter(id => !cardById.has(id)).map(id => policyStore.getPolicy(id)?.title ?? id);
-    cardsEl.replaceChildren(...[
-      !cards.length ? h('p', { class: 'sim__empty' }, 'No policies yet.')
-        : !active.length && h('p', { class: 'sim__empty' }, 'Apply a policy card in the Policies panel to simulate it.'),
-      ...active.map(Card),
-      other.length > 0 && h('p', { class: 'sim__note' }, `Not simulated yet: ${other.join(', ')}.`),
-    ].filter(Boolean));
+    title.textContent = active.length ? state.scenarioName : 'Policy simulation';
+    chips.replaceChildren(...(active.length
+      ? active.map(c => { const cat = policyStore.categories.find(x => x.id === c.category); return h('span', { class: 'rp-chip', style: cat ? { '--cat': cat.color, '--cat-deep': cat.deep } : null }, c.title); })
+      : [h('span', { class: 'rp-empty' }, !cards.length ? 'No policies yet.' : 'Apply a policy card in the Policies panel to simulate it.')]),
+      ...(other.length ? [h('span', { class: 'rp-empty' }, `Not simulated yet: ${other.join(', ')}.`)] : []));
+    settings.hidden = !active.length;
+    settings.replaceChildren(h('summary', {}, `Adjust your policies (${active.length})`), h('div', { class: 'sim__list' }, active.map(Card)));
+    ui.picked = false; // open on whatever this package moves most, once it has run
     scenario.set({ cards: active });
   };
   policyStore.subscribe(sync);
   sync(policyStore.getState());
 
-  // ?demo: edge subdivisions at their most plus core infill, played from year 0 at 2x. Applying cards with zone rules
-  // flies the camera to the parcels they convert (focus.js), here the edge woods.
+  // ?demo: edge subdivisions at their most plus core infill, played from year 0 at 2x.
   function runDemo() {
     const edge = cardById.get('edge-subdivisions'), core = cardById.get('core-infill');
     if (!edge || !core) return console.warn('The demo needs the edge-subdivisions and core-infill cards.');
@@ -139,27 +253,30 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
     simClock.play(2);
   }
 
-  // The shown year changes only when the clock commits one, so every speed shows the same numbers on the same date.
-  let drawn = [];
+  // ---------- render: only when the shown year, its data, the resident, CH-LUTI's runs or the picked metric change ----------
+  let drawn = [], run = null, y = 0, luti = null;
   function render() {
-    const { shown, before } = simClock.get(), { resident, luti } = scenario.get();
-    beforeIn.checked = before;
-    if (!shown?.data) return;
-    const now = [shown, before, resident, luti];
+    const c = simClock.get(), { resident } = scenario.get();
+    luti = scenario.get().luti;
+    beforeIn.checked = c.before;
+    playBtn.classList.toggle('is-playing', c.playing);
+    playBtn.setAttribute('aria-label', c.playing ? 'Pause' : 'Play the forecast');
+    if (!c.shown?.data) return;
+    const now = [c.shown, c.before, resident, luti, ui.metric];
     if (now.every((v, i) => v === drawn[i])) return; // the clock emits every frame while playing
     drawn = now;
-    const y = before ? 0 : shown.step, { run } = shown.data;
-    yearOut.textContent = before ? '0 (before)' : y;
-    yearIn.value = shown.step;
-    yearHead.textContent = `Year ${y}`;
+    run = c.shown.data.run;
+    y = c.before ? 0 : c.shown.step;
+    yearIn.value = c.shown.step;
+    when.replaceChildren(h('strong', {}, yearLabel(y)), h('span', {}, c.before ? 'year 0 (before)' : `year ${y}`));
     const first = run.result.timeline[0].zoneStates, last = run.result.timeline.at(-1).zoneStates;
     changesBtn.disabled = !scenario.get().focus && Object.keys(last).every(id => last[id] === first[id]); // nothing to show
-    for (const { m, value, delta, range, why } of rows) {
-      const v = run.result.timeline[y].metrics[m.key], base = run.noPolicy.timeline[y].metrics[m.key];
-      value.textContent = m.fmt(v);
-      delta.textContent = change(m, v - base, base);
-      if (DETAILS && m.luti) renderRange(luti, m, y, range, why);
-    }
+    meta.replaceChildren(
+      h('strong', {}, 'Under these assumptions, this is a plausible range of outcomes, not a forecast. '),
+      luti ? `${MODEL.id} v${MODEL.version} · ${luti.runs} paired runs · seed ${luti.seed}` : `${MODEL.id} v${MODEL.version} · ranges loading…`);
+    if (!ui.picked) ui.metric = pickMetric();
+    renderTiles();
+    renderDetail();
     renderResident(run.households, resident, y);
   }
   simClock.subscribe(render);
@@ -169,40 +286,132 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
       btn.setAttribute('aria-pressed', String(s.focus === focus));
     }
     wipeBtn.setAttribute('aria-pressed', String(!!s.wipe));
-    drawn = []; // the changes button depends on the focus too
+    drawn = []; // the changes button and the ranges depend on the scenario too
     render();
   });
 
-  // DETAILS: CH-LUTI's P10-P90 range for a metric's change, and the "why" trace, from its 200 runs.
-  function renderRange(r, m, y, range, why) {
-    const q = 4 * y - 1, d = r?.diff[m.luti];
-    range.textContent = d && y ? `P10–P90: ${signed(m.luti, d.p10[q], r.baseline[m.luti].p50[q])} to ${signed(m.luti, d.p90[q], r.baseline[m.luti].p50[q])}` : '';
-    why.replaceChildren(h('strong', {}, `Why it changed, end of year ${y}`),
-      d && y ? h('ul', { class: 'sim-why__tree' }, WhyNode(explain(r, m.luti, q))) : h('p', { class: 'sim-why__note' }, 'No change to trace.'),
-      h('p', { class: 'sim-why__note' }, 'Traced through CH-LUTI at central assumptions. Each line is a model variable; branches that barely moved are left out.'));
+  // A metric's yearly values from the central run, its no-policy values, and CH-LUTI's yearly P10–P90 change (null before
+  // CH-LUTI has run, or for metrics from the other models). Year y ends with CH-LUTI's quarter 4y − 1; year 0 is today.
+  // CH-LUTI's runs for an older set of cards are not shown while the new ones run.
+  const lutiCurrent = () => luti && luti.policies.join() === ui.active.filter(c => c.levers?.length).map(c => c.id).join();
+  function series(m) {
+    const pol = run.result.timeline.map(t => t.metrics[m.key]), base = run.noPolicy.timeline.map(t => t.metrics[m.key]);
+    const diff = pol.map((v, i) => v - base[i]);
+    const d = lutiCurrent() && m.luti && luti.diff[m.luti];
+    const band = d ? { lo: diff.map((_, i) => (i ? d.p10[4 * i - 1] : 0)), hi: diff.map((_, i) => (i ? d.p90[4 * i - 1] : 0)) } : null;
+    return { pol, base, diff, band };
+  }
+  function pickMetric() { // open on whatever moved most by the last year
+    let best = METRICS[0].key, score = -1;
+    for (const m of METRICS) {
+      if (m.diffOnly) continue;
+      const last = run.result.timeline.at(-1).metrics[m.key], b = run.noPolicy.timeline.at(-1).metrics[m.key];
+      const s = m.fmt === 'pct' ? Math.abs(last - b) * 10 : m.fmt === 'pctRaw' ? Math.abs(last - b) / 10 : Math.abs((last - b) / (b || 1));
+      if (s > score) { score = s; best = m.key; }
+    }
+    return best;
   }
 
-  // The household picked on the map, as of the shown year (or its first or last year here, outside that range).
-  function renderResident(households, resident, y) {
-    const a = resident == null ? null : households.agents.find(x => x.id === resident);
-    if (!a) return residentEl.replaceChildren();
-    const at = a.hist[Math.min(Math.max(y, a.joined), a.left ?? 10)];
-    const status = y < a.joined ? `Moves here in year ${a.joined}` : a.left !== null && a.left <= y ? `Left in year ${a.left}` : a.joined ? `Moved in year ${a.joined}` : 'Lives here';
-    residentEl.replaceChildren(h('section', { class: 'resident' },
-      h('header', { class: 'resident__head' },
-        h('h3', {}, a.name),
-        h('button', { class: 'resident__close', type: 'button', 'aria-label': 'Close resident card', onclick: () => scenario.set({ resident: null }) }, '×')),
-      h('p', { class: 'resident__status' }, status),
-      h('dl', { class: 'resident__facts' },
-        h('dt', {}, 'Job'), h('dd', {}, a.student ? (a.work === 'campus' ? 'Student at UNC' : `Student; ${WORK[a.work].toLowerCase()}`) : WORK[a.work]),
-        h('dt', {}, 'Home'), h('dd', {}, a.renter ? 'Renter' : 'Owner'),
-        h('dt', {}, 'Income'), h('dd', {}, `${money(at.income)} a year`),
-        h('dt', {}, 'Rent'), h('dd', {}, a.renter ? `${money(at.rent)}/mo · ${share(at.burden)} of income` : 'None, owns home'),
-        h('dt', {}, 'Commute'), h('dd', {}, a.work === 'remote' ? 'None, works from home' : `${at.commute} min`)),
-      h('p', { class: 'resident__story' }, story(a, y, at)),
-      a.renter && Sparkline(a, y)));
+  // ---------- tiles ----------
+  function renderTiles() {
+    tiles.replaceChildren(...METRICS.map(m => {
+      const { pol, base, diff, band } = series(m), d = diff[y], lo = band && y ? band.lo[y] : null, hi = band && y ? band.hi[y] : null;
+      const t = tone(m, d, lo, hi, base[y]);
+      const spread = lo != null && fmtChange(m.fmt, lo, base[y]) !== fmtChange(m.fmt, hi, base[y]); // when every run agrees there is no range to show
+      const word = { good: 'better', bad: 'worse', mixed: 'uncertain', neutral: 'changed', flat: 'no clear change' }[t];
+      return h('button', {
+        class: cls('rp-tile', `is-${t}`, m.key === ui.metric && 'is-selected'), type: 'button', role: 'listitem', title: m.title,
+        'aria-pressed': m.key === ui.metric ? 'true' : 'false',
+        onclick: () => { ui.metric = m.key; ui.picked = true; drawn = []; render(); detail.scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' }); },
+      },
+        h('span', { class: 'rp-tile__label' }, m.label),
+        h('span', { class: 'rp-tile__value' }, m.diffOnly ? `${fmtChange(m.fmt, d, base[y])}/yr` : (FMT[m.fmt])(pol[y])),
+        h('span', { class: 'rp-tile__delta' },
+          h('span', { class: 'rp-tile__arrow', 'aria-hidden': 'true' }, t === 'flat' ? '•' : d > 0 ? '▲' : '▼'),
+          t === 'flat' ? 'no clear change' : m.diffOnly ? 'vs. no new policy' : fmtChange(m.fmt, d, base[y]),
+          h('span', { class: 'rp-sr' }, `, ${word}`)),
+        h('span', { class: 'rp-tile__range' }, t !== 'flat' && spread ? `range ${fmtChange(m.fmt, lo, base[y])} to ${fmtChange(m.fmt, hi, base[y])}` : ' '),
+        sparkline(diff, band, y));
+    }));
   }
 
+  // ---------- detail ----------
+  function renderDetail() {
+    const m = METRICS.find(x => x.key === ui.metric) ?? METRICS[0];
+    const { pol, base, diff, band } = series(m), q = 4 * y - 1;
+    const short = v => fmtChange(m.fmt, v, null);
+    const kids = [
+      h('h3', { class: 'rp-h3' }, m.label, h('span', {}, ` · ${yearLabel(y)}`)),
+      h('p', { class: 'rp-lede' }, summary(m, diff, base, band)),
+      h('h4', { class: 'rp-h4' }, 'Change vs. no new policy'),
+      h('div', { class: 'rp-legend' }, h('span', { class: 'rp-key is-policy' }), 'Central estimate', band && [h('span', { class: 'rp-swatch' }), '80% of runs fall in the band']),
+      lineChart({ title: `${m.label}: change vs. no new policy`, y, zero: true, series: [{ label: 'change', kind: 'policy', values: diff, band }],
+        tick: v => (Math.abs(v) < 1e-12 ? '0' : short(v).replace(/^\+/, '')), tip: short }),
+    ];
+    if (!m.diffOnly) kids.push(
+      h('h4', { class: 'rp-h4' }, 'Level, with and without the policies'),
+      h('div', { class: 'rp-legend' }, h('span', { class: 'rp-key is-base' }), 'No new policy', h('span', { class: 'rp-key is-policy' }), 'With these policies'),
+      lineChart({ title: `${m.label}: level`, y, height: 150, series: [
+        { label: 'no new policy', kind: 'base', values: base },
+        { label: 'with policies', kind: 'policy', values: pol },
+      ], tick: v => FMT[m.fmt](v), tip: v => FMT[m.fmt](v) }));
+    kids.push(h('h4', { class: 'rp-h4' }, 'Why it changed'));
+    if (!m.luti) kids.push(h('p', { class: 'rp-note' }, `${m.label} comes from ${m.model}, which CH-LUTI's trace doesn't cover.`));
+    else if (!lutiCurrent()) kids.push(h('p', { class: 'rp-note' }, 'Running CH-LUTI’s 200 paired futures…'));
+    else if (!y || !ui.active.length) kids.push(h('p', { class: 'rp-note' }, 'No change to trace yet. Move the year forward or apply a policy.'));
+    else kids.push(whyTree(explain(luti, m.luti, q)),
+      h('p', { class: 'rp-note' }, 'Traced through CH-LUTI at central assumptions. Each line is a model variable; branches that barely moved are left out.'));
+    if (lutiCurrent() && m.luti && y && luti.perPolicy.length > 1) {
+      const lb = luti.baseline[m.luti].p50[q];
+      kids.push(h('h4', { class: 'rp-h4' }, 'Which policy did it'), barList(luti.perPolicy.map(pp => ({
+        label: cardById.get(pp.id)?.title ?? pp.title, value: pp.diff[q][m.luti], text: fmtChange(VARIABLES[m.luti]?.fmt ?? 'dec', pp.diff[q][m.luti], lb),
+      })), 'Effect of each policy on its own'),
+      h('p', { class: 'rp-note' }, 'Each card run on its own in CH-LUTI at central assumptions; together they can add up to more or less than the sum.'));
+    }
+    if (lutiCurrent() && m.zone && y && ui.active.length) {
+      const bz = luti.mid.baseline.zones[q], pz = luti.mid.policy.zones[q], f = VARIABLES[m.luti]?.fmt;
+      kids.push(h('h4', { class: 'rp-h4' }, 'Where'), barList(LUTI_ZONES.map((z, i) => {
+        const dv = pz[i][m.zone] - bz[i][m.zone], value = f === 'pct' ? dv : dv / (bz[i][m.zone] || 1);
+        return { label: z.label, value, text: f === 'pct' ? fmtChange('pct', dv) : `${sign(value)}${fixed(Math.abs(value * 100), 1)}%` };
+      }), 'Change by zone'));
+    }
+    kids.push(h('h4', { class: 'rp-h4' }, 'On the map'), h('p', { class: 'rp-note' }, mapNote()));
+    detail.replaceChildren(...kids);
+  }
+
+  function summary(m, diff, base, band) {
+    const d = diff[y], lo = band && y ? band.lo[y] : null, hi = band && y ? band.hi[y] : null, t = tone(m, d, lo, hi, base[y]);
+    if (!y) return `Year 0 is today: ${m.label.toLowerCase()} is the same with or without the policies. Move the year forward or press play.`;
+    if (t === 'flat') return `By ${yearLabel(y)}, these policies barely move ${m.label.toLowerCase()}.`;
+    const range = lo != null && fmtChange(m.fmt, lo, base[y]) === fmtChange(m.fmt, hi, base[y]) ? ` All of CH-LUTI's ${luti.runs} runs agree on it.`
+      : lo != null ? ` In 80% of CH-LUTI's ${luti.runs} runs the change falls between ${fmtChange(m.fmt, lo, base[y])} and ${fmtChange(m.fmt, hi, base[y])}${t === 'mixed' ? ', so even the direction is uncertain.' : '.'}`
+      : m.luti ? '' : ` This is ${m.model}'s central estimate; it has no range.`;
+    return `By ${yearLabel(y)}, ${m.label.toLowerCase()} is ${fmtChange(m.fmt, d, base[y], true)} compared with no new policy.${range}`;
+  }
+
+  // Parcels whose use the zone rules changed by the shown year, with and without the cards.
+  function mapNote() {
+    const changed = r => { const t0 = r.timeline[0].zoneStates, t = r.timeline[y].zoneStates; return Object.keys(t).filter(id => t[id] !== t0[id]).length; };
+    const withP = changed(run.result), without = changed(run.noPolicy);
+    const parcels = n => `${n} parcel${n === 1 ? '' : 's'}`;
+    return `By ${yearLabel(y)}: ${parcels(withP)} changed use with these policies, vs. ${parcels(without)} with no new policy. Use Show changes to fly to them, or Before / after to compare with today.`;
+  }
+
+  function whyTree(node) {
+    const item = (n, depth) => {
+      const v = VARIABLES[n.id] ?? { label: n.id }, f = v.fmt ?? 'dec';
+      const kids = n.children.filter(c => !OTHER_MODEL.has(c.id)).sort((a, b) => Math.abs(b.rel) - Math.abs(a.rel)).slice(0, 3);
+      return h('li', { class: 'rp-why__item' },
+        h('span', { class: 'rp-why__row' },
+          h('span', { class: 'rp-why__arrow', 'aria-hidden': 'true' }, n.delta > 0 ? '▲' : '▼'),
+          h('span', { class: 'rp-why__label' }, v.label),
+          h('span', { class: 'rp-why__delta' }, fmtChange(f, n.delta, n.base), depth && f !== 'pct' && f !== 'index' && Math.abs(n.base) > 1e-9 ? ` (${sign(n.rel)}${fixed(Math.abs(n.rel * 100), 1)}%)` : '')),
+        kids.length > 0 && h('ul', { class: 'rp-why__kids' }, kids.map(c => item(c, depth + 1))));
+    };
+    return h('ul', { class: 'rp-why' }, item(node, 0));
+  }
+
+  // ---------- applied cards: sliders, decider, tradeoffs ----------
   function Card(card) {
     const values = scenario.get().params[card.id] ?? {};
     const hint = h('p', { class: 'sim-card__hint', hidden: !changesNothing(card, values) }, 'At this setting the card changes nothing. Move the slider to try it.');
@@ -214,15 +423,10 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
       h('details', { class: 'sim-card__decider' },
         h('summary', {}, 'Who decides: ', card.decider.body),
         card.decider.how.length > 0 && h('ol', {}, card.decider.how.map(s => h('li', {}, s)))),
-      DETAILS && card.timing && h('p', { class: 'sim-card__summary' }, timing(card.timing)),
-      DETAILS && card.evidence?.length > 0 && h('details', { class: 'sim-card__decider' },
-        h('summary', {}, 'Evidence'),
-        h('ul', {}, card.evidence.map(e => h('li', {}, `${e.claim}: `, e.url ? h('a', { href: e.url, target: '_blank', rel: 'noopener' }, e.source) : e.source)))),
       h('div', { class: 'sim-card__tradeoffs' },
         h('div', {}, h('h4', {}, 'Pros'), h('ul', {}, card.tradeoffs.pros.map(s => h('li', {}, s)))),
         h('div', {}, h('h4', {}, 'Cons'), h('ul', {}, card.tradeoffs.cons.map(s => h('li', {}, s))))));
   }
-
   function Slider(card, p, value, onChange) {
     const show = v => `${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}${p.unit ? ` ${p.unit}` : ''}`;
     const out = h('output', { class: 'sim__val' }, show(value));
@@ -236,28 +440,77 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
       } }));
   }
 
-  // One line: label, the shown year's value, its change against no new policy. With DETAILS, hover or focus it for what it
-  // is computed from (PLACEHOLDER and VERIFY sources flagged) or, for CH-LUTI's metrics, the range and the "why" trace.
-  function Metric(m) {
-    const value = h('span', { class: 'sim-metric__value' }, '…'), delta = h('span', { class: 'sim-metric__delta' });
-    const range = h('span', { class: 'sim-metric__range' }), why = h('div', { class: 'sim-why', id: `sim-why-${m.key}`, role: 'tooltip' });
-    const popup = DETAILS && (m.luti ? why : m.inputs && h('div', { class: 'sim-why', id: why.id, role: 'tooltip' },
-      h('strong', {}, 'Assumptions and sources'),
-      m.caveat && h('p', { class: 'sim-why__caveat' }, m.caveat),
-      h('ul', {}, m.inputs.filter(k => sources[k]).map(k => Source(k, sources[k])))));
-    const el = h('div', { class: 'sim-metric', ...(popup ? { tabindex: 0, 'aria-describedby': why.id } : {}) },
-      h('span', { class: 'sim-metric__label', title: m.title }, m.label), value, delta, DETAILS && m.luti && range, popup);
-    return { m, value, delta, range, why, el };
+  // ---------- the household picked on the map, as of the shown year ----------
+  function renderResident(households, resident, yr) {
+    const a = resident == null ? null : households.agents.find(x => x.id === resident);
+    if (!a) return residentEl.replaceChildren();
+    const at = a.hist[Math.min(Math.max(yr, a.joined), a.left ?? 10)];
+    const status = yr < a.joined ? `Moves here in year ${a.joined}` : a.left !== null && a.left <= yr ? `Left in year ${a.left}` : a.joined ? `Moved in year ${a.joined}` : 'Lives here';
+    residentEl.replaceChildren(h('section', { class: 'resident' },
+      h('header', { class: 'resident__head' },
+        h('h3', {}, a.name),
+        h('button', { class: 'resident__close', type: 'button', 'aria-label': 'Close resident card', onclick: () => scenario.set({ resident: null }) }, '×')),
+      h('p', { class: 'resident__status' }, status),
+      h('dl', { class: 'resident__facts' },
+        h('dt', {}, 'Job'), h('dd', {}, a.student ? (a.work === 'campus' ? 'Student at UNC' : `Student; ${WORK[a.work].toLowerCase()}`) : WORK[a.work]),
+        h('dt', {}, 'Home'), h('dd', {}, a.renter ? 'Renter' : 'Owner'),
+        h('dt', {}, 'Income'), h('dd', {}, `${money(at.income)} a year`),
+        h('dt', {}, 'Rent'), h('dd', {}, a.renter ? `${money(at.rent)}/mo · ${share(at.burden)} of income` : 'None, owns home'),
+        h('dt', {}, 'Commute'), h('dd', {}, a.work === 'remote' ? 'None, works from home' : `${at.commute} min`)),
+      h('p', { class: 'resident__story' }, story(a, yr, at)),
+      a.renter && ResidentSpark(a, yr)));
   }
 
-  function Source(key, e) {
-    const flag = flagOf(e.source);
-    return h('li', { class: flag && 'is-flagged' },
-      h('span', { class: 'sim-why__key' }, `${key} = ${showValue(e.value)}${e.unit ? ` ${e.unit}` : ''}`),
-      flag && h('span', { class: 'sim-why__flag' }, flag),
-      h('span', { class: 'sim-why__src' }, e.source),
-      e.note && h('span', { class: 'sim-why__note' }, e.note),
-      e.alternate && h('span', { class: 'sim-why__note' }, `Alternate: ${showValue(e.alternate.value)}. ${e.alternate.source}`));
+  // ---------- assumptions, sources and checks (built when opened) ----------
+  let checks = null;
+  assume.addEventListener('toggle', () => { if (assume.open) renderAssumptions(); });
+  function renderAssumptions() {
+    if (!checks) { // how far CH-LUTI's rents move when the stock grows 1% (Mense 2025: about −0.19)
+      const model = createModel(assumptions, baselines), p = model.midParams();
+      const b = model.simulate(p, [], { seedEvents: false }).series, s = model.simulate(p, [], { seedEvents: false, shock: { units: 0.01 } }).series;
+      checks = { rentToSupply: (s[20].rent / b[20].rent - 1) / 0.01 };
+    }
+    const groups = {};
+    for (const [k, p] of Object.entries(paramRanges(assumptions))) (groups[p.group ?? 'Other model settings (data/assumptions.json)'] ??= []).push([k, p]);
+    const num = v => (Math.abs(v) >= 1000 ? fixed(v, 0) : String(+v.toPrecision(3)));
+    const range = p => `${num(p.lo)} · ${num(p.mid)} · ${num(p.hi)}${p.unit ? (p.unit.startsWith('/') ? p.unit : ` ${p.unit}`) : ''}`;
+    const link = (label, url) => (url ? h('a', { href: url, target: '_blank', rel: 'noopener' }, label) : label);
+    const t0 = run?.noPolicy.timeline[0].metrics;
+    assume.replaceChildren(
+      h('summary', {}, 'Assumptions, sources and checks'),
+      h('p', { class: 'rp-note' }, `${MODEL.name} (${MODEL.method}), combined with the land-use rules and the household model. Year 0 is ${START_YEAR}; the forecast runs ten years.`),
+      ui.active.length > 0 && [h('h4', { class: 'rp-h4' }, 'How this package works'),
+        h('ul', { class: 'rp-list' }, ui.active.map(c => h('li', {},
+          h('strong', {}, c.title), ` — ${c.summary} `,
+          h('span', { class: 'rp-muted' }, `Decided by ${c.decider.body}.${c.timing ? ` ${timing(c.timing)}` : ''}`),
+          c.evidence?.length > 0 && h('ul', {}, c.evidence.map(e => h('li', { class: 'rp-muted' }, `${e.claim} — `, link(e.source, e.url)))))))],
+      h('h4', { class: 'rp-h4' }, 'Checks against published evidence'),
+      h('ul', { class: 'rp-list' },
+        h('li', {}, `CH-LUTI's rents move ${fixed(checks.rentToSupply, 2)}% when the housing stock grows 1% (Mense 2025: −0.19%; Asquith, Mast & Reed 2023: new buildings cut nearby rents ~6%).`),
+        t0 && h('li', {}, `Year 0 with no new policy: ${FMT.int(t0.housingUnits)} homes, ${FMT.usd(t0.medianRent)} median rent, ${FMT.int(t0.jobs)} jobs, ${FMT.min(t0.avgCommuteMin)} average commute.`)),
+      h('h4', { class: 'rp-h4' }, 'Uncertain parameters (low · central · high)'),
+      ...Object.entries(groups).map(([g, list]) => h('div', { class: 'rp-params' },
+        h('h5', {}, g),
+        h('table', {}, h('tbody', {}, list.map(([k, p]) => h('tr', { class: flagOf(p.source) && 'is-flagged' },
+          h('th', { scope: 'row' }, p.label ?? k, flagOf(p.source) && h('span', { class: 'rp-flag' }, flagOf(p.source)), h('small', {}, p.source)),
+          h('td', {}, range(p)))))))),
+      h('h4', { class: 'rp-h4' }, 'Data'),
+      h('ul', { class: 'rp-list rp-muted' }, Object.values(SOURCES).map(s => h('li', {}, link(s.label, s.url))),
+        h('li', {}, link('Every source the page uses', 'sources.html'))));
+  }
+
+  function download() {
+    if (!run) return;
+    const out = {
+      model: MODEL, startYear: START_YEAR, cards: ui.active, params: scenario.get().params,
+      metrics: Object.fromEntries(METRICS.map(m => [m.key, {
+        withPolicies: run.result.timeline.map(t => t.metrics[m.key]), noNewPolicy: run.noPolicy.timeline.map(t => t.metrics[m.key]),
+      }])),
+      chLuti: luti && { runs: luti.runs, seed: luti.seed, change: luti.diff, baseline: Object.fromEntries(Object.entries(luti.baseline).map(([k, b]) => [k, b.p50])) },
+      zonesChanged: run.result.timeline.map(t => t.zoneStates),
+    };
+    const a = h('a', { href: URL.createObjectURL(new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' })), download: `${(policyStore.getState().scenarioName || 'scenario').replace(/[^\w-]+/g, '-')}.json` });
+    document.body.append(a); a.click(); a.remove();
   }
 }
 
@@ -268,17 +521,6 @@ function changesNothing(card, values) {
   const lever = l => { const v = l.param ? value(l.param) : l.value, kind = LEVERS[l.lever].kind; return (kind === 'amount' && v === 0) || (kind === 'multiplier' && v === 1); };
   return (card.levers ?? []).every(lever) && (card.zoneRules ?? []).every(r => r.capParam && value(r.capParam) === 0);
 }
-
-// A step of the CH-LUTI "why" trace, with its three biggest causes. Variables the page shows from another model are left out.
-function WhyNode(n) {
-  const kids = n.children.filter(c => !OTHER_MODEL.has(c.id)).sort((a, b) => Math.abs(b.rel) - Math.abs(a.rel)).slice(0, 3);
-  return h('li', {},
-    h('span', { class: 'sim-why__key' }, `${VARIABLES[n.id]?.label ?? n.id}: ${upDown(n.delta)} ${lutiChange(n.id, n.delta, n.base)}`),
-    kids.length > 0 && h('ul', {}, kids.map(WhyNode)));
-}
-
-const quarters = n => `${n} quarter${n === 1 ? '' : 's'}`;
-const timing = ({ delayQuarters: d, phaseInQuarters: p }) => `Starts after ${quarters(d)}, ${p > 1 ? `phasing in over ${quarters(p)}` : 'in full at once'}.`;
 
 function story(a, y, at) {
   const where = WHERE[a.zone];
@@ -291,7 +533,7 @@ function story(a, y, at) {
 }
 
 // Monthly rent over the years the household lived here, with a dot on the shown year.
-function Sparkline(a, y) {
+function ResidentSpark(a, y) {
   const end = a.left ?? 10, pts = [];
   for (let t = a.joined; t <= end; t++) pts.push([t, a.hist[t].rent]);
   if (pts.length < 2) return null;

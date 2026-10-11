@@ -166,7 +166,7 @@ test('homes never go on land built later or of another kind; then the exact cons
   const guest = D.planOf(tiny);
   assert.equal(guest.occupied, 0);
   assert.equal(guest.annexes.length, 0);
-  assert.match(guest.constraint, /^\d+ of the \d+ homes asked for have no valid place: none of the buildings the zone permits .* fits on its 0\.04 acres with a way in from a street, path or court; no other mid-rise land within 600 m built by then has room\.$/);
+  assert.match(guest.constraint, /^\d+ of the \d+ homes asked for have no valid place: none of the buildings the zone permits .* fits on its 0\.04 acres with a way in from a street, path or court; no other mid-rise land within 600 m built by then, nor unprotected forest within 3000 m, has room for them.$/);
   const { totals } = D.ledger(timeline(parcels, { 'b-2': [1, 'mid_res'], 'b-3': [1, 'low_res'] })[1]);
   assert.equal(totals.unmet, guest.requested + D.planOf(other).unmet, 'unplaced homes are unmet, never counted as built');
   assert.equal(totals.occupied + totals.unmet, totals.requested);
@@ -204,4 +204,15 @@ test('the ledger: completed + under construction + unmet is the sim\'s homes, an
   assert.equal(y1.requested, D.blockOf(a).units);
   assert.equal(y3.requested, D.blockOf(a).units + D.blockOf(b).units);
   assert.equal(y3.occupied + y3.unmet, y3.requested);
+});
+
+test('homes no converted land can hold go on the untouched forest of their wood, never on protected land', () => {
+  const tiny = parcel('f-1', rect(40, 8, 52, 20)), forest = parcel('f-2', rect(-200, 8, 0, 90)), kept = parcel('f-3', rect(100, 8, 300, 90));
+  const parcels = [tiny, forest, kept], w = world({ roads: [road], parcels });
+  const D = createDevelopment({ zones: parcels, upa: { ...UPA, mid_res: 40 }, ctxOf: w.ctxOf, occ: w.occ });
+  D.setForecast(timeline(parcels, { 'f-1': [1, 'mid_res'] }), [{ where: 'id:f-3', protect: 'forest' }]);
+  const p = D.planOf(tiny);
+  assert.ok(p.requested > 0 && p.occupied === p.requested, `all ${p.requested} homes stand (${p.occupied})`);
+  assert.ok(p.annexes.length && p.annexes.every(a => a.untouched && a.parcels.includes('f-2')), 'on the wood\'s untouched forest');
+  for (const b of p.buildings) assert.ok(!inside(kept.ring, b.c[0], b.c[1]), 'never on the protected parcel');
 });

@@ -3,7 +3,8 @@
 // year: first each on its own land (plan.js climbs its capacity ladder: gentle types, denser types, full stretch in
 // further rows, courts), with new streets aimed at the land the forecast converts; then the homes a block still can't
 // hold go on spare land of blocks in the same state built that year or before (its own site first, then the nearest
-// within NEARBY metres), rising in the block's own year. Each block's plan is final once its year is planned, so a year
+// within NEARBY metres), and failing that on the unconverted, unprotected land of its own wood (forest, or whatever else
+// stands there untouched) and then the nearest woods within FOREST_NEARBY metres, rising in the block's own year. Each block's plan is final once its year is planned, so a year
 // never moves what an earlier year built. Whatever no valid land can hold is reported with the constraint that stopped
 // it, never forced in.
 // Pure: no DOM, no THREE.
@@ -20,6 +21,8 @@ export const isBuilt = state => !!MIXES[state];
 const centre = parcels => { const [x0, z0, x1, z1] = parcels.map(p => bounds(p.ring)).reduce((a, b) => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])]); return [(x0 + x1) / 2, (z0 + z1) / 2]; };
 const HOSTS = 12; // the nearest blocks with room a block's leftover homes may try
 const NEARBY = 600; // and no further than this (metres between the blocks' middles), so homes stay in their neighbourhood
+const FOREST_NEARBY = 3000; // untouched land (forest) of a wood this near may take the rest, its own wood first
+const WILD_HOSTS = 40; // the nearest woods (and untouched lots) with room it may try
 const STATE_LABEL = { low_res: 'low-density', mid_res: 'mid-rise', mixed_use: 'mixed-use', transit_station: 'transit-station' };
 /** The densest the zone permits, in words: its types, the tallest first, with their most floors. */
 const densest = state => FILL[state].map(t => `${TYPES[t].label.toLowerCase()} to ${TYPES[t].floors[1]} floor${TYPES[t].floors[1] === 1 ? '' : 's'}`).join(', ');
@@ -48,15 +51,31 @@ export function createDevelopment({ zones, upa, ctxOf, occ, share = true }) {
 
   /** A block on its own land, cached by everything it depends on. */
   function ownPlan(b) {
-    const S = streetsOf(b.site), key = `${b.parcels.map(z => z.id).join('+')}|${b.state}|${b.units}|${S.key}|${b.access.map(z => z.id).join(',')}`;
+    const S = streetsOf(b.site), placed = f.wild?.get(b.site)?.placed ?? []; // homes other blocks already put on this wood's forest
+    const key = `${b.parcels.map(z => z.id).join('+')}|${b.state}|${b.units}|${S.key}|${b.access.map(z => z.id).join(',')}|${placed.map(p => p.key).join(',')}`;
     if (!ownCache.has(key)) {
-      const plan = planBlock({ parcels: b.parcels, state: b.state, units: b.units, ctx: ctxOf(b.site), streets: S.streets, occ, access: b.access });
+      const plan = planBlock({ parcels: b.parcels, state: b.state, units: b.units, ctx: ctxOf(b.site), streets: S.streets, occ, access: b.access, claims: placed });
       ownCache.set(key, Object.assign(plan, { key, annexes: [] }));
     }
     return ownCache.get(key);
   }
 
-  /** Homes the block's own land can't hold, on spare land of blocks built no later in the same state. */
+  /**
+   * A wood's untouched land as a host: its parcels the forecast leaves as they are and no policy protects. Its claims are
+   * every plan standing on or crossing it so far (blocks' courts and walks, homes placed on it), so nothing lands on them.
+   */
+  function wildOf(site) {
+    if (!f.wild.has(site)) {
+      const parcels = site.parcels.filter(z => f.final[z.id] === z.state && !f.blocked.has(z.id));
+      f.wild.set(site, parcels.length ? { key: `${site.id}|untouched`, site, parcels, access: [], centre: centre(parcels), wild: true, full: new Set(), placed: [] } : null);
+    }
+    return f.wild.get(site);
+  }
+
+  /**
+   * Homes the block's own land can't hold: on spare land of blocks built no later in the same state, then on the
+   * untouched land (forest) of its own wood and the nearest woods.
+   */
   function shareOut(b) {
     let left = b.own.unmet;
     const annexes = [], [cx, cz] = b.centre;
@@ -72,6 +91,21 @@ export function createDevelopment({ zones, upa, ctxOf, occ, share = true }) {
       annexes.push({ host, plan: a });
       left -= a.occupied;
     }
+    if (left > 0) {
+      const wilds = [...sites.values()].map(wildOf).filter(w => w && !w.full.has(b.state))
+        .map(w => ({ w, d: w.site === b.site ? -1 : Math.hypot(w.centre[0] - cx, w.centre[1] - cz) }))
+        .filter(p => p.d <= FOREST_NEARBY).sort((p, q) => p.d - q.d || (p.w.key < q.w.key ? -1 : 1)).slice(0, WILD_HOSTS).map(p => p.w);
+      for (const w of wilds) {
+        if (left <= 0) break;
+        const S = streetsOf(w.site), standing = f.order.filter(o => o.site === w.site && o.plan).map(o => o.plan); // their courts and walks cross it
+        const a = planBlock({ parcels: w.parcels, state: b.state, units: left, ctx: ctxOf(w.site), streets: S.streets, occ, claims: [...standing, ...w.placed], stretch: true });
+        if (!a.occupied) { w.full.add(b.state); continue; }
+        a.key = `${w.key}:${b.key}`;
+        w.placed.push(a);
+        annexes.push({ host: w, plan: a });
+        left -= a.occupied;
+      }
+    }
     if (!annexes.length) return b.own;
     const own = b.own, all = [own, ...annexes.map(a => a.plan)], cat = k => all.flatMap(p => p[k] ?? []);
     const occupied = own.occupied + annexes.reduce((n, a) => n + a.plan.occupied, 0);
@@ -80,7 +114,7 @@ export function createDevelopment({ zones, upa, ctxOf, occ, share = true }) {
       buildings: cat('buildings'), homes: cat('homes'), paths: cat('paths'), pads: cat('pads'), lawns: cat('lawns'), clear: cat('clear'), plantings: cat('plantings'), courts: cat('courts'),
       occupied, capacity: own.capacity + annexes.reduce((n, a) => n + a.plan.capacity, 0), unmet: Math.max(0, own.requested - occupied),
       // Where the rest went: the host block's site and parcels, the streets there its buildings need, and how many homes.
-      annexes: annexes.map(a => ({ site: a.host.site.id, block: a.host.key, parcels: a.plan.parcels, streets: a.plan.streets, homes: a.plan.occupied, buildings: a.plan.buildings.length })),
+      annexes: annexes.map(a => ({ site: a.host.site.id, block: a.host.key, parcels: a.plan.parcels, streets: a.plan.streets, homes: a.plan.occupied, buildings: a.plan.buildings.length, untouched: !!a.host.wild })),
     };
   }
 
@@ -93,7 +127,7 @@ export function createDevelopment({ zones, upa, ctxOf, occ, share = true }) {
     const fenced = b.site.parcels.filter(z => f.blocked.has(z.id)).length;
     const shared = plan.occupied - own.occupied;
     const label = STATE_LABEL[b.state] ?? b.state;
-    const pool = !share ? '' : shared ? `; ${shared} more went on other ${label} land within ${NEARBY} m built by then, which has no room for the rest` : `; no other ${label} land within ${NEARBY} m built by then has room`;
+    const pool = !share ? '' : `; ${shared ? `${shared} more went on other land nearby, and ` : ''}no other ${label} land within ${NEARBY} m built by then, nor unprotected forest within ${FOREST_NEARBY} m, has room for ${shared ? 'the rest' : 'them'}`;
     return `${plan.unmet} of the ${plan.requested} homes asked for ${plan.unmet === 1 ? 'has' : 'have'} no valid place: ${why}${fenced ? `, and ${fenced} protected parcel${fenced === 1 ? '' : 's'} nearby can't be crossed` : ''}${pool}.`;
   }
 
@@ -147,7 +181,7 @@ export function createDevelopment({ zones, upa, ctxOf, occ, share = true }) {
         b.access = b.site.parcels.filter(z => final[z.id] === z.state && !blocked.has(z.id)); // land its courts and walks may cross
         b.own = b.plan = null; b.full = b.done = false;
       }
-      f = { final, blocked, blockedKey: [...blocked].sort().join(','), requested, blockOf, order, years: [...new Set(order.map(b => b.year))], next: 0, at: 0, work: null, streetsDone: new Set() };
+      f = { final, blocked, blockedKey: [...blocked].sort().join(','), requested, blockOf, order, years: [...new Set(order.map(b => b.year))], next: 0, at: 0, work: null, streetsDone: new Set(), wild: new Map() };
       return order;
     },
     planThrough, step,

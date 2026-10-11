@@ -1,4 +1,4 @@
-/* The start screen (start-screen.js): Prosperia's title, the game in three steps and Start, over the pixel landscape.
+/* The start screen (start-screen.js): Prosperia's title and Start, over the pixel landscape.
    Drawn in the Aero-pixel skin (retro-ui.css): navy pixel borders, white and sky inner rims, hard-edged gloss, Pixelify
    Sans for headings and buttons. Until the landscape paints, a banded gradient stands in for its sky and hills. */
 .start {
@@ -51,31 +51,14 @@
 
 /* ---------- the card: one even glass, like the results panel ---------- */
 .start__card {
-  box-sizing: border-box; width: min(880px, 100%); padding: 18px 20px 20px;
+  box-sizing: border-box; width: min(440px, 100%); padding: 18px 20px 20px;
   background: rgba(222, 247, 255, .86); border: 3px solid var(--ae-navy); border-radius: 10px;
   box-shadow: inset 0 0 0 2px #ffffff, inset 0 0 0 4px rgba(127, 214, 245, .9), 0 4px 0 rgba(28, 44, 94, .45);
   backdrop-filter: blur(6px) saturate(1.5); -webkit-backdrop-filter: blur(6px) saturate(1.5);
 }
-.start__steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.start__step {
-  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 3px 10px; padding: 11px 12px 12px;
-  background: var(--ae-well); border: 2px solid var(--ae-sky); border-radius: 8px; box-shadow: inset 0 2px 0 #ffffff;
-}
-.start__step h2 { margin: 0; font-size: 17px; line-height: 1.15; color: var(--ae-navy); }
-/* Numbered bubbles, in the policy cards' orb gloss and the policy categories' colours. */
-.start__orb {
-  position: relative; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%;
-  font: 700 18px/1 var(--ae-pixel); color: #ffffff; text-shadow: 1px 1px 0 var(--ae-navy);
-  background: radial-gradient(circle at 50% 108%, var(--orb-light), transparent 55%), radial-gradient(circle at 50% 35%, var(--orb), var(--orb-deep));
-  box-shadow: 0 0 0 2px var(--ae-navy), inset 0 -4px 0 rgba(0, 0, 0, .18);
-}
-.start__orb::after { content: ''; position: absolute; left: 16%; right: 16%; top: 6%; height: 40%; border-radius: 50%; background: linear-gradient(180deg, rgba(255, 255, 255, .85), rgba(255, 255, 255, .05)); }
-.start__step:nth-child(1) .start__orb { --orb: #2b8ad8; --orb-deep: #145a96; --orb-light: #9bd6ff; }
-.start__step:nth-child(2) .start__orb { --orb: #45b04f; --orb-deep: #256f2d; --orb-light: #b3f0a5; }
-.start__step:nth-child(3) .start__orb { --orb: #e8a032; --orb-deep: #8a560b; --orb-light: #ffe196; }
 
 /* ---------- Start: a progress bar while the city builds, then a glossy lime button ---------- */
-.start__go { display: grid; justify-items: center; gap: 8px; margin-top: 18px; }
+.start__go { display: grid; justify-items: center; gap: 8px; }
 .start__btn {
   position: relative; overflow: hidden; min-width: min(320px, 100%); padding: 13px 40px 11px; cursor: progress;
   font: 600 24px/1 var(--ae-pixel); color: var(--ae-navy);
@@ -123,8 +106,6 @@
 @media (max-width: 720px) {
   .start__content { gap: 16px; }
   .start__card { padding: 14px 14px 16px; }
-  .start__steps { grid-template-columns: minmax(0, 1fr); gap: 8px; }
-  .start__step { padding: 9px 11px 10px; }
   .start__btn { min-width: min(260px, 100%); font-size: 21px; }
 }
 @media (max-height: 640px) {

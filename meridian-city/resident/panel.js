@@ -262,7 +262,7 @@ export async function mountResidentPanel({ launch }) {
         if (mine !== asked) return;
         reply.classList.remove('is-typing');
         reply.textContent = res.ok ? out.text : out.error;
-        if (out.fallback) reply.append(h('small', {}, 'A standard answer: the AI answer was unavailable.'));
+        if (out.fallback) reply.append(h('small', {}, 'A standard answer: AI answers are unavailable right now.'));
         else if (res.ok) reply.append(h('small', { class: 'mr-credit' }, 'Answered by Gemini'));
         if (out.audio) {
           const play = h('button', { type: 'button', class: 'mr-play', 'aria-label': `Hear ${r.name} say it`, onclick: () => { audio.src = `data:audio/mpeg;base64,${out.audio}`; audio.play(); } }, '▶ Hear it');

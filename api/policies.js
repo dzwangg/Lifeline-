@@ -13,7 +13,7 @@
 // Based on William Chen's scripts/create-policy-card.js (origin/William, 0f80831).
 import { randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { AI_PAUSED, aiLimiter, badNumbers, clientIp, evaluativeWords, gemini, hashInput, loadCards, readBody, signCard } from './narration.js';
+import { AI_PAUSED, AI_UNAVAILABLE, aiLimiter, badNumbers, clientIp, evaluativeWords, gemini, hashInput, loadCards, readBody, signCard } from './narration.js';
 import { ZONE_STATES, matchesWhere, validateCard } from '../shared/schema.js';
 import { runCombined, runModels } from '../shared/combined.js';
 import { runScenario } from '../shared/sim.js';
@@ -228,7 +228,9 @@ export async function generateCard(idea, env = process.env) {
     try {
       draft = await gemini(env, contents, opts);
     } catch (err) {
-      throw err.aiPaused ? fail(503, AI_PAUSED) : fail(502, `Gemini failed: ${err.message}`);
+      if (err.aiPaused) throw fail(503, AI_PAUSED);
+      console.error('policies: Gemini failed:', err.message);
+      throw fail(502, AI_UNAVAILABLE);
     }
     try {
       reply = JSON.parse(draft);
@@ -267,7 +269,7 @@ export async function POST(request) {
   let hit = drafts.get(id);
   if (!hit) {
     if (!process.env.GEMINI_API_KEY || process.env.DEMO_MODE === '1')
-      return Response.json({ error: 'Policy drafting is off on this server.' }, { status: 503 });
+      return Response.json({ error: AI_UNAVAILABLE }, { status: 503 });
     const wait = retryAfter(clientIp(request));
     if (wait) return Response.json({ error: 'too many drafts; try again shortly' }, { status: 429, headers: { 'retry-after': String(wait) } });
     try {

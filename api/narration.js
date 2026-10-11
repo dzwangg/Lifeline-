@@ -264,6 +264,8 @@ const MAX_OUTPUT = { narration: 250, chat: 200, cards: 1200 };
 const PRICES = { 'gemini-3.5-flash-lite': [0.30, 2.50], 'gemini-3.1-flash-lite': [0.25, 1.50], 'gemini-3-flash-preview': [0.50, 3.00],
   'gemini-3.6-flash': [0.75, 3.75], 'gemini-3.8-flash': [0.75, 3.75], 'gemini-2.5-flash': [0.30, 2.50], 'gemini-2.5-flash-lite': [0.10, 0.40] };
 export const AI_PAUSED = 'AI responses paused for today';
+/** What a player sees when Gemini is off or failing: never a key name or an upstream error (those go to the log). */
+export const AI_UNAVAILABLE = 'AI answers are unavailable right now.';
 /** GEMINI_DAILY_CALL_CAP as a nonnegative integer; unset or blank is the default, 300, and anything else warns and uses it too. */
 export function dailyCap(v = '') {
   const n = Number(v);

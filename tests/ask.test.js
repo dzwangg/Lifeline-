@@ -65,6 +65,9 @@ test('a what-if is answered with no Gemini key; anything needing Gemini says it 
     assert.equal(ok.kind, 'scenario');
     const off = await askCity('Make buses come every 8 minutes');
     assert.equal(off.status, 503);
+    const { error } = await off.json();
+    assert.match(error, /^AI answers are unavailable right now\./);
+    assert.doesNotMatch(error, /[A-Z]{2,}_[A-Z_]+|\.env/, 'a player never sees a key name');
     assert.equal(calls(), 0);
   }, { ...ENV, GEMINI_API_KEY: '' });
 });

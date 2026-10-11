@@ -574,7 +574,10 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
         h('dt', {}, 'Rent'), h('dd', {}, a.renter ? `${money(at.rent)}/mo · ${share(at.burden)} of income` : 'None, owns home'),
         h('dt', {}, 'Commute'), h('dd', {}, a.work === 'remote' ? 'None, works from home' : `${at.commute} min`)),
       h('p', { class: 'resident__story' }, story(a, yr, at)),
-      a.renter && ResidentSpark(a, yr)));
+      a.renter && ResidentSpark(a, yr),
+      // showcase residents (data/residents.json) have a budget, a Nessie ledger and a voice: open them in Meet the residents
+      !/^(hh|st)-/.test(resident) && h('button', { type: 'button', class: 'pp-btn pp-btn--primary resident__meet',
+        onclick: () => dispatchEvent(new CustomEvent('prosperia:meet', { detail: { id: resident } })) }, `Talk to ${a.name}`)));
   }
 
   // ---------- assumptions, sources and checks (built when opened) ----------

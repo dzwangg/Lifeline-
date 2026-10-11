@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="policy/ask-bar.css">
 <link rel="stylesheet" href="world/retro-ui.css">
 <link rel="stylesheet" href="world/start-screen.css">
+<link rel="stylesheet" href="resident/panel.css">
 <style>
   /* Frutiger Aero: sunlit sky, clear water, and luminous glass overlays. */
   :root {
@@ -112,6 +113,7 @@
   <button class="tool-btn" id="rot-right" type="button" aria-label="Rotate view right" aria-keyshortcuts="E"><svg viewBox="0 0 9 9" aria-hidden="true"><path fill="currentColor" d="M3 1h4v1h1v1H7v1H6v2H5V3H2v3H1V3h1V2h1zM8 3h1v1H8zM5 6h1v1H5zM2 7h1v1h3V7h1v1H6v1H3V8H2z"/></svg></button>
 </div>
 <button id="policy-launch" class="pp-launch" type="button" aria-haspopup="dialog" aria-keyshortcuts="P">Policies <span id="policy-count" class="pp-launch__count is-none">None active</span></button>
+<button id="resident-launch" class="pp-launch mr-launch" type="button" aria-haspopup="dialog" aria-keyshortcuts="R">Residents</button>
 
 <script type="module">
 // Policy panel: kept apart from the WebGL build below so it works while the city is still loading.
@@ -148,6 +150,8 @@ window.policyStore = store; // the simulation reads store.getState().applied onc
 mountClockBar(); // starts paused, so policies can be set up before Play
 mountAskBar({ store, cards }); // before the sim plate, so cards drafted on an earlier visit are in the deck
 mountSimPlate({ policyStore: store, cards, game });
+// Meet the residents: the fifty showcase households and "You", their budgets, Nessie ledgers and chat (resident/panel.js)
+import('./resident/panel.js').then(({ mountResidentPanel }) => mountResidentPanel({ launch: document.getElementById('resident-launch') }));
 // ?forecast adds the forecast dock (meridian-city/forecast/: the backend's forecasts, or its precomputed demos when no
 // server answers) and its housing markers on the map. Opt-in while the dock is new, so the default page is unchanged.
 if (new URLSearchParams(location.search).has('forecast')) {
@@ -170,7 +174,7 @@ import { mountFocus } from './sim/focus.js';
 import { mountWipe } from './sim/wipe.js';
 import { mountBubbles } from './world/aero.js';
 import { start } from './world/start-screen.js';
-import { onFrame, simClock } from './sim/scenario.js';
+import { onFrame } from './sim/scenario.js';
 
 const $ = id => document.getElementById(id);
 // The start screen's Start button is the loading bar: the world's build fills it to 85%, the sim's layers and the first
@@ -216,9 +220,8 @@ world.view.onChange(({ level }) => {
 // on the sim clock's time (see sim/clock.js), and street life in real time while the clock plays, none while paused.
 progress('Drawing the city…', .95);
 t = performance.now();
-let playing = false;
-simClock.subscribe(s => { playing = s.playing; });
-onFrame((dt, simDt) => world.update(dt, simDt, playing ? dt : 0));
+// Street life (cars, walkers, signals, the households' day) runs in real time, paused or playing: Pause stops the years.
+onFrame((dt, simDt) => world.update(dt, simDt, dt));
 if (new URLSearchParams(location.search).has('debug')) globalThis.world = world; // ?debug: the world, for tooling and the console
 await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); // the first frame is on screen
 timings.firstFrame = Math.round(performance.now() - t);

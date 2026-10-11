@@ -290,6 +290,7 @@
 .resident__spark polyline { fill: none; stroke: var(--sodium); stroke-width: 2; stroke-linejoin: round; }
 .resident__spark circle { fill: var(--ink); }
 .resident__spark figcaption { font: 11px var(--mono); color: var(--muted); }
+.resident__meet { margin-top: 10px; width: 100%; padding: 7px 10px !important; cursor: pointer; font-size: 14px; }
 
 /* Map hover label for households and 15-501, placed by agent-layer.js. */
 .agent-tip {

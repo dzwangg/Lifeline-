@@ -12,10 +12,11 @@
 // savings from the Survey of Consumer Finances; data/resident-finance.json holds those values and their sources. "You" follows the same CH-LUTI paths from the visitor's
 // self-reported year-0 numbers, which are kept nowhere but their own Nessie ledger.
 //
-// Nessie (NESSIE_API_KEY, server-side only): scripts/seed-nessie.js creates a customer with a checking and a savings account
+// Nessie (NESSIE_API_KEY, server-side only): scripts/seed-nessie.js creates a customer with checking, savings and loan accounts
 // per showcase resident once (ids in data/resident-bank.json). With ledger: true the scenario's ledger is written to those
 // accounts: the last year's month in checking (paycheck deposit, housing bill, commute and basket purchases) and the
-// savings path in savings (opening deposit, then each year's saving or drawdown), tagged with a hash of the budget. Nessie's
+// savings path in savings (opening deposit, then each year's saving or drawdown) and, once savings are gone, what a household
+// that borrows borrows or pays back each year in its loan account; all tagged with a hash of the budget. Nessie's
 // sandbox never posts entries to the balance and can't delete purchases, so the ledger is append-only: a scenario's entries
 // are written once (a cold start reads them back rather than writing them again), and the reply's totals are summed from
 // what Nessie returns. Written ledgers are cached, so a scenario costs Nessie calls once; without
@@ -98,34 +99,39 @@ export const savingsAt = (income, F) => table(F.startingSavings).findLast(([lo])
 /**
  * One run's money for a household, from year 0 while it is in town: yearly gross income, then a month's take-home pay,
  * housing (rent, or mortgage plus property tax), commute and other spending (basket), what is left (net), and at the
- * year's end the savings, which never go below zero, and how far behind on bills the household is once they are gone.
- * Other spending is set by year-0 income and grows with rent inflation.
+ * year's end the savings, which never go below zero. Once they are gone, a household that borrows (who.borrows: students,
+ * and renters whose year-0 rent burden is above agentBurdenLine) covers the gap with loans or family support, which are
+ * not modelled in detail: borrowed is what it owes. Any other household falls behind on bills instead (behind). Later
+ * surpluses pay those back first. Other spending is set by year-0 income and grows with rent inflation.
  * @param {{ income: number, housing: number, commuteMin: number }[]} years the household's years in town
- * @param {{ filing: 'single' | 'joint', mode: string, durham: boolean }} who
+ * @param {{ filing: 'single' | 'joint', mode: string, durham: boolean, borrows: boolean }} who
  */
 export function budget(years, who, { F, A }) {
   const income0 = years[0].income, trips = 2 * F.workDaysPerMonth, perMin = A.lutiSpeedKmh.car / 1.609344 / 60 * F.carCostPerMile;
   const bus = who.durham ? Math.min(trips * F.busFare.durham, F.busMonthlyCap.durham) : trips * F.busFare.town;
   const basket0 = spendingAt(income0, who.filing, F) / 12, start = Math.round(savingsAt(income0, F));
-  let position = start; // savings, or minus the unpaid bills once they are gone
+  let position = start; // savings, or minus what is owed (borrowed or unpaid) once they are gone
   return {
-    start,
+    start, borrows: who.borrows,
     years: years.map(({ income, housing, commuteMin }, t) => {
       const commute = who.mode === 'car' ? commuteMin * trips * perMin * grow(t) : who.mode === 'bus' ? bus * grow(t) : 0;
       const month = { pay: Math.round((income - taxes(income / grow(t), who.filing, F) * grow(t)) / 12), housing: Math.round(housing),
         commute: Math.round(commute), basket: Math.round(basket0 * grow(t)) };
       const net = month.pay - month.housing - month.commute - month.basket;
       position += 12 * net;
-      return { t, income: Math.round(income), ...month, net, savings: Math.max(0, position), behind: Math.max(0, -position) };
+      const owed = Math.max(0, -position);
+      return { t, income: Math.round(income), ...month, net, savings: Math.max(0, position), borrowed: who.borrows ? owed : 0, behind: who.borrows ? 0 : owed };
     }),
   };
 }
-const withFlags = (b, left) => ({ ...b, left, savingsOut: b.years.find(y => y.behind > 0)?.t ?? null });
-/** The policy's change against no new policy, month by month summed over the years the household is in town in both runs. */
+const withFlags = (b, left) => ({ ...b, left, savingsOut: b.years.find(y => y.borrowed > 0 || y.behind > 0)?.t ?? null });
+/** The policy's change against no new policy: month by month summed over the years the household is in town in both runs,
+ *  and what it has borrowed by the last of those years ("borrows $1,200 less over 10 years"). */
 export function changeOf(policy, noPolicy) {
-  const both = policy.years.filter(y => noPolicy.years[y.t]);
-  return { throughYear: both.at(-1)?.t ?? null, ...Object.fromEntries(['pay', 'housing', 'commute', 'basket', 'net']
-    .map(k => [k, both.reduce((s, y) => s + 12 * (y[k] - noPolicy.years[y.t][k]), 0)])) };
+  const both = policy.years.filter(y => noPolicy.years[y.t]), last = both.at(-1);
+  return { throughYear: last?.t ?? null, ...Object.fromEntries(['pay', 'housing', 'commute', 'basket', 'net']
+    .map(k => [k, both.reduce((s, y) => s + 12 * (y[k] - noPolicy.years[y.t][k]), 0)])),
+  borrowed: last ? last.borrowed - noPolicy.years[last.t].borrowed : 0 };
 }
 
 const yearOf = (luti, t) => (t ? luti.series[4 * t - 1] : luti.start);
@@ -138,7 +144,8 @@ function residentYears(r, run, d) {
       : d.F.ownerFixedShare * a.rentBase + L.homeValue * a.rentBase / d.baselines.medianGrossRent.value * L.taxRate / 1e4 / 12;
     out.push({ income: h.income, housing, commuteMin: h.commute });
   }
-  return withFlags(budget(out, { filing: r.filing, mode: r.mode, durham: a.work === 'durham' }, d), a.left);
+  const borrows = r.type === 'student' || (a.renter && a.burden0 > d.A.agentBurdenLine);
+  return withFlags(budget(out, { filing: r.filing, mode: r.mode, durham: a.work === 'durham', borrows }, d), a.left);
 }
 /** The visitor's years: their year-0 rent follows CH-LUTI's rent for their zone, income grows as CH-LUTI's does, and the
  *  commute takes as long as their zone's average one in the seed-7 run. They never leave. */
@@ -149,7 +156,7 @@ function youYears(you, run, d) {
     out.push({ income: you.income * (1 + d.A.lutiIncomeGrowth) ** t, housing: you.rent * (run.inputs.rent?.[t]?.[you.zone] ?? 1),
       commuteMin: commuters.reduce((s, a) => s + a.hist[t].commute, 0) / commuters.length });
   }
-  return withFlags(budget(out, { filing: 'single', mode: you.mode, durham: false }, d), null);
+  return withFlags(budget(out, { filing: 'single', mode: you.mode, durham: false, borrows: you.rent * 12 > d.A.agentBurdenLine * you.income }, d), null);
 }
 
 const withChange = (policy, noPolicy) => ({ policy, noPolicy, change: changeOf(policy, noPolicy) });
@@ -169,7 +176,8 @@ export async function statementFor(who, policies) {
 
 const dateOf = t => `${BASE_YEAR - 1 + t}-12-01`; // CH-LUTI's year 1 is BASE_YEAR, so year 0 ends the year before
 /** The Nessie entries for a budget: the last year's month in checking, the savings path in savings. tag marks them as this ledger's. */
-export function ledgerEntries(b, { tenure, mode }, merchants, tag = hashInput(b).slice(0, 8)) {
+export function ledgerEntries(b, { tenure, mode, type }, merchants, tag = hashInput(b).slice(0, 8)) {
+  const student = type === 'student';
   const y = b.years.at(-1), on = dateOf(y.t), say = text => `[${tag}] ${text}`, done = { medium: 'balance', status: 'completed' };
   const money = v => `$${Math.abs(v).toLocaleString('en-US')}`;
   return [
@@ -179,10 +187,16 @@ export function ledgerEntries(b, { tenure, mode }, merchants, tag = hashInput(b)
     y.commute > 0 && { account: 'checking', kind: 'purchases', body: { ...done, merchant_id: merchants.commute, purchase_date: on, amount: y.commute, description: say(`Year ${y.t} commute by ${mode}`) } },
     { account: 'checking', kind: 'purchases', body: { ...done, merchant_id: merchants.basket, purchase_date: on, amount: y.basket, description: say(`Year ${y.t} groceries, utilities and other spending`) } },
     { account: 'savings', kind: 'deposits', body: { ...done, transaction_date: `${BASE_YEAR - 1}-01-01`, amount: b.start, description: say('Opening savings') } },
-    // each year's change in savings, which stop at zero: past that, the shortfall is bills falling behind, not a withdrawal
+    // each year's change in savings, which stop at zero: past that, the shortfall is borrowed or bills falling behind
     ...b.years.map((x, i) => [x, x.savings - (i ? b.years[i - 1].savings : b.start)]).filter(([, change]) => change).map(([x, change]) => ({
       account: 'savings', kind: change > 0 ? 'deposits' : 'withdrawals', body: { ...done, transaction_date: dateOf(x.t), amount: Math.abs(change),
         description: say(`Year ${x.t}: ${change > 0 ? 'saved' : 'drew down'} ${money(change)}${x.behind ? `; savings gone, ${money(x.behind)} behind on bills` : ''}`) } })),
+    // what is borrowed each year (a loan) or paid back (a payment), in the loan account
+    ...b.years.map((x, i) => [x, x.borrowed - (i ? b.years[i - 1].borrowed : 0)]).filter(([, change]) => change).map(([x, change]) => (change > 0
+      ? { account: 'loan', kind: 'loans', body: { type: student ? 'student' : 'personal', status: 'approved', amount: change, monthly_payment: 0,
+        credit_score: 0, // Nessie requires one; none is modelled
+        description: say(`Year ${x.t}: borrowed ${money(change)}, the gap covered by ${student ? 'student loans' : 'loans'} or family support; ${money(x.borrowed)} owed`) } }
+      : { account: 'loan', kind: 'deposits', body: { ...done, transaction_date: dateOf(x.t), amount: -change, description: say(`Year ${x.t}: paid back ${money(change)}; ${money(x.borrowed)} owed`) } })),
   ].filter(Boolean);
 }
 const labelOf = e => e.body.description ?? e.body.nickname;
@@ -205,7 +219,7 @@ const inBatches = async (items, f, n = 6) => { // ponytail: 6 in flight; Nessie'
 
 // Nessie's sandbox records transactions but never posts them to the balance, and it can't delete purchases or withdrawals,
 // so the ledger is append-only: each scenario's entries carry its tag, and the accounts keep every scenario written so far.
-const KINDS = ['checking/deposits', 'checking/bills', 'checking/purchases', 'savings/deposits', 'savings/withdrawals']; // all ledgerEntries writes
+const KINDS = ['checking/deposits', 'checking/bills', 'checking/purchases', 'savings/deposits', 'savings/withdrawals', 'loan/loans', 'loan/deposits']; // all ledgerEntries writes
 /** Posts whichever of `entries` the accounts lack (all, the first time; none, once written, even from a cold start). */
 export async function writeLedger(env, accounts, entries) {
   const tag = labelOf(entries[0]).slice(0, 10), held = new Map();
@@ -223,18 +237,22 @@ export async function writeLedger(env, accounts, entries) {
   return { source: 'nessie', written: missing.length, totals: totals(rows), entries: rows };
 }
 const amountOf = x => x.amount ?? x.payment_amount;
-const view = e => ({ id: null, account: e.account, kind: e.kind, amount: amountOf(e.body), date: e.body.transaction_date ?? e.body.purchase_date ?? e.body.payment_date, label: labelOf(e) });
-/** The month left over in checking and the savings balance at the end, summed from the entries. */
-const totals = rows => Object.fromEntries(['checking', 'savings'].map(a => [a, rows.filter(r => r.account === a)
-  .reduce((s, r) => s + (r.kind === 'deposits' ? r.amount : -r.amount), 0)]));
+const view = e => ({ id: null, account: e.account, kind: e.kind, amount: amountOf(e.body), date: e.body.transaction_date ?? e.body.purchase_date ?? e.body.payment_date ?? null, label: labelOf(e) });
+/** The month left over in checking, the savings balance at the end and what is owed on the loan, summed from the entries. */
+const totals = rows => ({
+  ...Object.fromEntries(['checking', 'savings'].map(a => [a, rows.filter(r => r.account === a).reduce((s, r) => s + (r.kind === 'deposits' ? r.amount : -r.amount), 0)])),
+  loan: rows.filter(r => r.account === 'loan').reduce((s, r) => s + (r.kind === 'loans' ? r.amount : -r.amount), 0),
+});
 const localLedger = (entries, note) => { const rows = entries.map(view); return { source: 'local', note, totals: totals(rows), entries: rows }; };
 
-/** A checking and a savings account for a customer, made first if `customer` is null. */
-async function createCustomer(env, first_name, last_name, customer = null) {
-  customer ??= created(await nessie(env, 'POST', '/customers', { first_name, last_name, address: ADDRESS }))._id;
-  const [checking, savings] = await Promise.all(['Checking', 'Savings'].map(type =>
-    nessie(env, 'POST', `/customers/${customer}/accounts`, { type, nickname: `${first_name} ${type.toLowerCase()}`, rewards: 0, balance: 0 }).then(r => created(r)._id)));
-  return { customer, checking, savings };
+// Nessie has no loan account type, so loans and family support sit on a Credit Card account, as Nessie loans.
+const ACCOUNTS = { checking: ['Checking', 'checking'], savings: ['Savings', 'savings'], loan: ['Credit Card', 'loans and family support'] };
+/** A customer with a checking, a savings and a loan account: whichever of them `have` lacks is made. */
+async function createCustomer(env, first_name, last_name, have = {}) {
+  const customer = have.customer ?? created(await nessie(env, 'POST', '/customers', { first_name, last_name, address: ADDRESS }))._id;
+  const made = await Promise.all(Object.entries(ACCOUNTS).map(async ([key, [type, what]]) => [key, have[key]
+    ?? created(await nessie(env, 'POST', `/customers/${customer}/accounts`, { type, nickname: `${first_name} ${what}`, rewards: 0, balance: 0 }))._id]));
+  return { customer, ...Object.fromEntries(made) };
 }
 
 /**
@@ -247,15 +265,15 @@ export async function seedBank(env, bank, residents, save = async () => {}) {
     bank.merchants[key] = created(await nessie(env, 'POST', '/merchants', { name, category, address: ADDRESS, geocode: { lat: 35.9132, lng: -79.0558 } }))._id;
     await save(bank);
   }
-  for (const r of residents) if (!bank.residents[r.id]?.savings) { // a customer without accounts keeps its customer
-    bank.residents[r.id] = await createCustomer(env, r.name, 'Meridian (simulated)', bank.residents[r.id]?.customer);
+  for (const r of residents) if (!Object.keys(ACCOUNTS).every(k => bank.residents[r.id]?.[k])) { // what exists is kept
+    bank.residents[r.id] = await createCustomer(env, r.name, 'Meridian (simulated)', bank.residents[r.id]);
     await save(bank);
   }
   return bank;
 }
 
 // A visitor's account ids come back from the browser, so they are signed: a visitor can only write to accounts made for them.
-const sign = (env, a) => createHmac('sha256', `resident-bank:${env.NESSIE_API_KEY}`).update(`${a.customer}.${a.checking}.${a.savings}`).digest('hex');
+const sign = (env, a) => createHmac('sha256', `resident-bank:${env.NESSIE_API_KEY}`).update(`${a.customer}.${a.checking}.${a.savings}.${a.loan}`).digest('hex');
 const signed = (env, a) => { const s = Buffer.from(sign(env, a)), t = Buffer.from(String(a.sig)); return s.length === t.length && timingSafeEqual(s, t); };
 
 /** Hand-written check of the body. @returns {{ errors: string[], who?: string | object, policies?: object[], account?: object }} */
@@ -271,11 +289,11 @@ export function parseBody(b, cards, residents) {
   ok(validPolicies(b.policies, cards, 0), policiesError(cards, 0));
   ok(b.ledger === undefined || typeof b.ledger === 'boolean', 'ledger must be true or false');
   const a = b.account;
-  ok(a === undefined || (isObj(y) && isObj(a) && ['customer', 'checking', 'savings', 'sig'].every(k => typeof a[k] === 'string' && a[k].length <= 64)),
-    'account must be { customer, checking, savings, sig } as an earlier reply gave it, with you');
+  ok(a === undefined || (isObj(y) && isObj(a) && ['customer', 'checking', 'savings', 'loan', 'sig'].every(k => typeof a[k] === 'string' && a[k].length <= 64)),
+    'account must be { customer, checking, savings, loan, sig } as an earlier reply gave it, with you');
   if (errors.length) return { errors };
   return { errors, who: isObj(y) ? { rent: y.rent, income: y.income, zone: y.zone, mode: y.mode } : b.resident,
-    policies: b.policies.map(({ id, params }) => ({ id, params })), account: a && { customer: a.customer, checking: a.checking, savings: a.savings, sig: a.sig } };
+    policies: b.policies.map(({ id, params }) => ({ id, params })), account: a && { customer: a.customer, checking: a.checking, savings: a.savings, loan: a.loan, sig: a.sig } };
 }
 
 const ledgers = new Map(); // `${checking account}|${entries hash}` -> written ledger: Nessie is called once per scenario
@@ -316,7 +334,7 @@ export async function POST(request, env = process.env) {
   if (note) return Response.json({ ...statement, ledger: localLedger(entries, note) });
   try {
     if (!accounts) {
-      accounts = await createCustomer(env, 'Visitor', 'Meridian (simulated)');
+      accounts = await createCustomer(env, 'Visitor', 'Prosperia (simulated)');
       reply.account = { ...accounts, sig: sign(env, accounts) };
     }
     const prev = queues.get(accounts.checking) ?? Promise.resolve();

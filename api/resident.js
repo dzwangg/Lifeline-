@@ -26,16 +26,17 @@ const lastDiff = s => { const t = s.change.throughYear, p = s.policy.years[t], n
   return Object.fromEntries(['pay', 'housing', 'commute', 'basket', 'net'].map(k => [k, p[k] - n[k]])); };
 /** What the resident may talk about: everything Gemini and the number check see. */
 export function facts(s) {
-  const run = b => ({ lastYear: b.years.at(-1).t, leftTownInYear: b.left, savingsRanOutInYear: b.savingsOut, startingSavings: b.start, byYear: b.years });
+  const run = b => ({ lastYear: b.years.at(-1).t, leftTownInYear: b.left, savingsRanOutInYear: b.savingsOut, borrowsOnceSavingsAreGone: b.borrows, startingSavings: b.start, byYear: b.years });
   const { name, type, zone, work, mode, tenure } = s.resident;
   return {
     name, type, tenure, lives: ZONE[zone], work: WORK[work], commute: work === 'remote' ? null : MODE[mode],
     policies: s.policies.map(p => p.title),
-    money: 'byYear is each simulated year t (0 = now): income is gross yearly income; pay (take-home, after tax), housing (rent, or mortgage and property tax for owners), commute and basket (everything else) are monthly dollars; net is what is left each month; savings is the balance at the end of the year, never below 0; behind is how much in bills is unpaid once savings are gone. policyChange is the policy minus no new policy: per month in the last year both runs share, and in total over the years (positive housing means paying more)',
+    money: 'byYear is each simulated year t (0 = now): income is gross yearly income; pay (take-home, after tax), housing (rent, or mortgage and property tax for owners), commute and basket (everything else) are monthly dollars; net is what is left each month; savings is the balance at the end of the year, never below 0; once savings are gone, borrowed is what has been borrowed so far to cover the gap (student loans or family support, not modelled in detail), for a household that borrows, and behind is unpaid bills for one that does not. policyChange is the policy minus no new policy: per month in the last year both runs share, and in total over the years (positive housing means paying more)',
     withPolicy: run(s.policy), noPolicy: run(s.noPolicy),
     // precomputed, so the resident can quote a change without calculating one
     ...(s.policies.length && { policyChange: { lastSharedYear: s.change.throughYear,
-      perMonthInLastSharedYear: lastDiff(s), totalOverTheYears: Object.fromEntries(['pay', 'housing', 'commute', 'basket', 'net'].map(k => [k, s.change[k]])) } }),
+      perMonthInLastSharedYear: lastDiff(s), totalOverTheYears: Object.fromEntries(['pay', 'housing', 'commute', 'basket', 'net'].map(k => [k, s.change[k]])),
+      borrowedByLastSharedYear: s.change.borrowed } }),
   };
 }
 
@@ -49,16 +50,19 @@ export function templateAnswer(f) {
     `I'm ${f.name}, ${WHO[f.type]}, and I ${f.tenure === 'owner' ? 'own a home' : 'rent'} ${f.lives} and ${f.work}${f.commute ? ` ${f.commute}` : ''}.`,
     `${what}, by year ${y.t} I take home ${money(y.pay)} a month and pay ${money(y.housing)} for housing and ${commute(y.commute)}${compare}.`,
     p.leftTownInYear !== null ? `I move out of town in year ${p.leftTownInYear}.`
-      : p.savingsRanOutInYear !== null ? `My savings run out in year ${p.savingsRanOutInYear}, and by year ${y.t} I'm ${money(y.behind)} behind on bills.`
+      : p.savingsRanOutInYear !== null && y.borrowed ? `My savings run out in year ${p.savingsRanOutInYear}, and by year ${y.t} I've borrowed ${money(y.borrowed)} to cover the gap with ${f.type === 'student' ? 'student loans' : 'loans'} or family support.`
+      : p.savingsRanOutInYear !== null ? `My savings are gone by year ${p.savingsRanOutInYear}, and by year ${y.t} I'm ${money(y.behind)} behind on bills.`
       : `I end year ${y.t} with ${money(y.savings)} in savings.`,
-    f.policyChange && f.policyChange.totalOverTheYears.net !== 0 ? `Over the years, that leaves me ${money(Math.abs(f.policyChange.totalOverTheYears.net))} ${f.policyChange.totalOverTheYears.net > 0 ? 'more' : 'less'} than with no new policy.` : '',
+    !f.policyChange ? ''
+      : f.policyChange.borrowedByLastSharedYear ? `Over the years, I borrow ${money(Math.abs(f.policyChange.borrowedByLastSharedYear))} ${f.policyChange.borrowedByLastSharedYear > 0 ? 'more' : 'less'} than with no new policy.`
+      : f.policyChange.totalOverTheYears.net ? `Over the years, that leaves me ${money(Math.abs(f.policyChange.totalOverTheYears.net))} ${f.policyChange.totalOverTheYears.net > 0 ? 'more' : 'less'} than with no new policy.` : '',
   ].filter(Boolean).join(' ');
 }
 
 const SYSTEM_PROMPT = `You play one simulated resident of Chapel Hill, North Carolina, in Prosperia, a city policy simulation, and answer a visitor's question as that resident. Your answer is read aloud.
 Rules:
 - First person, 2 to 4 sentences, plain everyday language, no lists or headings. Answer the question first; don't open by restating where you live and work unless that is what was asked.
-- Say only what the resident data (JSON) says: where you live, your work and commute, your income, housing, commute and other costs, your savings and whether you left town. Invent nothing else: no family members, employers, places, events or opinions about people. If the data doesn't cover the question, say the simulation doesn't tell you.
+- Say only what the resident data (JSON) says: where you live, your work and commute, your income, housing, commute and other costs, your savings, what you have borrowed (call it loans or family support, without details the data doesn't give) and whether you left town. Invent nothing else: no family members, employers, places, events or opinions about people. If the data doesn't cover the question, say the simulation doesn't tell you.
 - Use only numbers that appear in the data, and never calculate new ones such as differences, totals or percentages: policyChange already has the differences. Write numbers as digits, money with $ and commas; you may round (for example "about $2,100" for 2138).
 - withPolicy is your simulated life with the policy cards; noPolicy is the same years with no new policy. When you compare them, say which is which.
 - Never recommend, endorse or oppose the policy, never urge anyone to vote or act, and take no side. You may say plainly how the numbers change your budget.

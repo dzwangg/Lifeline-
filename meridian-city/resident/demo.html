@@ -101,7 +101,7 @@ All numbers are simulated and illustrative.</p>
 const $ = id => document.getElementById(id);
 const el = (tag, text, attrs = {}) => Object.assign(document.createElement(tag), { textContent: text ?? '' }, attrs);
 const money = v => (v == null ? '—' : `${v < 0 ? '−' : ''}$${Math.abs(v).toLocaleString('en-US')}`);
-const saved = y => (!y ? '—' : y.behind ? `$0, ${money(y.behind)} behind on bills` : money(y.savings));
+const saved = y => (!y ? '—' : y.borrowed ? `$0, ${money(y.borrowed)} borrowed` : y.behind ? `$0, ${money(y.behind)} behind on bills` : money(y.savings));
 const signed = v => (v == null ? '—' : v === 0 ? '$0' : `${v > 0 ? '+' : '−'}$${Math.abs(v).toLocaleString('en-US')}`);
 const store = { get: k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
 
@@ -171,11 +171,20 @@ function render() {
     const total = change[k], word = total > 0 ? 'more' : 'less';
     if (title) tr.append(el('td', b ? money(sign * b[k]) : 'moved away'), el('td', a && b ? signed(sign * (b[k] - a[k])) : '—'), el('td', total ? `${money(Math.abs(total))} ${word}` : '$0'));
   }
+  // once savings are gone, a household that borrows covers the gap with loans or family support: what it owes by this year
+  if (noPolicy.borrows && (a?.borrowed || b?.borrowed)) {
+    const tr = tb.insertRow(), c = change.borrowed;
+    tr.append(el('td', 'Borrowed so far (loans or family support, not modelled in detail)'), el('td', a ? money(a.borrowed) : 'moved away'));
+    if (title) tr.append(el('td', b ? money(b.borrowed) : 'moved away'), el('td', '—'), el('td', c ? `borrows ${money(Math.abs(c))} ${c > 0 ? 'more' : 'less'}` : '$0'));
+  }
   const flags = $('flags');
   flags.replaceChildren();
   for (const [name, run] of title ? [['With the policy', policy], ['With no new policy', noPolicy]] : [['With no new policy', noPolicy]]) {
     if (run.left !== null) flags.append(el('p', `${name}, ${r.name} moves out of town in year ${run.left}.`, { className: 'flag' }));
-    if (run.savingsOut !== null) flags.append(el('p', `${name}, savings are gone in year ${run.savingsOut}, and bills fall behind: ${money(run.years.at(-1).behind)} unpaid by year ${run.years.at(-1).t}.`, { className: 'flag' }));
+    const end = run.years.at(-1), support = r.type === 'student' ? 'student loans or family support' : 'loans or family support';
+    if (run.savingsOut !== null) flags.append(el('p', end.borrowed
+      ? `${name}, ${r.type === 'student' ? 'savings are used up' : 'savings are gone'} in year ${run.savingsOut}; after that the gap is covered by ${support} (not modelled in detail): ${money(end.borrowed)} borrowed by year ${end.t}.`
+      : `${name}, savings are gone in year ${run.savingsOut}, and bills fall behind: ${money(end.behind)} unpaid by year ${end.t}.`, { className: 'flag' }));
   }
   $('legend-policy').hidden = !title;
   chart(noPolicy, title ? policy : null, title);
@@ -190,12 +199,13 @@ function render() {
   $('ledger-note').textContent = ledger.source === 'nessie'
     ? `Read back from Nessie (its sandbox records entries but doesn't post them to a balance): they add up to ${money(ledger.totals.checking)} left over in the month in checking and ${money(ledger.totals.savings)} in savings.`
     : `${ledger.note} The same entries add up to ${money(ledger.totals.checking)} left over in the month and ${money(ledger.totals.savings)} in savings.`;
+  if (ledger.totals.loan) $('ledger-note').textContent += ` The loan account shows ${money(ledger.totals.loan)} owed.`;
   const lt = $('ledger');
   lt.replaceChildren();
   const lh = lt.createTHead().insertRow();
   for (const h of ['Entry', 'Account', 'Type', 'Date', 'Amount']) lh.append(el('th', h));
   const lb = lt.createTBody();
-  for (const e of ledger.entries) { const tr = lb.insertRow(); tr.append(el('td', e.label.replace(/^\[\w+\] /, '')), el('td', e.account), el('td', e.kind), el('td', e.date), el('td', money(e.amount))); }
+  for (const e of ledger.entries) { const tr = lb.insertRow(); tr.append(el('td', e.label.replace(/^\[\w+\] /, '')), el('td', e.account), el('td', e.kind), el('td', e.date ?? ''), el('td', money(e.amount))); }
 }
 
 // Savings at the end of each year: two lines on one axis, a zero line, a crosshair readout.
@@ -203,7 +213,7 @@ function chart(a, b, title) {
   const W = 640, H = 220, L = 64, R = 12, T = 10, B = 26, box = $('chart');
   const all = [...a.years, ...(b?.years ?? [])].map(y => y.savings).concat(0);
   let lo = Math.min(...all), hi = Math.max(...all);
-  if (lo === hi) hi = lo + 1;
+  hi = Math.max(hi, lo + 1000); // savings at $0 throughout still get a readable axis
   const x = t => L + t / 10 * (W - L - R), y = v => T + (hi - v) / (hi - lo) * (H - T - B);
   const NS = 'http://www.w3.org/2000/svg', s = (tag, attrs) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); return n; };
   const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Savings by year, with and without the policy' });

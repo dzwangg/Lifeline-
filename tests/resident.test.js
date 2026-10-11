@@ -24,9 +24,10 @@ function fakeNessie() {
     if (method === 'POST' && path === '/customers') { const c = { _id: id(), ...body }; store.customers[c._id] = c; return { objectCreated: c }; }
     if ((m = path.match(/^\/customers\/(\w+)\/accounts$/)) && method === 'POST') { const a = { _id: id(), customer_id: m[1], ...body }; store.accounts[a._id] = a; return { objectCreated: a }; }
     if ((m = path.match(/^\/accounts\/(\w+)$/)) && method === 'GET') return store.accounts[m[1]];
-    if ((m = path.match(/^\/accounts\/(\w+)\/(deposits|bills|purchases|withdrawals)$/))) {
+    if ((m = path.match(/^\/accounts\/(\w+)\/(deposits|bills|purchases|withdrawals|loans)$/))) {
       if (method === 'GET') return Object.values(store.txns).filter(t => t.account_id === m[1] && t.kind === m[2]);
       if (m[2] !== 'bills' && !body.status) return 400;
+      if (m[2] === 'loans' && !(body.credit_score >= 0 && body.monthly_payment >= 0)) return 400;
       const t = { _id: id(), account_id: m[1], kind: m[2], ...body };
       store.txns[t._id] = t;
       return { objectCreated: t };
@@ -113,7 +114,7 @@ test('spending: CE shares of after-tax income less the saving rate, rising with 
 });
 
 test('budget: what is left is pay less housing, commute and spending; savings stop at zero and the rest is bills behind', () => {
-  const b = budget([{ income: 60000, housing: 1500, commuteMin: 20 }, { income: 61650, housing: 1550, commuteMin: 20 }], { filing: 'single', mode: 'car', durham: false }, d);
+  const b = budget([{ income: 60000, housing: 1500, commuteMin: 20 }, { income: 61650, housing: 1550, commuteMin: 20 }], { filing: 'single', mode: 'car', durham: false, borrows: false }, d);
   let position = b.start;
   for (const y of b.years) {
     assert.equal(y.net, y.pay - y.housing - y.commute - y.basket);
@@ -126,9 +127,12 @@ test('budget: what is left is pay less housing, commute and spending; savings st
   const durham = budget([{ income: 60000, housing: 1500, commuteMin: 40 }], { filing: 'single', mode: 'bus', durham: true }, d);
   assert.equal(durham.years[0].commute, d.F.busMonthlyCap.durham, '42 GoTriangle trips at $2.50 hit the $80 monthly cap');
   // too much rent: savings go to zero, never below, and later surpluses pay the bills back first
-  const squeezed = budget([3000, 3000, 500, 500].map(housing => ({ income: 60000, housing, commuteMin: 0 })), { filing: 'single', mode: 'none', durham: false }, d);
-  assert.ok(squeezed.years.every(y => y.savings >= 0 && y.behind >= 0 && !(y.savings && y.behind)));
+  const squeeze = borrows => budget([3000, 3000, 500, 500].map(housing => ({ income: 60000, housing, commuteMin: 0 })), { filing: 'single', mode: 'none', durham: false, borrows }, d);
+  const squeezed = squeeze(false);
+  assert.ok(squeezed.years.every(y => y.savings >= 0 && y.behind >= 0 && !(y.savings && y.behind) && y.borrowed === 0));
   assert.ok(squeezed.years[1].behind > squeezed.years[0].behind && squeezed.years[2].behind < squeezed.years[1].behind);
+  // a household that borrows owes the same gap as a loan instead, and never falls behind
+  assert.deepEqual(squeeze(true).years.map(y => [y.savings, y.borrowed, y.behind]), squeezed.years.map(y => [y.savings, y.behind, 0]));
 });
 
 test('statements follow the household model: rent, income and leaving are the agent\'s own; savings running out is flagged', async () => {
@@ -137,9 +141,9 @@ test('statements follow the household model: rent, income and leaving are the ag
   assert.equal(keisha.noPolicy.left, a.left);
   assert.equal(keisha.noPolicy.years.length, a.left, 'the budget stops the year they leave');
   keisha.noPolicy.years.forEach(y => { assert.equal(y.housing, a.hist[y.t].rent); assert.equal(y.income, a.hist[y.t].income); });
-  assert.equal(keisha.noPolicy.savingsOut, keisha.noPolicy.years.find(y => y.behind > 0).t);
+  assert.equal(keisha.noPolicy.savingsOut, keisha.noPolicy.years.find(y => y.borrowed > 0).t);
   assert.deepEqual(keisha.policy, keisha.noPolicy, 'no cards: both runs are the same');
-  assert.deepEqual(Object.values(keisha.change).slice(1), [0, 0, 0, 0, 0]);
+  assert.deepEqual(Object.values(keisha.change).slice(1), [0, 0, 0, 0, 0, 0]);
   const quinn = await statementFor('quinn', NONE);
   assert.equal(quinn.noPolicy.savingsOut, null);
   assert.equal(quinn.resident.tenure, 'renter');
@@ -155,6 +159,20 @@ test('calibration: with no policy, households paying under 30% of income in rent
     else assert.ok(a.renter, `${r.id}: only renters are strained`);
   }
   assert.ok(solvent >= 7, `${solvent} of 12 solvent`);
+});
+
+test('students, and renters paying over 30% of income in rent, cover the gap by borrowing; nobody else does', async () => {
+  const { agents } = simulate(runModels([], {}, zones, assumptions, baselines).inputs, assumptions, baselines, 7);
+  for (const r of residents) {
+    const s = await statementFor(r.id, NONE), a = agents[r.agent];
+    assert.equal(s.noPolicy.borrows, r.type === 'student' || (a.renter && a.burden0 > assumptions.agentBurdenLine.value), r.id);
+    assert.ok(s.noPolicy.years.every(y => y.savings >= 0 && (s.noPolicy.borrows ? y.behind === 0 : y.borrowed === 0)), r.id);
+  }
+  const uma = await statementFor('uma', BIKES);
+  assert.ok(uma.noPolicy.years.at(-1).borrowed > 0);
+  assert.equal(uma.change.borrowed, uma.policy.years[10].borrowed - uma.noPolicy.years[10].borrowed, 'what the policy changes in what is owed by year 10');
+  const you = await statementFor({ rent: 2000, income: 50000, zone: 'campus', mode: 'bus' }, NONE);
+  assert.equal(you.noPolicy.borrows, true, '48% of income in rent');
 });
 
 test('cards move the money: a 10-cent tax rise costs an owner, and the policy change adds up over the years', async () => {
@@ -193,6 +211,10 @@ test('ledger entries: the last year\'s month in checking, the savings path in sa
   const deltas = s.noPolicy.years.map((y, i) => y.savings - (i ? s.noPolicy.years[i - 1].savings : s.noPolicy.start));
   assert.equal(e.filter(x => x.kind === 'withdrawals').length, deltas.filter(x => x < 0).length, 'withdrawals stop when savings are gone');
   assert.equal(e.filter(x => x.account === 'savings').reduce((t, x) => t + (x.kind === 'deposits' ? x.body.amount : -x.body.amount), 0), last.savings);
+  const loans = e.filter(x => x.account === 'loan');
+  assert.ok(loans.length && loans.every(x => x.kind === 'loans' && x.body.type === 'student'), 'Keisha borrows every year once her savings are gone');
+  assert.equal(loans.reduce((t, x) => t + x.body.amount, 0), last.borrowed);
+  assert.match(loans[0].body.description, /the gap covered by student loans or family support/);
   assert.ok(e.every(x => (x.body.amount ?? x.body.payment_amount) > 0));
   const tags = new Set(e.map(x => (x.body.description ?? x.body.nickname).slice(0, 10)));
   assert.equal(tags.size, 1);
@@ -203,12 +225,15 @@ test('seeding is idempotent: merchants, then a customer with checking and saving
   await withFetch({}, async calls => {
     const saved = [];
     const b = await seedBank({ NESSIE_API_KEY: KEY }, { merchants: {}, residents: {} }, residents, async x => saved.push(structuredClone(x)));
-    assert.equal(calls.length, 2 + 3 * 12);
+    assert.equal(calls.length, 2 + 4 * 12);
     assert.deepEqual(Object.keys(b.residents), residents.map(r => r.id));
-    assert.ok(Object.values(b.residents).every(r => r.customer && r.checking && r.savings));
+    assert.ok(Object.values(b.residents).every(r => r.customer && r.checking && r.savings && r.loan));
     assert.equal(saved.length, 2 + 12, 'saved after each step');
     await seedBank({ NESSIE_API_KEY: KEY }, b, residents);
-    assert.equal(calls.length, 2 + 3 * 12);
+    assert.equal(calls.length, 2 + 4 * 12);
+    delete b.residents.uma.loan; // an older entry without a loan account gets just that
+    await seedBank({ NESSIE_API_KEY: KEY }, b, residents);
+    assert.equal(calls.length, 2 + 4 * 12 + 1);
   });
 });
 
@@ -219,17 +244,19 @@ test('handler: the ledger is written to the resident\'s Nessie accounts once, th
     assert.equal(r.ledger.source, 'nessie');
     const entries = ledgerEntries(r.policy, r.resident, d.bank.merchants);
     assert.equal(calls.filter(c => c.method === 'POST').length, entries.length);
-    assert.ok(calls.filter(c => c.method === 'POST').every(c => c.url.includes(d.bank.residents.bryce.checking) || c.url.includes(d.bank.residents.bryce.savings)));
+    const { checking, savings, loan } = d.bank.residents.bryce;
+    assert.ok(calls.filter(c => c.method === 'POST').every(c => [checking, savings, loan].some(id => c.url.includes(id))));
     assert.deepEqual(r.ledger.entries.map(e => e.amount), entries.map(e => e.body.amount ?? e.body.payment_amount));
     assert.ok(r.ledger.entries.every(e => e.id));
-    assert.deepEqual(r.ledger.totals, { checking: r.policy.years.at(-1).net, savings: r.policy.years.at(-1).savings }, 'summed from what Nessie returned');
+    assert.deepEqual(r.ledger.totals, { checking: r.policy.years.at(-1).net, savings: r.policy.years.at(-1).savings, loan: r.policy.years.at(-1).borrowed }, 'summed from what Nessie returned');
+    assert.ok(r.ledger.totals.loan > 0, 'Bryce borrows');
     assert.ok(!JSON.stringify(r).includes(KEY));
     const n = calls.length;
     assert.equal((await bank({ resident: 'bryce', policies: BIKES })).ledger.cached, true, 'cached, even without ledger: true');
     assert.equal(calls.length, n);
     // a new scenario is added alongside (Nessie can't delete purchases), under its own tag
     await bank({ resident: 'bryce', policies: NONE, ledger: true });
-    const held = Object.values(nessie.store.txns).filter(t => [d.bank.residents.bryce.checking, d.bank.residents.bryce.savings].includes(t.account_id));
+    const held = Object.values(nessie.store.txns).filter(t => [checking, savings, loan].includes(t.account_id));
     assert.equal(held.length, entries.length + ledgerEntries((await statementFor('bryce', NONE)).policy, r.resident, d.bank.merchants).length);
   });
 }));
@@ -277,7 +304,7 @@ test('handler: "You" gets a Nessie customer on the first ledger write, and only 
     const first = await bank({ you, policies: NONE, ledger: true });
     assert.equal(first.ledger.source, 'nessie');
     const { account } = first;
-    assert.ok(account.customer && account.checking && account.savings && account.sig);
+    assert.ok(account.customer && account.checking && account.savings && account.loan && account.sig);
     assert.equal(nessie.store.customers[account.customer].first_name, 'Visitor');
     assert.ok(!JSON.stringify(nessie.store.customers).includes('1400'), 'the customer record holds no self-reported numbers');
     const customers = Object.keys(nessie.store.customers).length;
@@ -300,7 +327,7 @@ test('handler: rejects bad bodies', async () => {
   assert.match((await bank({ you: { rent: 1, income: 1, zone: 'mars', mode: 'car' }, policies: NONE })).error, /you must be/);
   assert.match((await bank({ resident: 'uma', policies: [{ id: 'made-up', params: {} }] })).error, /policies must be/);
   assert.match((await bank({ resident: 'uma', policies: [{ id: 'property-tax-adjustment', params: { cents_per_100: 99 } }] })).error, /policies must be/);
-  assert.match((await bank({ resident: 'uma', policies: NONE, account: { customer: 'a', checking: 'b', savings: 'c', sig: 'd' } })).error, /account must be/);
+  assert.match((await bank({ resident: 'uma', policies: NONE, account: { customer: 'a', checking: 'b', savings: 'c', loan: 'e', sig: 'd' } })).error, /account must be/);
 });
 
 test('handler: a new scenario costs a model run, so 30 per IP per minute; cached ones are not limited', async () => {

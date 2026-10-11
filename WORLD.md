@@ -169,7 +169,7 @@ picking (`traffic.js`) gets in first with a capture-phase `pointerup` on `window
 the one animation loop:
 
 ```js
-import { simClock, onFrame, START_YEAR, YEAR_MS } from './sim/scenario.js'; // START_YEAR 2026; 1x = 1 month per second
+import { simClock, onFrame, START_YEAR, YEAR_MS } from './sim/scenario.js'; // START_YEAR 2026; 1x = 3 s per simulated year
 import { simDate } from './sim/clock-bar.js';                               // simDate(3.25) -> "Apr 2029"
 ```
 
@@ -186,27 +186,29 @@ state fields are:
 | `step`, `frac`, `steps` | As above. |
 | `playing`, `speed` | Playing at 1, 2 or 4×. |
 | `before` | Showing the year-0 baseline for comparison. |
-| `shown` | What's on screen: `{ version, step, data, prev, base, tween }`. `data` is that year's `{ zoneStates, metrics }`, `base` is year 0. |
+| `shown` | What's on screen: `{ version, step, data, prev, base, tween }`. `data` is that year's `{ zoneStates, metrics, run }`, `base` is year 0. `run` is the whole forecast behind it: `{ result, noPolicy, averages, households }` (see `scenario.js`). |
 | `loading` | Waiting for a prediction. Playback holds rather than skipping a year. |
-| `stale` | Policies changed since `shown`. The new result waits for Play. |
+| `stale` | Policies changed since `shown` and the new forecast is still on its way. Paused, it replaces the shown year as soon as it lands; playing, playback holds for it. |
 | `error` | The last prediction failed. Play retries. |
 
 **Setting.** `play(speed = current)` (1, 2 or 4) and `pause()`. `toggle()`. `seek(step)` jumps to a whole year and
 pauses. `setBefore(bool)` shows or hides the year-0 baseline. You don't call `invalidate()` yourself: `scenario.set(...)`
-(policy cards and parameters) bumps the scenario version, and the clock drops older predictions.
+(policy cards and parameters) bumps the scenario version, and the clock drops older predictions. View state in the same
+store (the picked resident, the 15-501 view) doesn't bump it.
 
 **Animating on sim time.** `onFrame((dt, simDt) => …)` registers a per-frame callback on the shared loop. `simDt` is 0
 while paused or holding for a prediction. `index.html` runs the world with `onFrame((dt, simDt) => world.update(dt,
 simDt))`. Anything else that should freeze with the sim should use `simDt` the same way.
 
 **The clock bar** (`sim/clock-bar.js`, `mountClockBar()`) is a thin view over this. It subscribes and shows `simDate`,
-the speed and a status line (loading, failed, policy changed, end of forecast). Its buttons call `pause()` and
+the speed and a status line (loading, failed, end of forecast). Its buttons call `pause()` and
 `play(1|2|4)`. Space calls `toggle()`, and 1, 2 and 4 call `play(n)`, except while typing or with a dialog open.
 `sim-plate.js` uses the same clock for its year slider (`seek`), "show before" checkbox (`setBefore`) and metrics
-(`shown.data.metrics`, compared with `shown.base.metrics`). The zone layer reads `shown`, `frac` and `before` to grow
+(the shown year's, compared with the same year with no new policy, `shown.data.run.noPolicy`). The household layer
+(`sim/agent-layer.js`) draws `shown.data.run.households` for the shown year. The zone layer reads `shown`, `frac` and `before` to grow
 conversions over each year's first simulated months.
 
-Predictions come from `predict(version, step)` in `scenario.js`, which currently runs `shared/sim.js` in the browser. A
+Predictions come from `predict(version, step)` in `scenario.js`, which currently runs `shared/combined.js` (the land-use sim, CH-LUTI and the household model) in the browser. A
 forecast backend could answer the same call. Add `?latency=ms` to the page URL to simulate a slow backend and watch the
 clock hold.
 
@@ -227,9 +229,8 @@ clock hold.
   small 3D text, disappears or turns blocky.
 - **Globals in `index.html`.** The old inline module defined `scene`, `camera`, `controls`, `renderer`, `at`, `inside`,
   `bounds` and the tree geometries in page scope, and `mountZoneLayer` and the upstream `mountAgentLayer` take them as
-  arguments. Those now come from `world` and `world/geometry.js`, as mapped above. `main`'s `sim/agent-layer.js` (the
-  household markers and the 15-501 road tint) hasn't been ported yet. Its `controls`/`camera` fly-to and its marker
-  sizing assume the perspective camera.
+  arguments. Those now come from `world` and `world/geometry.js`, as mapped above. `sim/agent-layer.js` takes `world` and
+  flies to 15-501 with `view.lookAt`, `zoomTo` and `rotate`.
 - **2 m occupancy cells.** The old `at()` grid had 2 m cells with three flags. The new grid has 1 m cells with eight
   flags, and the first three keep their meaning.
 

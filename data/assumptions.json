@@ -37,64 +37,30 @@
     "source": "Derived: 23,713 housing units (2020 Census, see housingUnits) / 300 simulated households."
   },
   "agentHouseholds": {
-    "value": { "downtown": 105, "campus": 98, "edge": 97 },
+    "value": { "downtown": 105, "campus": 98, "edge": 97, "corridor": 0 },
     "source": "PLACEHOLDER - needs citation",
     "note": "Simulated households per zone at year 0. From the household-model prototype."
   },
   "agentUnits": {
-    "value": { "downtown": 108, "campus": 101, "edge": 100 },
+    "value": { "downtown": 108, "campus": 101, "edge": 100, "corridor": 0 },
     "source": "PLACEHOLDER - needs citation",
-    "note": "Simulated homes per zone at year 0. Homes the policy sim builds are added by parcel: map_edge parcels to edge, others to downtown. From the household-model prototype."
-  },
-  "agentGrowth": {
-    "value": 0.0073,
-    "source": "U.S. Census Bureau decennial census households (occupied housing units), Chapel Hill town: 20,564 in 2010 (SF1 H3) https://data.census.gov/table/DECENNIALSF12010.H3?g=160XX00US3711800 and 22,118 in 2020 (P.L. 94-171 H1) https://data.census.gov/table/DECENNIALPL2020.H1?g=160XX00US3711800",
-    "note": "Our calculation: compound growth 2010-2020. A historical rate, not a forecast. Baseline in-migration per year in the household model."
-  },
-  "agentInducedShare": {
-    "value": 0.6,
-    "source": "PLACEHOLDER - needs citation",
-    "note": "Share of surplus vacancy that newcomers fill. From the household-model prototype."
-  },
-  "agentInducedVacancy": {
-    "value": 0.04,
-    "source": "PLACEHOLDER - needs citation",
-    "note": "Vacancy above which extra newcomers are drawn in. From the household-model prototype."
-  },
-  "agentRentAmp": {
-    "value": 0.028,
-    "source": "PLACEHOLDER - needs citation",
-    "note": "Strength of the rent response to vacancy. From the household-model prototype."
-  },
-  "agentTargetVacancy": {
-    "value": 0.05,
-    "source": "PLACEHOLDER - needs citation",
-    "note": "Vacancy at which rent holds steady. From the household-model prototype."
-  },
-  "agentRentCurve": {
-    "value": { "floor": -0.012, "offset": 0.022, "min": -0.06, "max": 0.11 },
-    "source": "PLACEHOLDER - needs citation",
-    "note": "Shape and yearly limits of the rent-vs-vacancy curve. From the household-model prototype."
+    "note": "Simulated homes per zone at year 0. Homes the zone rules build are added by parcel: corridor parcels to corridor, other map_edge parcels to edge, the rest to downtown. CH-LUTI's other new homes are added by its zone: downtown and north to downtown, campus to campus, east and south (which commute over 15-501) to edge. From the household-model prototype."
   },
   "agentBurdenLine": {
-    "value": 0.5,
-    "source": "PLACEHOLDER - needs citation",
-    "note": "Rent share of income above which a renter may leave. From the household-model prototype."
+    "value": 0.3,
+    "source": "U.S. Census Bureau ACS 2020-2024 5-year, B25070 \"Gross Rent as a Percentage of Household Income\", Chapel Hill town, which reports renters paying 30% or more; HUD counts households paying more than 30% of income for housing as cost-burdened. https://data.census.gov/table/ACSDT5Y2024.B25070?g=160XX00US3711800",
+    "note": "Rent share of income above which burden that builds up after arrival counts toward leaving (see agentLeaveRate). The 30% line is the standard; using it in a leaving rule is our modelling choice."
   },
-  "agentBurdenRiseSinceArrival": {
-    "value": 0.05,
+  "agentLeaveRate": {
+    "value": 0.003,
+    "unit": "per point of burden, per year",
     "source": "PLACEHOLDER - needs citation",
-    "note": "Rise in rent share of income since arrival (0.05 = 5 points) that, with the share over agentBurdenLine, counts a year toward leaving; after two such years running a renter may leave. From the household-model prototype."
-  },
-  "agentLeaveProb": {
-    "value": 0.5,
-    "source": "PLACEHOLDER - needs citation",
-    "note": "Chance of leaving after two such years in a row. From the household-model prototype."
+    "note": "Each year a renter leaves with chance 1 - e^(-rate x points), counting only burden above 30% (agentBurdenLine) that has built up since they arrived: points above the higher of 30% and their burden on arrival. Rents follow CH-LUTI and incomes grow as CH-LUTI's do, so this is rent rising faster than income. Priced out counts year-0 households only; about 1 in 100 renters per 1% rent rise above no policy (tests/agents.test.js)."
   },
   "agentRenterShare": {
-    "value": { "downtown": 0.6, "campus": 0.8, "edge": 0.35 },
+    "value": { "downtown": 0.6, "campus": 0.8, "edge": 0.35, "corridor": 0.6 },
     "source": "PLACEHOLDER - needs citation",
-    "note": "From the household-model prototype."
+    "note": "From the household-model prototype. Corridor (new apartments near 15-501) takes downtown's value."
   },
   "agentStudentShare": {
     "value": 0.4,
@@ -131,9 +97,9 @@
     "note": "Of the rest, non-students working on campus (others work downtown). From the household-model prototype."
   },
   "agentZoneRent": {
-    "value": { "downtown": 1.1, "campus": 1.0, "edge": 0.92 },
+    "value": { "downtown": 1.1, "campus": 1.0, "edge": 0.92, "corridor": 1.1 },
     "source": "PLACEHOLDER - needs citation",
-    "note": "Rent level by zone, before calibration to the ACS median gross rent. From the household-model prototype."
+    "note": "Rent level by zone, before calibration to the ACS median gross rent. From the household-model prototype. Corridor takes downtown's value."
   },
   "agentRentSpread": {
     "value": { "min": 0.82, "range": 0.4 },
@@ -141,9 +107,9 @@
     "note": "Each home's rent varies from min to min + range of its zone level. From the household-model prototype."
   },
   "agentBaseCommuteMin": {
-    "value": { "downtown": 7, "campus": 5, "edge": 6 },
+    "value": { "downtown": 7, "campus": 5, "edge": 6, "corridor": 7 },
     "source": "PLACEHOLDER - needs citation",
-    "note": "Local commute by zone, before calibration to the ACS mean commute. From the household-model prototype."
+    "note": "Local commute by zone, before calibration to the ACS mean commute. Edge households also drive 15-501; corridor households don't (no distance penalty), so corridor takes downtown's value. From the household-model prototype."
   },
   "agentDurhamExtraMin": {
     "value": 9,
@@ -166,16 +132,339 @@
     "value": 1960,
     "unit": "vehicles/hour per direction",
     "source": "NCDOT 2025 AADT, station 0680000193 \"US 15 WEST OF Morgan Creek Rd\": 41,500 vehicles/day, segment K = 0.08 and D = 0.591. https://services.arcgis.com/NuWFvHYDMVmmxMeM/ArcGIS/rest/services/NCDOT_2025_AADTandTrafficSegments_gdb/FeatureServer/1",
-    "note": "Our calculation: peak-hour, peak-direction demand. The household model's year 0 is calibrated to it, so 15-501 starts at 98% of capacity."
-  },
-  "roadCarShare": {
-    "value": 0.74,
-    "source": "ACS 2020-2024 5-year, B08301, Chapel Hill town: car, truck or van is 15,393 of the 20,865 workers who did not work from home. https://data.census.gov/table/ACSDT5Y2024.B08301?g=160XX00US3711800",
-    "note": "The model counts road users after taking out remote workers, so the share of workers who travel applies (0.53 of all workers)."
+    "note": "Our calculation: peak-hour, peak-direction demand. 15-501 starts at 98% of capacity, and its load then follows CH-LUTI's car traffic."
   },
   "roadBpr": {
     "value": { "alpha": 0.15, "beta": 4 },
     "source": "PLACEHOLDER - needs citation",
     "note": "BPR delay curve: time = t0 x (1 + alpha x (volume/capacity)^beta). From the household-model prototype."
+  },
+  "lutiRegionalGrowth": {
+    "value": { "lo": 0.0035, "mid": 0.0073, "hi": 0.015 },
+    "unit": "/yr",
+    "source": "PLACEHOLDER - lo and hi need citation. mid: U.S. Census Bureau decennial census households (occupied housing units), Chapel Hill town: 20,564 in 2010 (SF1 H3) https://data.census.gov/table/DECENNIALSF12010.H3?g=160XX00US3711800 and 22,118 in 2020 (P.L. 94-171 H1) https://data.census.gov/table/DECENNIALPL2020.H1?g=160XX00US3711800",
+    "note": "Growth of households looking to live in the area (location choice). mid is our calculation: compound growth 2010-2020, a historical rate, not a forecast. lo and hi are a placeholder range; the CH-LUTI model had lo 0.008, mid 0.015, hi 0.022. With homes from permit trends (lutiStartShare, Census Building Permits Survey 2015-2025), this sets the no-policy growth of homes and households for every model."
+  },
+  "lutiAccessElasticity": {
+    "value": { "lo": 0.3, "mid": 0.6, "hi": 1 },
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Pull of better access to jobs in the location-choice logit. The model's note: hedonic studies put housing-price elasticities to job access around 0.1-0.3, scaled by the rent elasticity; no study cited. From the CH-LUTI model."
+  },
+  "lutiVibrancyElasticity": {
+    "value": { "lo": 0.1, "mid": 0.3, "hi": 0.6 },
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Pull of busy storefronts nearby in the location-choice logit. The model's note: amenity evidence (e.g. Glaeser, Kolko & Saiz 2001, \"Consumer City\") is qualitative. From the CH-LUTI model."
+  },
+  "lutiJobsHousingElasticity": {
+    "value": { "lo": 0.2, "mid": 0.35, "hi": 0.5 },
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Housing demand per extra job in Town. The model's reasoning: over half of Town jobs are held by in-commuters (LODES 54k jobs vs 30k resident workers), so demand responds well below 1:1. From the CH-LUTI model."
+  },
+  "lutiBizDemandResponse": {
+    "value": { "lo": 0.5, "mid": 1, "hi": 1.5 },
+    "source": "PLACEHOLDER - needs citation",
+    "note": "How fast storefront openings and closures react to local spending (stock-and-flow adjustment speed). From the CH-LUTI model."
+  },
+  "lutiVacancyTaxLeaseUp": {
+    "value": { "lo": 0.02, "mid": 0.06, "hi": 0.12 },
+    "unit": "/yr per 1% tax",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Extra share of vacant storefronts leased per year, per 1% vacancy tax. San Francisco (2022) and Washington DC tax vacant storefronts; neither has a causal evaluation yet. From the CH-LUTI model."
+  },
+  "lutiMarginalServiceCost": {
+    "value": { "lo": 0.4, "mid": 0.6, "hi": 0.9 },
+    "unit": "x average",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Cost of serving a new resident, relative to the average (FY2025-26 general fund / population is about $1,540 per resident). From the CH-LUTI model."
+  },
+  "lutiHouseholdAdjust": {
+    "value": 0.25,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Share of the gap between desired and actual households closed each quarter (leases turn over yearly). From the CH-LUTI model."
+  },
+  "lutiMinVacancy": {
+    "value": 0.015,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Lowest home vacancy the market reaches. From the CH-LUTI model."
+  },
+  "lutiIncomeGrowth": {
+    "value": 0.0275,
+    "unit": "/yr",
+    "source": "U.S. Census Bureau QuickFacts, Chapel Hill town, North Carolina (ACS 5-year estimates): median gross rent $1,172 (2014-2018) and $1,483 (2019-2023); median household income $68,640 (2014-2018) and $85,825 (2019-2023). https://www.census.gov/quickfacts/fact/table/chapelhilltownnorthcarolina/",
+    "note": "Nominal household income growth, for rent burden in CH-LUTI and the household model. Our calculation: over those five years rent grew 4.82%/yr and income 4.57%/yr, so incomes trailed rents by 0.25 points a year. CH-LUTI's rent path rises with rentDrift (3%/yr at its central value, Zillow ZORI), so incomes grow 3% - 0.25 points = 2.75%/yr."
+  },
+  "lutiCpi": {
+    "value": 0.025,
+    "unit": "/yr",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Inflation applied to sales tax, service costs and programme costs. From the CH-LUTI model."
+  },
+  "lutiRegionShare": {
+    "value": 0.05,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Chapel Hill's share of the regional pool of movers; sets how readily households choose other places in the location-choice logit. From the CH-LUTI model."
+  },
+  "lutiUnitSizeSf": {
+    "value": 950,
+    "unit": "sq ft",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Size of a typical new apartment in the development pro forma. From the CH-LUTI model."
+  },
+  "lutiSoftCost": {
+    "value": 0.25,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Soft costs (design, fees, financing) as a share of hard cost. From the CH-LUTI model."
+  },
+  "lutiOpex": {
+    "value": 0.35,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Operating expenses as a share of rent. From the CH-LUTI model."
+  },
+  "lutiStabilizedVacancy": {
+    "value": 0.05,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Vacancy a developer assumes for a finished building. From the CH-LUTI model."
+  },
+  "lutiHurdle": {
+    "value": 0.15,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Developer profit on cost needed to build. From the CH-LUTI model."
+  },
+  "lutiCalibrationGap": {
+    "value": 0.03,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "In the base year the marginal site is this far short of the hurdle (a market near equilibrium). From the CH-LUTI model."
+  },
+  "lutiBuildQuarters": {
+    "value": 8,
+    "unit": "quarters",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Time from construction start to completion. From the CH-LUTI model."
+  },
+  "lutiCostDrift": {
+    "value": 0.03,
+    "unit": "/yr",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Construction cost inflation. From the CH-LUTI model."
+  },
+  "lutiSurfaceParkingCost": {
+    "value": 6000,
+    "unit": "$/space",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Cost of a surface parking space. From the CH-LUTI model."
+  },
+  "lutiLandPerUnit": {
+    "value": { "downtown": 55000, "campus": 50000, "north": 40000, "east": 45000, "south": 35000 },
+    "unit": "$/home",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Land cost per new home by zone. The model's note: derived from Orange County land values / typical density; no source cited. From the CH-LUTI model."
+  },
+  "lutiStructuredParking": {
+    "value": { "downtown": 1, "campus": 1, "north": 0, "east": 1, "south": 0 },
+    "source": "PLACEHOLDER - needs citation",
+    "note": "1 where new homes park in a garage, 0 where they use a surface lot. From the CH-LUTI model."
+  },
+  "lutiParkingMinimum": {
+    "value": { "downtown": 1, "campus": 1.25, "north": 1.5, "east": 1.25, "south": 1.5 },
+    "unit": "spaces/home",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Parking required per new home today. The model's note: approximate LUMO requirements; no section cited. From the CH-LUTI model."
+  },
+  "lutiStartShare": {
+    "value": { "downtown": 0.25, "campus": 0.05, "north": 0.25, "east": 0.35, "south": 0.1 },
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Share of the Town's construction starts (about 334 homes a year, Census Building Permits Survey 2015-2025) that land in each zone. From the CH-LUTI model."
+  },
+  "lutiProjectSize": {
+    "value": { "downtown": 120, "campus": 80, "north": 150, "east": 180, "south": 40 },
+    "unit": "homes",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Homes per building when construction starts are turned into building events for a renderer. From the CH-LUTI model."
+  },
+  "lutiProjectFloors": {
+    "value": { "downtown": 6, "campus": 5, "north": 5, "east": 6, "south": 3 },
+    "unit": "floors",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Floors per building event at today's allowed floor area. From the CH-LUTI model."
+  },
+  "lutiStorefrontVacancyElsewhere": {
+    "value": 0.1,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Storefront vacancy outside downtown at the start (downtown's 24% is the Downtown Partnership survey in shared/luti/data.js). From the CH-LUTI model."
+  },
+  "lutiRetailSpacesPerUnit": {
+    "value": 0.025,
+    "unit": "storefronts/home",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Ground-floor storefronts that come with new mixed-use apartments downtown and in the East zone (1 per 40 homes). From the CH-LUTI model."
+  },
+  "lutiSpendingFromJobs": {
+    "value": 0.45,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Share of storefront spending that comes from people who work in Town. From the CH-LUTI model."
+  },
+  "lutiLocalSpendShare": {
+    "value": 0.5,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Share of a zone's storefront demand that comes from its own residents; the rest follows Town-wide spending. From the CH-LUTI model."
+  },
+  "lutiGrantSize": {
+    "value": 10000,
+    "unit": "$",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Size of one small-business support grant. From the CH-LUTI model."
+  },
+  "lutiStartupGrantSize": {
+    "value": 25000,
+    "unit": "$",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Size of one start-up grant. From the CH-LUTI model."
+  },
+  "lutiHiringJobAttrition": {
+    "value": 0.2,
+    "unit": "/yr",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Share of the jobs a hiring subsidy created that end each year. From the CH-LUTI model."
+  },
+  "lutiAtRiskMultiple": {
+    "value": 2,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Grant recipients are businesses closing at this multiple of the usual rate. From the CH-LUTI model."
+  },
+  "lutiStorefrontValue": {
+    "value": 600000,
+    "unit": "$",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Assessed value of a typical storefront bay, for the vacancy tax. From the CH-LUTI model."
+  },
+  "lutiLongVacantShare": {
+    "value": 0.5,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Share of vacant storefronts empty long enough to owe the vacancy tax. From the CH-LUTI model."
+  },
+  "lutiInCommuterTransitShare": {
+    "value": 0.15,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Share of in-commuters who ride transit today. From the CH-LUTI model."
+  },
+  "lutiInCommuterTransitMax": {
+    "value": 0.6,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Upper limit on that share as bus service grows. From the CH-LUTI model."
+  },
+  "lutiRidershipFromResidents": {
+    "value": 0.5,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Share of bus ridership that follows resident population; the rest follows jobs in Town. From the CH-LUTI model."
+  },
+  "lutiPeakVC": {
+    "value": 0.9,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Peak volume / capacity on the main corridors, for car speeds (with roadBpr). From the CH-LUTI model."
+  },
+  "lutiSpeedKmh": {
+    "value": { "car": 30, "bus": 18, "bike": 14, "walk": 4.8, "regionCar": 55, "regionBus": 35 },
+    "unit": "km/h",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Speeds in Town, and to Durham and RTP for out-commuters. From the CH-LUTI model."
+  },
+  "lutiIntraZoneKm": {
+    "value": { "downtown": 1.4, "campus": 1.8, "north": 2.5, "east": 2.5, "south": 2.2 },
+    "unit": "km",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Typical commute length within a zone. From the CH-LUTI model."
+  },
+  "lutiCircuity": {
+    "value": 1.3,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Street-network distance / straight-line distance between zones. From the CH-LUTI model."
+  },
+  "lutiTerminalMin": {
+    "value": { "parkingScarce": 9, "other": 3 },
+    "unit": "minutes",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Park-and-walk time at the end of a car commute: downtown and campus (UNC permits, decks) vs. elsewhere and out of Town. From the CH-LUTI model."
+  },
+  "lutiBusAccessMin": {
+    "value": 5,
+    "unit": "minutes",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Walk to or from a bus stop. From the CH-LUTI model."
+  },
+  "lutiActiveModeWeight": {
+    "value": 1.5,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Bike and walk minutes count this many times an in-vehicle minute in mode choice. From the CH-LUTI model."
+  },
+  "lutiOvtWeight": {
+    "value": 2,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Waiting and walking to the bus, and parking, count this many times an in-vehicle minute. From the CH-LUTI model."
+  },
+  "lutiBikeStressMin": {
+    "value": 10,
+    "unit": "minutes",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Cycling stress penalty without a protected network. From the CH-LUTI model."
+  },
+  "lutiBikeNetwork": {
+    "value": { "referenceKm": 12, "maxEffect": 1.5 },
+    "source": "PLACEHOLDER - needs citation",
+    "note": "bikeInfraEffect is the stress removed by referenceKm of protected lanes; a longer network scales it, up to maxEffect times. From the CH-LUTI model."
+  },
+  "lutiBikeLaneCost": {
+    "value": { "capitalPerKm": 800000, "debtServicePerYear": 0.0736, "upkeepPerKm": 8000 },
+    "unit": "$",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Protected bike lane cost: capital per km, yearly debt service per dollar of capital, yearly upkeep per km. From the CH-LUTI model."
+  },
+  "lutiGravityDecay": {
+    "value": 0.3,
+    "unit": "/km",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Distance decay in choosing a work zone. From the CH-LUTI model."
+  },
+  "lutiAccessDecay": {
+    "value": 0.12,
+    "unit": "/min",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Time decay in the job-accessibility index. From the CH-LUTI model."
+  },
+  "lutiHeadwayMin": {
+    "value": { "downtown": 10, "campus": 10, "north": 15, "east": 15, "south": 20 },
+    "unit": "minutes",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Typical peak minutes between Chapel Hill Transit buses serving each zone. The model's note: derived from the route network; approximate. From the CH-LUTI model."
+  },
+  "lutiRegion": {
+    "value": { "outShare": 0.45, "distanceKm": 16, "headway": 30 },
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Commutes out of Town (Durham, RTP, Raleigh): share of resident commuters (the model's note: a LODES OD-style estimate), distance in km, minutes between regional buses. From the CH-LUTI model."
+  },
+  "lutiTransitTownShare": {
+    "value": 0.45,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Town's share of the cost of extra Chapel Hill Transit service (with Carrboro and UNC). From the CH-LUTI model."
+  },
+  "lutiRevaluationYears": {
+    "value": [2029, 2033],
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Years Orange County revalues property; each resets the base tax rate to revenue-neutral. From the CH-LUTI model."
+  },
+  "lutiResidentialShareOfBase": {
+    "value": 0.8,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Residential share of the Town's taxable value. From the CH-LUTI model."
+  },
+  "lutiRenterTaxShare": {
+    "value": 0.5,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Share of a property tax change that renters feel, in location choice. From the CH-LUTI model."
+  },
+  "lutiLandCatchUpQuarters": {
+    "value": 12,
+    "unit": "quarters",
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Land prices close the gap to an upzoning's value by 1/this each quarter (about three years). From the CH-LUTI model."
   }
 }

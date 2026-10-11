@@ -1,0 +1,35 @@
+{
+  "id": "bus-frequency-boost",
+  "title": "More frequent buses",
+  "summary": "Adds Chapel Hill Transit service, so buses come more often.",
+  "category": "transport",
+  "icon": "bus",
+  "decider": {
+    "body": "Chapel Hill Town Council, with Carrboro and UNC (Chapel Hill Transit's funding partners)",
+    "how": [
+      "Chapel Hill Transit staff propose the added service and its cost.",
+      "The funding partners agree how to split the cost.",
+      "Town Council approves the Town's share in the budget."
+    ]
+  },
+  "params": [
+    { "key": "service", "label": "Bus service, times today's", "min": 1, "max": 1.5, "default": 1.25, "unit": "×" }
+  ],
+  "levers": [
+    { "lever": "transit.serviceMultiplier", "param": "service" }
+  ],
+  "timing": { "delayQuarters": 2, "phaseInQuarters": 2 },
+  "evidence": [
+    { "claim": "Bus ridership rises roughly 0.5% per 1% more service", "source": "TCRP Report 95, Chapter 9: Transit Scheduling and Frequency", "url": "https://doi.org/10.17226/23433" },
+    { "claim": "Chapel Hill Transit carried 4.3M trips in 2025; transit fund $36.5M", "source": "Wikipedia (NTD); Town FY2025-26 budget", "url": "https://en.wikipedia.org/wiki/Chapel_Hill_Transit" }
+  ],
+  "tradeoffs": {
+    "pros": [
+      "Shorter waits draw some commuters out of cars, which also speeds up the roads and widens access to jobs."
+    ],
+    "cons": [
+      "The Town pays its share of the cost of the added service, every year it runs.",
+      "Ridership grows less than service: about 0.5% per 1% more service in the studies cited."
+    ]
+  }
+}

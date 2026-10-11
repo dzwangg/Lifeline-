@@ -18,12 +18,23 @@ const about = n => `about ${fmtNum(n, { maximumSignificantDigits: 3 })}`;
 const METRICS = {
   housingUnits: { meaning: 'number of homes', label: 'homes', plural: true, fmt: about },
   households: { meaning: 'number of households living in town', label: 'households', plural: true, fmt: about },
-  medianRent: { meaning: 'median monthly rent in dollars', label: 'median rent', fmt: n => `$${fmtNum(n, { maximumFractionDigits: 0 })}`, unit: ' a month' },
+  medianRent: { meaning: 'median monthly market rent in dollars (rents rise with inflation over the years)', label: 'median rent', fmt: n => `$${fmtNum(n, { maximumFractionDigits: 0 })}`, unit: ' a month' },
   avgCommuteMin: { meaning: 'average commute in minutes', label: 'the average commute', fmt: n => fmtNum(n, { maximumFractionDigits: 1 }), unit: ' minutes' },
-  pricedOut: { meaning: 'estimated number of households that moved away because rent got too high for them', label: 'households priced out', plural: true, fmt: about },
+  pricedOut: { meaning: 'estimated number of households living in town at year 0 that moved away because their rent rose faster than their income', label: 'households priced out', plural: true, fmt: about },
   treeCoverPct: { meaning: 'share of land covered by trees, in percent', label: 'tree cover', fmt: n => `${fmtNum(n, { maximumFractionDigits: 1 })}%`, pct: true },
   taxRevenue: { meaning: 'yearly property tax revenue in dollars', label: 'tax revenue', fmt: n => `$${fmtNum(n / 1e6, { maximumFractionDigits: 1 })} million` },
+  // From CH-LUTI (shared/combined.js). Gemini gets these too; the template recap keeps to the metrics above (TEMPLATE).
+  jobs: { meaning: 'number of jobs located in town', label: 'jobs in town', plural: true, fmt: about },
+  businesses: { meaning: 'number of storefront businesses such as shops, restaurants and services', label: 'storefront businesses', plural: true, fmt: about },
+  storefrontVacancy: { meaning: 'share of downtown storefronts standing empty, in percent', label: 'downtown storefront vacancy', fmt: n => `${fmtNum(n, { maximumFractionDigits: 1 })}%`, pct: true, toInput: v => Math.round(v * 1000) / 10 },
+  homeValue: { meaning: 'median home value in dollars', label: 'the median home value', fmt: n => `$${fmtNum(Math.round(n / 1000) * 1000)}` },
+  netFiscal: { meaning: "the Town's yearly budget net of policy costs: tax revenue minus programme costs and the cost of serving added residents, in dollars", label: 'the town budget, net', fmt: n => `$${fmtNum(n / 1e6, { maximumFractionDigits: 1 })} million` },
+  transitRidership: { meaning: 'bus trips a year', label: 'bus trips a year', plural: true, fmt: about },
+  trafficIndex: { meaning: 'peak car traffic, in percent above year 0', label: 'car traffic', fmt: n => `${fmtNum(n, { maximumFractionDigits: 1 })}% above year 0`, pct: true, toInput: v => Math.round((v - 1) * 1000) / 10 },
 };
+// The panel's six headline metrics: the template recap covers these, and Gemini is told to focus on them.
+const HEADLINE = ['medianRent', 'pricedOut', 'housingUnits', 'treeCoverPct', 'avgCommuteMin', 'netFiscal'];
+const TEMPLATE = new Set(HEADLINE);
 const fmtNum = (n, opts) => n.toLocaleString('en-US', opts); // Intl rounds the decimal value: 2.15 -> 2.2, where toPrecision gives 2.1
 const NO_POLICY = 'no new policy';
 
@@ -55,16 +66,19 @@ export function parseInput(b, cards) {
   ok(isList(b.policies, 10, p => isObj(p) && cards.has(p.id) && inRange(p.params, cards.get(p.id))),
     `policies must be 1-10 of { id, params } where id is one of ${[...cards.keys()].join(', ')} and params are that card's, within its range`);
   ok(Number.isInteger(b.years) && b.years >= 1 && b.years <= 100, 'years must be a whole number from 1 to 100');
-  ok(isList(b.deltas, 10, d => isObj(d) && Object.hasOwn(METRICS, d.metric) && [d.baseline, d.final, d.changePct].every(isNum)
-    && [undefined, 'year 0', NO_POLICY].includes(d.comparedWith)),
-    `deltas must be 1-10 of { metric: ${Object.keys(METRICS).join('|')}, baseline, final, changePct, comparedWith?: "year 0"|"${NO_POLICY}" }`);
+  ok(isList(b.deltas, Object.keys(METRICS).length, d => isObj(d) && Object.hasOwn(METRICS, d.metric) && [d.baseline, d.final, d.changePct].every(isNum)
+    && (d.changePts === undefined || isNum(d.changePts)) && [undefined, 'year 0', NO_POLICY].includes(d.comparedWith)),
+    `deltas must be 1-${Object.keys(METRICS).length} of { metric: ${Object.keys(METRICS).join('|')}, baseline, final, changePct, changePts?, comparedWith?: "year 0"|"${NO_POLICY}" }`);
   if (errors.length) return { errors };
   const picked = b.policies.map(p => cards.get(p.id));
   const sides = side => [...new Set(picked.flatMap(c => c.tradeoffs[side]))]; // as runScenario merges them
   return { errors, input: {
     policies: b.policies.map(({ id, params }) => ({ id, title: cards.get(id).title, params })),
     years: b.years,
-    deltas: b.deltas.map(({ metric, baseline, final, changePct, comparedWith = 'year 0' }) => ({ metric, baseline, final, changePct, comparedWith })),
+    deltas: b.deltas.map(({ metric, baseline, final, changePct, changePts, comparedWith = 'year 0' }) => {
+      const as = METRICS[metric].toInput ?? (v => v); // shares and indexes in percent, so the recap can quote them as they are
+      return { metric, baseline: as(baseline), final: as(final), changePct, ...(changePts !== undefined && { changePts }), comparedWith };
+    }),
     tradeoffs: { pros: sides('pros'), cons: sides('cons') },
   } };
 }
@@ -128,8 +142,9 @@ export function templateRecap(input) {
     return pct ? `${label} ${verb} from ${fmt(baseline)} to ${fmt(final)}`
       : `${label} ${verb} ${fmtNum(Math.abs(changePct), { maximumSignificantDigits: 2 })}% to ${fmt(final)}${unit}`;
   };
-  const overTime = input.deltas.filter(d => d.comparedWith !== NO_POLICY).map(clause);
-  const vsNoPolicy = input.deltas.filter(d => d.comparedWith === NO_POLICY).map(clause);
+  const deltas = input.deltas.filter(d => TEMPLATE.has(d.metric));
+  const overTime = deltas.filter(d => d.comparedWith !== NO_POLICY).map(clause);
+  const vsNoPolicy = deltas.filter(d => d.comparedWith === NO_POLICY).map(clause);
   // ponytail: first pro and first con only, so real cards (3 of each) stay near 90 words; list them all if length stops mattering.
   return [
     `In a ${input.years}-year simulation of ${list(input.policies.map(p => `“${p.title}”`))}${overTime.length ? `, ${list(overTime)}` : ''}.`,
@@ -144,6 +159,8 @@ Rules:
 - Use ONLY numbers that appear in the input, and only the few that matter most to residents. Never calculate new numbers such as differences, sums or ratios. Write every number as digits.
 - Say numbers the way a local news anchor would: commas in large numbers, $ for money, % for percentages, rounded figures (for example "about 12,400" for 12408), and big dollar amounts in millions (for example "about $4.5 million" for 4518230).
 - When a delta is compared with no new policy, say so (for example "lower than with no new policy"); don't describe it as a change over time.
+- Focus on the six headline metrics: ${HEADLINE.join(', ')}. Mention at most one other metric, and only if it changed notably for this policy (for example jobs for a hiring subsidy).
+- For a delta with changePts (shares such as tree cover, storefront vacancy and car traffic), describe the change in percentage points, not changePct.
 - households and pricedOut count households, never people: always say "households".
 - No evaluative or advocacy language (such as "help", "good news", "unfortunately", "keep families in town"). State each change and what it is compared with, plainly.
 - State both the benefits (pros) and the drawbacks (cons), taken only from the input's tradeoffs; add none of your own.

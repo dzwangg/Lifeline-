@@ -1,0 +1,35 @@
+{
+  "id": "hiring-subsidy",
+  "title": "Hiring subsidy",
+  "summary": "Pays part of the wage for each new local hire during their first year.",
+  "category": "employment",
+  "icon": "hire",
+  "decider": {
+    "body": "Chapel Hill Town Council",
+    "how": [
+      "Town staff design the subsidy and propose its budget.",
+      "Residents comment at a public hearing.",
+      "Town Council votes on the budget that funds it."
+    ]
+  },
+  "params": [
+    { "key": "dollars_per_year", "label": "Subsidy budget per year", "min": 0, "max": 4000000, "default": 1500000, "unit": "dollars" }
+  ],
+  "levers": [
+    { "lever": "employment.hiringSubsidy", "param": "dollars_per_year" }
+  ],
+  "timing": { "delayQuarters": 2, "phaseInQuarters": 2 },
+  "evidence": [
+    { "claim": "Hiring credits cost roughly $9,100-$75,000 per job actually created", "source": "Neumark (2013), Journal of Policy Analysis and Management, via PPIC", "url": "https://www.ppic.org/publication/a-hiring-incentive-that-works-the-california-competes-tax-credit/" }
+  ],
+  "tradeoffs": {
+    "pros": [
+      "Pays for some local hires that would not have happened otherwise."
+    ],
+    "cons": [
+      "Paid from the Town budget.",
+      "Part of the money pays for hires that would have happened anyway: $9,100-$75,000 per job actually created in the study cited.",
+      "More jobs in Town add to demand for homes."
+    ]
+  }
+}

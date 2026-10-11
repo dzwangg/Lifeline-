@@ -422,7 +422,14 @@
         "avgCommuteMin": 19.6,
         "taxRevenue": 68352723,
         "households": 23700,
-        "pricedOut": 0
+        "pricedOut": 0,
+        "jobs": 54322,
+        "businesses": 839,
+        "storefrontVacancy": 0.24,
+        "homeValue": 576500,
+        "netFiscal": 92452723,
+        "transitRidership": 4305300,
+        "trafficIndex": 1
       }
     },
     {
@@ -830,13 +837,20 @@
         "zone-30-06": "forest"
       },
       "metrics": {
-        "housingUnits": 23769,
-        "medianRent": 1505,
+        "housingUnits": 24103,
+        "medianRent": 1525,
         "treeCoverPct": 46.46,
-        "avgCommuteMin": 19.7,
-        "taxRevenue": 68514604,
-        "households": 23870,
-        "pricedOut": 0
+        "avgCommuteMin": 19.6,
+        "taxRevenue": 69476835,
+        "households": 23909,
+        "pricedOut": 2,
+        "jobs": 54590,
+        "businesses": 839,
+        "storefrontVacancy": 0.2438,
+        "homeValue": 592638,
+        "netFiscal": 93864229,
+        "transitRidership": 4326462,
+        "trafficIndex": 1.0039
       }
     },
     {
@@ -1244,13 +1258,20 @@
         "zone-30-06": "forest"
       },
       "metrics": {
-        "housingUnits": 23826,
-        "medianRent": 1537,
+        "housingUnits": 24494,
+        "medianRent": 1567,
         "treeCoverPct": 46.02,
-        "avgCommuteMin": 19.7,
-        "taxRevenue": 68678560,
-        "households": 24044,
-        "pricedOut": 0
+        "avgCommuteMin": 19.6,
+        "taxRevenue": 70603022,
+        "households": 24319,
+        "pricedOut": 4,
+        "jobs": 54996,
+        "businesses": 842,
+        "storefrontVacancy": 0.2455,
+        "homeValue": 608918,
+        "netFiscal": 95006364,
+        "transitRidership": 4374563,
+        "trafficIndex": 1.0123
       }
     },
     {
@@ -1658,13 +1679,20 @@
         "zone-30-06": "low_res"
       },
       "metrics": {
-        "housingUnits": 23860,
-        "medianRent": 1582,
+        "housingUnits": 24873,
+        "medianRent": 1613,
         "treeCoverPct": 45.76,
-        "avgCommuteMin": 19.8,
-        "taxRevenue": 68777257,
-        "households": 24214,
-        "pricedOut": 12
+        "avgCommuteMin": 19.6,
+        "taxRevenue": 71696138,
+        "households": 24726,
+        "pricedOut": 11,
+        "jobs": 55438,
+        "businesses": 847,
+        "storefrontVacancy": 0.2448,
+        "homeValue": 627006,
+        "netFiscal": 96024556,
+        "transitRidership": 4427955,
+        "trafficIndex": 1.0217
       }
     },
     {
@@ -2072,13 +2100,20 @@
         "zone-30-06": "low_res"
       },
       "metrics": {
-        "housingUnits": 23934,
-        "medianRent": 1631,
+        "housingUnits": 25286,
+        "medianRent": 1660,
         "treeCoverPct": 45.18,
-        "avgCommuteMin": 19.8,
-        "taxRevenue": 68989755,
-        "households": 24063,
-        "pricedOut": 332
+        "avgCommuteMin": 19.6,
+        "taxRevenue": 72887918,
+        "households": 25086,
+        "pricedOut": 19,
+        "jobs": 55891,
+        "businesses": 853,
+        "storefrontVacancy": 0.2428,
+        "homeValue": 645405,
+        "netFiscal": 97245594,
+        "transitRidership": 4476376,
+        "trafficIndex": 1.0312
       }
     },
     {
@@ -2486,13 +2521,20 @@
         "zone-30-06": "low_res"
       },
       "metrics": {
-        "housingUnits": 23984,
-        "medianRent": 1663,
+        "housingUnits": 25683,
+        "medianRent": 1709,
         "treeCoverPct": 44.8,
-        "avgCommuteMin": 19.8,
-        "taxRevenue": 69133419,
-        "households": 22957,
-        "pricedOut": 1616
+        "avgCommuteMin": 19.6,
+        "taxRevenue": 74030680,
+        "households": 25474,
+        "pricedOut": 34,
+        "jobs": 56361,
+        "businesses": 860,
+        "storefrontVacancy": 0.24,
+        "homeValue": 664312,
+        "netFiscal": 98365337,
+        "transitRidership": 4527360,
+        "trafficIndex": 1.0411
       }
     },
     {
@@ -2900,13 +2942,20 @@
         "zone-30-06": "low_res"
       },
       "metrics": {
-        "housingUnits": 24031,
-        "medianRent": 1661,
+        "housingUnits": 26077,
+        "medianRent": 1759,
         "treeCoverPct": 44.43,
-        "avgCommuteMin": 19.7,
-        "taxRevenue": 69270741,
-        "households": 22325,
-        "pricedOut": 2860
+        "avgCommuteMin": 19.6,
+        "taxRevenue": 75165683,
+        "households": 25869,
+        "pricedOut": 48,
+        "jobs": 56848,
+        "businesses": 869,
+        "storefrontVacancy": 0.2361,
+        "homeValue": 684190,
+        "netFiscal": 99444252,
+        "transitRidership": 4579868,
+        "trafficIndex": 1.0511
       }
     },
     {
@@ -3314,13 +3363,20 @@
         "zone-30-06": "low_res"
       },
       "metrics": {
-        "housingUnits": 24081,
-        "medianRent": 1655,
+        "housingUnits": 26470,
+        "medianRent": 1812,
         "treeCoverPct": 44.05,
-        "avgCommuteMin": 19.7,
-        "taxRevenue": 69412675,
-        "households": 22748,
-        "pricedOut": 3484
+        "avgCommuteMin": 19.6,
+        "taxRevenue": 76301057,
+        "households": 26249,
+        "pricedOut": 64,
+        "jobs": 57345,
+        "businesses": 878,
+        "storefrontVacancy": 0.2316,
+        "homeValue": 704751,
+        "netFiscal": 100543412,
+        "transitRidership": 4631285,
+        "trafficIndex": 1.0613
       }
     },
     {
@@ -3728,13 +3784,20 @@
         "zone-30-06": "low_res"
       },
       "metrics": {
-        "housingUnits": 24116,
-        "medianRent": 1653,
+        "housingUnits": 26850,
+        "medianRent": 1867,
         "treeCoverPct": 43.77,
-        "avgCommuteMin": 19.9,
-        "taxRevenue": 69515754,
-        "households": 23214,
-        "pricedOut": 3820
+        "avgCommuteMin": 19.6,
+        "taxRevenue": 77395841,
+        "households": 26608,
+        "pricedOut": 92,
+        "jobs": 57852,
+        "businesses": 887,
+        "storefrontVacancy": 0.2265,
+        "homeValue": 726080,
+        "netFiscal": 101597802,
+        "transitRidership": 4682637,
+        "trafficIndex": 1.0716
       }
     },
     {
@@ -4142,13 +4205,20 @@
         "zone-30-06": "low_res"
       },
       "metrics": {
-        "housingUnits": 24161,
-        "medianRent": 1658,
+        "housingUnits": 27255,
+        "medianRent": 1923,
         "treeCoverPct": 43.42,
-        "avgCommuteMin": 20,
-        "taxRevenue": 69643737,
-        "households": 23649,
-        "pricedOut": 3970
+        "avgCommuteMin": 19.7,
+        "taxRevenue": 78563693,
+        "households": 26980,
+        "pricedOut": 118,
+        "jobs": 58366,
+        "businesses": 898,
+        "storefrontVacancy": 0.2212,
+        "homeValue": 747948,
+        "netFiscal": 102721338,
+        "transitRidership": 4733849,
+        "trafficIndex": 1.082
       }
     },
     {
@@ -4556,65 +4626,124 @@
         "zone-30-06": "low_res"
       },
       "metrics": {
-        "housingUnits": 24222,
-        "medianRent": 1668,
+        "housingUnits": 27678,
+        "medianRent": 1980,
         "treeCoverPct": 42.95,
-        "avgCommuteMin": 20,
-        "taxRevenue": 69820837,
-        "households": 23886,
-        "pricedOut": 4057
+        "avgCommuteMin": 19.7,
+        "taxRevenue": 79781434,
+        "households": 27375,
+        "pricedOut": 146,
+        "jobs": 58890,
+        "businesses": 908,
+        "storefrontVacancy": 0.2155,
+        "homeValue": 770182,
+        "netFiscal": 103831660,
+        "transitRidership": 4787355,
+        "trafficIndex": 1.0927
       }
     }
   ],
   "deltas": [
     {
       "metric": "housingUnits",
-      "baseline": 23713,
-      "final": 24222,
-      "changePct": 2.15,
-      "comparedWith": "year 0"
+      "baseline": 27203,
+      "final": 27678,
+      "comparedWith": "no new policy",
+      "changePct": 1.75
     },
     {
       "metric": "medianRent",
-      "baseline": 1714,
-      "final": 1668,
-      "changePct": -2.68,
-      "comparedWith": "no new policy"
+      "baseline": 1990,
+      "final": 1980,
+      "comparedWith": "no new policy",
+      "changePct": -0.5
     },
     {
       "metric": "treeCoverPct",
       "baseline": 46.9,
       "final": 42.95,
+      "comparedWith": "no new policy",
       "changePct": -8.42,
-      "comparedWith": "year 0"
+      "changePts": -3.95
     },
     {
       "metric": "avgCommuteMin",
-      "baseline": 19.5,
-      "final": 20,
-      "changePct": 2.56,
-      "comparedWith": "no new policy"
+      "baseline": 19.7,
+      "final": 19.7,
+      "comparedWith": "no new policy",
+      "changePct": 0
     },
     {
       "metric": "taxRevenue",
-      "baseline": 68352723,
-      "final": 69820837,
-      "changePct": 2.15,
-      "comparedWith": "year 0"
+      "baseline": 78411671,
+      "final": 79781434,
+      "comparedWith": "no new policy",
+      "changePct": 1.75
     },
     {
       "metric": "households",
-      "baseline": 23700,
-      "final": 23886,
-      "changePct": 0.78,
-      "comparedWith": "year 0"
+      "baseline": 26932,
+      "final": 27375,
+      "comparedWith": "no new policy",
+      "changePct": 1.64
     },
     {
       "metric": "pricedOut",
-      "baseline": 4396,
-      "final": 4057,
-      "changePct": -7.71,
-      "comparedWith": "no new policy"
+      "baseline": 158,
+      "final": 146,
+      "comparedWith": "no new policy",
+      "changePct": -7.59
+    },
+    {
+      "metric": "jobs",
+      "baseline": 58766,
+      "final": 58890,
+      "comparedWith": "no new policy",
+      "changePct": 0.21
+    },
+    {
+      "metric": "businesses",
+      "baseline": 902,
+      "final": 908,
+      "comparedWith": "no new policy",
+      "changePct": 0.67
+    },
+    {
+      "metric": "storefrontVacancy",
+      "baseline": 0.2177,
+      "final": 0.2155,
+      "comparedWith": "no new policy",
+      "changePct": -1.01,
+      "changePts": -0.22
+    },
+    {
+      "metric": "homeValue",
+      "baseline": 773350,
+      "final": 770182,
+      "comparedWith": "no new policy",
+      "changePct": -0.41
+    },
+    {
+      "metric": "netFiscal",
+      "baseline": 103370982,
+      "final": 103831660,
+      "comparedWith": "no new policy",
+      "changePct": 0.45
+    },
+    {
+      "metric": "transitRidership",
+      "baseline": 4745995,
+      "final": 4787355,
+      "comparedWith": "no new policy",
+      "changePct": 0.87
+    },
+    {
+      "metric": "trafficIndex",
+      "baseline": 1.0878,
+      "final": 1.0927,
+      "comparedWith": "no new policy",
+      "changePct": 0.45,
+      "changePts": 0.49
     }
   ],
   "tradeoffs": {
@@ -4762,6 +4891,11 @@
       "source": "PLACEHOLDER - needs citation"
     },
     {
+      "key": "agentHouseholds.corridor",
+      "value": 0,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
       "key": "agentUnits.downtown",
       "value": 108,
       "source": "PLACEHOLDER - needs citation"
@@ -4777,63 +4911,18 @@
       "source": "PLACEHOLDER - needs citation"
     },
     {
-      "key": "agentGrowth",
-      "value": 0.0073,
-      "source": "U.S. Census Bureau decennial census households (occupied housing units), Chapel Hill town: 20,564 in 2010 (SF1 H3) https://data.census.gov/table/DECENNIALSF12010.H3?g=160XX00US3711800 and 22,118 in 2020 (P.L. 94-171 H1) https://data.census.gov/table/DECENNIALPL2020.H1?g=160XX00US3711800"
-    },
-    {
-      "key": "agentInducedShare",
-      "value": 0.6,
-      "source": "PLACEHOLDER - needs citation"
-    },
-    {
-      "key": "agentInducedVacancy",
-      "value": 0.04,
-      "source": "PLACEHOLDER - needs citation"
-    },
-    {
-      "key": "agentRentAmp",
-      "value": 0.028,
-      "source": "PLACEHOLDER - needs citation"
-    },
-    {
-      "key": "agentTargetVacancy",
-      "value": 0.05,
-      "source": "PLACEHOLDER - needs citation"
-    },
-    {
-      "key": "agentRentCurve.floor",
-      "value": -0.012,
-      "source": "PLACEHOLDER - needs citation"
-    },
-    {
-      "key": "agentRentCurve.offset",
-      "value": 0.022,
-      "source": "PLACEHOLDER - needs citation"
-    },
-    {
-      "key": "agentRentCurve.min",
-      "value": -0.06,
-      "source": "PLACEHOLDER - needs citation"
-    },
-    {
-      "key": "agentRentCurve.max",
-      "value": 0.11,
+      "key": "agentUnits.corridor",
+      "value": 0,
       "source": "PLACEHOLDER - needs citation"
     },
     {
       "key": "agentBurdenLine",
-      "value": 0.5,
-      "source": "PLACEHOLDER - needs citation"
+      "value": 0.3,
+      "source": "U.S. Census Bureau ACS 2020-2024 5-year, B25070 \"Gross Rent as a Percentage of Household Income\", Chapel Hill town, which reports renters paying 30% or more; HUD counts households paying more than 30% of income for housing as cost-burdened. https://data.census.gov/table/ACSDT5Y2024.B25070?g=160XX00US3711800"
     },
     {
-      "key": "agentBurdenRiseSinceArrival",
-      "value": 0.05,
-      "source": "PLACEHOLDER - needs citation"
-    },
-    {
-      "key": "agentLeaveProb",
-      "value": 0.5,
+      "key": "agentLeaveRate",
+      "value": 0.003,
       "source": "PLACEHOLDER - needs citation"
     },
     {
@@ -4849,6 +4938,11 @@
     {
       "key": "agentRenterShare.edge",
       "value": 0.35,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "agentRenterShare.corridor",
+      "value": 0.6,
       "source": "PLACEHOLDER - needs citation"
     },
     {
@@ -4922,6 +5016,11 @@
       "source": "PLACEHOLDER - needs citation"
     },
     {
+      "key": "agentZoneRent.corridor",
+      "value": 1.1,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
       "key": "agentRentSpread.min",
       "value": 0.82,
       "source": "PLACEHOLDER - needs citation"
@@ -4947,6 +5046,11 @@
       "source": "PLACEHOLDER - needs citation"
     },
     {
+      "key": "agentBaseCommuteMin.corridor",
+      "value": 7,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
       "key": "agentDurhamExtraMin",
       "value": 9,
       "source": "PLACEHOLDER - needs citation"
@@ -4967,11 +5071,6 @@
       "source": "NCDOT 2025 AADT, station 0680000193 \"US 15 WEST OF Morgan Creek Rd\": 41,500 vehicles/day, segment K = 0.08 and D = 0.591. https://services.arcgis.com/NuWFvHYDMVmmxMeM/ArcGIS/rest/services/NCDOT_2025_AADTandTrafficSegments_gdb/FeatureServer/1"
     },
     {
-      "key": "roadCarShare",
-      "value": 0.74,
-      "source": "ACS 2020-2024 5-year, B08301, Chapel Hill town: car, truck or van is 15,393 of the 20,865 workers who did not work from home. https://data.census.gov/table/ACSDT5Y2024.B08301?g=160XX00US3711800"
-    },
-    {
       "key": "roadBpr.alpha",
       "value": 0.15,
       "source": "PLACEHOLDER - needs citation"
@@ -4979,6 +5078,596 @@
     {
       "key": "roadBpr.beta",
       "value": 4,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiRegionalGrowth.lo",
+      "value": 0.0035,
+      "source": "PLACEHOLDER - lo and hi need citation. mid: U.S. Census Bureau decennial census households (occupied housing units), Chapel Hill town: 20,564 in 2010 (SF1 H3) https://data.census.gov/table/DECENNIALSF12010.H3?g=160XX00US3711800 and 22,118 in 2020 (P.L. 94-171 H1) https://data.census.gov/table/DECENNIALPL2020.H1?g=160XX00US3711800"
+    },
+    {
+      "key": "lutiRegionalGrowth.mid",
+      "value": 0.0073,
+      "source": "PLACEHOLDER - lo and hi need citation. mid: U.S. Census Bureau decennial census households (occupied housing units), Chapel Hill town: 20,564 in 2010 (SF1 H3) https://data.census.gov/table/DECENNIALSF12010.H3?g=160XX00US3711800 and 22,118 in 2020 (P.L. 94-171 H1) https://data.census.gov/table/DECENNIALPL2020.H1?g=160XX00US3711800"
+    },
+    {
+      "key": "lutiRegionalGrowth.hi",
+      "value": 0.015,
+      "source": "PLACEHOLDER - lo and hi need citation. mid: U.S. Census Bureau decennial census households (occupied housing units), Chapel Hill town: 20,564 in 2010 (SF1 H3) https://data.census.gov/table/DECENNIALSF12010.H3?g=160XX00US3711800 and 22,118 in 2020 (P.L. 94-171 H1) https://data.census.gov/table/DECENNIALPL2020.H1?g=160XX00US3711800"
+    },
+    {
+      "key": "lutiAccessElasticity.lo",
+      "value": 0.3,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiAccessElasticity.mid",
+      "value": 0.6,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiAccessElasticity.hi",
+      "value": 1,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiVibrancyElasticity.lo",
+      "value": 0.1,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiVibrancyElasticity.mid",
+      "value": 0.3,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiVibrancyElasticity.hi",
+      "value": 0.6,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiJobsHousingElasticity.lo",
+      "value": 0.2,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiJobsHousingElasticity.mid",
+      "value": 0.35,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiJobsHousingElasticity.hi",
+      "value": 0.5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiBizDemandResponse.lo",
+      "value": 0.5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiBizDemandResponse.mid",
+      "value": 1,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiBizDemandResponse.hi",
+      "value": 1.5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiVacancyTaxLeaseUp.lo",
+      "value": 0.02,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiVacancyTaxLeaseUp.mid",
+      "value": 0.06,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiVacancyTaxLeaseUp.hi",
+      "value": 0.12,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiMarginalServiceCost.lo",
+      "value": 0.4,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiMarginalServiceCost.mid",
+      "value": 0.6,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiMarginalServiceCost.hi",
+      "value": 0.9,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiHouseholdAdjust",
+      "value": 0.25,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiMinVacancy",
+      "value": 0.015,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiIncomeGrowth",
+      "value": 0.0275,
+      "source": "U.S. Census Bureau QuickFacts, Chapel Hill town, North Carolina (ACS 5-year estimates): median gross rent $1,172 (2014-2018) and $1,483 (2019-2023); median household income $68,640 (2014-2018) and $85,825 (2019-2023). https://www.census.gov/quickfacts/fact/table/chapelhilltownnorthcarolina/"
+    },
+    {
+      "key": "lutiCpi",
+      "value": 0.025,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiRegionShare",
+      "value": 0.05,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiUnitSizeSf",
+      "value": 950,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiSoftCost",
+      "value": 0.25,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiOpex",
+      "value": 0.35,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiStabilizedVacancy",
+      "value": 0.05,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiHurdle",
+      "value": 0.15,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiCalibrationGap",
+      "value": 0.03,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiBuildQuarters",
+      "value": 8,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiCostDrift",
+      "value": 0.03,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiSurfaceParkingCost",
+      "value": 6000,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiLandPerUnit.downtown",
+      "value": 55000,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiLandPerUnit.campus",
+      "value": 50000,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiLandPerUnit.north",
+      "value": 40000,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiLandPerUnit.east",
+      "value": 45000,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiLandPerUnit.south",
+      "value": 35000,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiStructuredParking.downtown",
+      "value": 1,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiStructuredParking.campus",
+      "value": 1,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiStructuredParking.north",
+      "value": 0,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiStructuredParking.east",
+      "value": 1,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiStructuredParking.south",
+      "value": 0,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiParkingMinimum.downtown",
+      "value": 1,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiParkingMinimum.campus",
+      "value": 1.25,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiParkingMinimum.north",
+      "value": 1.5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiParkingMinimum.east",
+      "value": 1.25,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiParkingMinimum.south",
+      "value": 1.5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiStartShare.downtown",
+      "value": 0.25,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiStartShare.campus",
+      "value": 0.05,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiStartShare.north",
+      "value": 0.25,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiStartShare.east",
+      "value": 0.35,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiStartShare.south",
+      "value": 0.1,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiProjectSize.downtown",
+      "value": 120,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiProjectSize.campus",
+      "value": 80,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiProjectSize.north",
+      "value": 150,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiProjectSize.east",
+      "value": 180,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiProjectSize.south",
+      "value": 40,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiProjectFloors.downtown",
+      "value": 6,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiProjectFloors.campus",
+      "value": 5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiProjectFloors.north",
+      "value": 5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiProjectFloors.east",
+      "value": 6,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiProjectFloors.south",
+      "value": 3,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiStorefrontVacancyElsewhere",
+      "value": 0.1,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiRetailSpacesPerUnit",
+      "value": 0.025,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiSpendingFromJobs",
+      "value": 0.45,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiLocalSpendShare",
+      "value": 0.5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiGrantSize",
+      "value": 10000,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiStartupGrantSize",
+      "value": 25000,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiHiringJobAttrition",
+      "value": 0.2,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiAtRiskMultiple",
+      "value": 2,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiStorefrontValue",
+      "value": 600000,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiLongVacantShare",
+      "value": 0.5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiInCommuterTransitShare",
+      "value": 0.15,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiInCommuterTransitMax",
+      "value": 0.6,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiRidershipFromResidents",
+      "value": 0.5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiPeakVC",
+      "value": 0.9,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiSpeedKmh.car",
+      "value": 30,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiSpeedKmh.bus",
+      "value": 18,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiSpeedKmh.bike",
+      "value": 14,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiSpeedKmh.walk",
+      "value": 4.8,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiSpeedKmh.regionCar",
+      "value": 55,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiSpeedKmh.regionBus",
+      "value": 35,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiIntraZoneKm.downtown",
+      "value": 1.4,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiIntraZoneKm.campus",
+      "value": 1.8,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiIntraZoneKm.north",
+      "value": 2.5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiIntraZoneKm.east",
+      "value": 2.5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiIntraZoneKm.south",
+      "value": 2.2,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiCircuity",
+      "value": 1.3,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiTerminalMin.parkingScarce",
+      "value": 9,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiTerminalMin.other",
+      "value": 3,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiBusAccessMin",
+      "value": 5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiActiveModeWeight",
+      "value": 1.5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiOvtWeight",
+      "value": 2,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiBikeStressMin",
+      "value": 10,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiBikeNetwork.referenceKm",
+      "value": 12,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiBikeNetwork.maxEffect",
+      "value": 1.5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiBikeLaneCost.capitalPerKm",
+      "value": 800000,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiBikeLaneCost.debtServicePerYear",
+      "value": 0.0736,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiBikeLaneCost.upkeepPerKm",
+      "value": 8000,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiGravityDecay",
+      "value": 0.3,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiAccessDecay",
+      "value": 0.12,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiHeadwayMin.downtown",
+      "value": 10,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiHeadwayMin.campus",
+      "value": 10,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiHeadwayMin.north",
+      "value": 15,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiHeadwayMin.east",
+      "value": 15,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiHeadwayMin.south",
+      "value": 20,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiRegion.outShare",
+      "value": 0.45,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiRegion.distanceKm",
+      "value": 16,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiRegion.headway",
+      "value": 30,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiTransitTownShare",
+      "value": 0.45,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiRevaluationYears.0",
+      "value": 2029,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiRevaluationYears.1",
+      "value": 2033,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiResidentialShareOfBase",
+      "value": 0.8,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiRenterTaxShare",
+      "value": 0.5,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiLandCatchUpQuarters",
+      "value": 12,
       "source": "PLACEHOLDER - needs citation"
     }
   ]

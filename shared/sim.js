@@ -32,7 +32,7 @@ export function runScenario(cards, params, zones, assumptions, baselines, years 
 
   const timeline = [];
   for (let year = 0; year <= years; year++) {
-    if (year) cards.forEach((card, ci) => card.zoneRules.forEach((rule, ri) => {
+    if (year) cards.forEach((card, ci) => (card.zoneRules ?? []).forEach((rule, ri) => {
       const f = fx[ci], pool = order.filter(z => matchesWhere(rule.where, z));
       const cap = rule.capParam ? policies[ci].params[rule.capParam] : Infinity;
       let quota = Math.round(rule.ratePerYear * year * pool.length) - (f.done[ri] ?? 0);
@@ -46,7 +46,7 @@ export function runScenario(cards, params, zones, assumptions, baselines, years 
         quota--;
         const units = (A.unitsPerAcre[rule.to] - A.unitsPerAcre[rule.from]) * z.areaAcres;
         f.units += units;
-        if (units > 0 && z.tags.includes('map_edge')) f.edgeUnits += units;
+        if (units > 0 && z.tags.includes('map_edge') && !z.tags.includes('corridor')) f.edgeUnits += units; // corridor homes: no distance penalty
         f.canopyAcres += (canopy(rule.to) - canopy(rule.from)) * z.areaAcres;
       }
     }));
@@ -72,7 +72,7 @@ function metrics(fx, A, B) {
   const sum = f => fx.reduce((s, e) => s + f(e), 0);
   const units = B.housingUnits + sum(e => e.units);
   const rentPct = clamp(sum(e => A.rentSupplyElasticity * e.units / B.housingUnits * 100), -MAX_CHANGE * 100, MAX_CHANGE * 100);
-  // Each new home at the map edge adds the penalty to its own commute, so the town mean moves by those homes' share of all homes.
+  // Each new home at the map edge (not on the corridor) adds the penalty to its own commute, so the town mean moves by those homes' share of all homes.
   const commute = clamp(sum(e => A.commuteDistancePenalty * e.edgeUnits / units), -MAX_CHANGE * B.meanCommuteMin, MAX_CHANGE * B.meanCommuteMin);
   return {
     housingUnits: Math.round(units),

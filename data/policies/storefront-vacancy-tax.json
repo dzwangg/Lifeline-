@@ -1,0 +1,36 @@
+{
+  "id": "storefront-vacancy-tax",
+  "title": "Storefront vacancy tax",
+  "summary": "A yearly tax on ground-floor storefronts left empty for over a year.",
+  "category": "taxation",
+  "icon": "vacancy",
+  "decider": {
+    "body": "North Carolina General Assembly, then Chapel Hill Town Council",
+    "how": [
+      "North Carolina towns can levy only the taxes the General Assembly authorizes, so a state law would have to allow it first.",
+      "Town staff would then draft an ordinance, and residents comment at a public hearing.",
+      "Town Council votes on the ordinance."
+    ]
+  },
+  "params": [
+    { "key": "percent_of_value", "label": "Tax per year", "min": 0, "max": 3, "default": 1, "unit": "% of assessed value" }
+  ],
+  "levers": [
+    { "lever": "tax.storefrontVacancyTax", "param": "percent_of_value" }
+  ],
+  "timing": { "delayQuarters": 4, "phaseInQuarters": 1 },
+  "evidence": [
+    { "claim": "San Francisco (2022) and Washington DC tax vacant storefronts; neither has a causal evaluation yet", "source": "Model assumption, wide range" },
+    { "claim": "NC towns can levy only taxes the General Assembly authorizes", "source": "UNC School of Government, local government finance", "url": "https://www.sog.unc.edu/" }
+  ],
+  "tradeoffs": {
+    "pros": [
+      "Holding a storefront empty costs more, so landlords have reason to lower asking rents and lease more spaces.",
+      "Brings in some revenue from spaces that stay empty."
+    ],
+    "cons": [
+      "Needs a change in state law before the Town could adopt it.",
+      "Neither city with such a tax (San Francisco since 2022, Washington DC) has a study of its effect yet."
+    ]
+  }
+}

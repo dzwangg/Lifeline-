@@ -1,0 +1,37 @@
+{
+  "id": "transit-upzoning",
+  "title": "Upzoning near transit",
+  "summary": "Allows more floor area on each site downtown, along the MLK Blvd corridor and in Blue Hill.",
+  "category": "housing",
+  "icon": "tower",
+  "decider": {
+    "body": "Chapel Hill Town Council",
+    "how": [
+      "Planning staff draft the rezoning.",
+      "The Planning Commission reviews the proposal and makes a recommendation.",
+      "Residents comment at a Town Council public hearing.",
+      "Town Council votes on the rezoning."
+    ]
+  },
+  "params": [
+    { "key": "floor_area", "label": "Allowed floor area, times today's", "min": 1, "max": 2.5, "default": 1.6, "unit": "×" }
+  ],
+  "levers": [
+    { "lever": "housing.farMultiplier", "param": "floor_area", "zones": ["downtown", "north", "east"] },
+    { "lever": "housing.planningCost", "value": 300000 }
+  ],
+  "timing": { "delayQuarters": 4, "phaseInQuarters": 4 },
+  "evidence": [
+    { "claim": "Auckland's 2016 upzoning of 3/4 of residential land significantly increased construction", "source": "Greenaway-McGrevy & Phillips (2023), Journal of Urban Economics", "url": "https://doi.org/10.1016/j.jue.2023.103555" }
+  ],
+  "tradeoffs": {
+    "pros": [
+      "More homes fit on each site, so land cost per home falls and more projects become profitable to build."
+    ],
+    "cons": [
+      "Land prices rise toward the new allowance over about three years, so the land cost per home falls less over time.",
+      "Costs about $300,000 once, for the rezoning.",
+      "Taller, denser buildings in those areas."
+    ]
+  }
+}

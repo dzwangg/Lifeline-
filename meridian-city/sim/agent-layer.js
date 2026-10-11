@@ -7,9 +7,10 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
 import { scenario, shownYear } from './scenario.js';
 import { modelZone } from '../../shared/agents.js';
 
-// Where the model's three zones sit today. The baked map has no street names, so downtown = open ground beside the
+// Where the model's zones sit today. The baked map has no street names, so downtown = open ground beside the
 // shops clustered along Franklin St, campus = beside UNC's university buildings, edge = beside existing houses near
-// the map boundary. Newcomers move into the sim's parcels once their zone has some built (see place()).
+// the map boundary. Newcomers move into the sim's parcels once their zone has some built (see place()); the corridor
+// zone has no households until its parcels are built, so it needs no spot of its own.
 const DOWNTOWN = [-800, -900, 0, -300], CAMPUS = [-400, -650, 600, 300]; // x0, z0, x1, z1 in local metres (x east, z south)
 const EDGE_TOWN_M = 300, HOUSE = new Set(['detached', 'house', 'semidetached_house', 'residential', 'terrace', 'static_caravan', 'bungalow']); // as in index.html
 const HOMES = new Set(['low_res', 'mid_res', 'mixed_use']); // parcel states that hold homes

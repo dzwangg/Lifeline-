@@ -1,0 +1,35 @@
+{
+  "id": "small-business-support-grant",
+  "title": "Small-business support grants",
+  "summary": "Grants to established local shops toward rent, payroll and upgrades.",
+  "category": "business",
+  "icon": "storefront",
+  "decider": {
+    "body": "Chapel Hill Town Council",
+    "how": [
+      "Town staff design the grant program and propose its budget.",
+      "Residents comment at a public hearing on the budget.",
+      "Town Council votes on the budget that funds the grants."
+    ]
+  },
+  "params": [
+    { "key": "dollars_per_year", "label": "Grant money per year", "min": 0, "max": 3000000, "default": 1200000, "unit": "dollars" }
+  ],
+  "levers": [
+    { "lever": "business.supportGrants", "param": "dollars_per_year" }
+  ],
+  "timing": { "delayQuarters": 2, "phaseInQuarters": 2 },
+  "evidence": [
+    { "claim": "Most incentives change only 2-25% of recipients' decisions", "source": "Bartik (2018), \"But For\" Percentages for Economic Development Incentives, Upjohn Institute", "url": "https://research.upjohn.org/up_workingpapers/289/" },
+    { "claim": "Storefront businesses close at roughly 8-13% a year", "source": "BLS Business Employment Dynamics", "url": "https://www.bls.gov/bdm/" }
+  ],
+  "tradeoffs": {
+    "pros": [
+      "Some storefronts that would otherwise close stay open, keeping their jobs and foot traffic."
+    ],
+    "cons": [
+      "Paid from the Town budget, as grants of $10,000.",
+      "Most grants go to businesses that would have stayed open anyway: incentives change 2-25% of recipients' decisions in the studies cited."
+    ]
+  }
+}

@@ -8,6 +8,7 @@
     "validate:cards": "node scripts/validate-cards.js",
     "zones": "node scripts/make-zones.js",
     "fixture": "node scripts/sim-fixture.js",
-    "pregen": "node scripts/pregen-narration.js"
+    "pregen": "node scripts/pregen-narration.js",
+    "sources": "node scripts/make-sources.js"
   }
 }

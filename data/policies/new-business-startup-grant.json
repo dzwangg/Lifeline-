@@ -1,0 +1,34 @@
+{
+  "id": "new-business-startup-grant",
+  "title": "Start-up grants for new businesses",
+  "summary": "Seed funding for businesses in their first year of operation.",
+  "category": "business",
+  "icon": "sprout",
+  "decider": {
+    "body": "Chapel Hill Town Council",
+    "how": [
+      "Town staff design the grant program and propose its budget.",
+      "Residents comment at a public hearing on the budget.",
+      "Town Council votes on the budget that funds the grants."
+    ]
+  },
+  "params": [
+    { "key": "dollars_per_year", "label": "Grant money per year", "min": 0, "max": 3000000, "default": 1000000, "unit": "dollars" }
+  ],
+  "levers": [
+    { "lever": "business.startupGrants", "param": "dollars_per_year" }
+  ],
+  "timing": { "delayQuarters": 2, "phaseInQuarters": 2 },
+  "evidence": [
+    { "claim": "Incentives tip a minority of location and opening decisions", "source": "Bartik (2018), Upjohn Institute", "url": "https://research.upjohn.org/up_workingpapers/289/" }
+  ],
+  "tradeoffs": {
+    "pros": [
+      "Some funded start-ups open that would not have otherwise, filling empty storefronts."
+    ],
+    "cons": [
+      "Paid from the Town budget, as grants of $25,000.",
+      "Many funded start-ups would have opened anyway, and funded ones close at the usual rate for new businesses."
+    ]
+  }
+}

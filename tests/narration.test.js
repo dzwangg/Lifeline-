@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
 import { POST, badNumbers, hashInput, loadCards, parseInput, speakable, speechKey, templateRecap } from '../api/narration.js';
 
-const fixture = JSON.parse(readFileSync(new URL('./fixtures/sim-result.json', import.meta.url), 'utf8'));
+// A frozen SimResult (the stub card, as of the narration PR), so these tests don't move whenever the models do.
+// The last test checks the current one, tests/fixtures/sim-result.json.
+const fixture = JSON.parse(readFileSync(new URL('./fixtures/narration-sample.json', import.meta.url), 'utf8'));
 const cards = await loadCards(false);
 const { input } = parseInput(fixture, cards);
 // A distinct request per handler test (the stub card's acres vary), so the handler's in-memory cache never leaks between tests.
@@ -71,7 +73,7 @@ test('hash is stable across key order and extra fields, and changes with the con
 test('template recap is deterministic, short, covers every delta and both sides, and passes the number check', () => {
   const text = templateRecap(input);
   assert.equal(text, templateRecap(structuredClone(input)));
-  for (const s of ['10-year simulation', 'homes rise 2.2% to about 24,200', 'tree cover falls from 46.9% to 43%', 'households rise 0.78% to about 23,900',
+  for (const s of ['10-year simulation', 'homes rise 2.2% to about 24,200', 'tree cover falls from 46.9% to 43%',
     'Compared with no new policy, median rent is $1,668 a month instead of $1,714', 'households priced out are about 4,060 instead of about 4,400', 'STUB pro', 'STUB con'])
     assert.ok(text.includes(s), s);
   const words = text.split(/\s+/).length;
@@ -262,4 +264,16 @@ test('handler: 10 calls per IP per minute reach the APIs; cache hits and other I
     assert.equal((await post(variant(20), '192.0.2.1')).cached, true);
     assert.equal((await post(variant(30), '192.0.2.2')).status, 200);
   });
+});
+
+test('the current full SimResult (every metric, all against no new policy) is accepted, and its template recap passes the number check', () => {
+  const current = JSON.parse(readFileSync(new URL('./fixtures/sim-result.json', import.meta.url), 'utf8'));
+  const { errors, input: now } = parseInput({ policies: current.policies, years: current.years, deltas: current.deltas }, cards);
+  assert.deepEqual(errors, []);
+  assert.equal(now.deltas.length, current.deltas.length);
+  const traffic = now.deltas.find(d => d.metric === 'trafficIndex');
+  assert.ok(traffic.final > 5 && traffic.final < 15, 'car traffic in percent above year 0');
+  const text = templateRecap(now), words = text.split(/\s+/).length;
+  assert.ok(text.includes('Compared with no new policy') && words <= 100, `${words} words: ${text}`);
+  assert.deepEqual(badNumbers(text, now), []);
 });

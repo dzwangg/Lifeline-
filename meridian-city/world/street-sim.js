@@ -358,7 +358,7 @@ export function createStreetSim({ net, walk, seed = 11, doors = [], obstacles = 
     const route = [start];
     let prev = from, cur = start;
     for (let k = 0; k < steps; k++) {
-      const opts = cur.adj.filter(l => l.to !== prev && (l.e.kind !== 'cross' || r() < .5));
+      const opts = cur.adj.filter(l => l.to !== prev && !(l.e.gate && !l.e.gate.open) && (l.e.kind !== 'cross' || r() < .5));
       if (!opts.length) break;
       const l = r.pick(opts);
       prev = cur; cur = l.to; route.push(cur);
@@ -374,7 +374,7 @@ export function createStreetSim({ net, walk, seed = 11, doors = [], obstacles = 
     let goal = null, door = null;
     for (let k = 0; k < 10 && !goal; k++) {
       let cand, dd;
-      if (list && r() < .7) { dd = r.pick(list); cand = dd.node; } else cand = r.pick(nodes);
+      if (list && r() < .7) { dd = r.pick(list); if (dd.gate && !dd.gate.open) { dd = null; continue; } cand = dd.node; } else cand = r.pick(nodes); // a door not built yet waits
       const dist = Math.hypot(cand.x - here.x, cand.z - here.z);
       if (cand !== here && dist > 50 && dist < 520) { goal = cand; door = dd ?? null; }
     }
@@ -656,6 +656,17 @@ export function createStreetSim({ net, walk, seed = 11, doors = [], obstacles = 
     step,
     /** Plan queued trips for up to `ms` milliseconds. Planning moves nobody, so it runs even while paused. */
     plan(ms = 4) { routeBudget(ms); },
+    /** Doors added after the start (new homes, growth/), each { x, z, label, gate }: a destination while gate.open. */
+    addDoors(list) {
+      for (const d of list) {
+        let best = null, bd = 30 * 30;
+        walk.near(d.x, d.z, 30, n => { if (!bigComps.has(n.comp) || n.kind === 'kerb') return; const dd = (n.x - d.x) ** 2 + (n.z - d.z) ** 2; if (dd < bd) { bd = dd; best = n; } });
+        if (!best) continue;
+        d.node = best;
+        if (!doorsByComp.has(best.comp)) doorsByComp.set(best.comp, []);
+        doorsByComp.get(best.comp).push(d);
+      }
+    },
     /** Walkers inside [x0, z0, x1, z1] get full local avoidance; the rest just follow their routes. */
     setFocus(b) { focus = b; },
     nearestNode,

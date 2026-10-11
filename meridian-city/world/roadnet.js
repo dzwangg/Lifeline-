@@ -525,7 +525,34 @@ export function buildWalkNet(net, paths, { onRoad = () => false, inBuilding = ()
     while (stack.length) { const m = stack.pop(); size++; for (const { to } of m.adj) if (to.comp < 0) { to.comp = comp; stack.push(to); } }
     sizes.push(size); comp++;
   }
-  return { nodes, edges, compSizes: sizes, near };
+  // Walks added after the city is built (new neighbourhoods' sidewalks and front paths, growth/): each path joins the
+  // network at its ends, and its edges carry `gate`, which routing honours, so nobody walks it until gate.open.
+  // Earlier extensions count as network, so a front path can join a new street's sidewalk.
+  function extend(paths, gate) {
+    const added = [];
+    for (const { r, w = 1.6 } of paths) {
+      const ns = [];
+      for (let i = 0; i < r.length; i += 2) {
+        if (i) { // nodes every few metres, like the sidewalks
+          const px = r[i - 2], pz = r[i - 1], l = Math.hypot(r[i] - px, r[i + 1] - pz), steps = Math.floor(l / 7);
+          for (let s = 1; s <= steps; s++) ns.push(addNode(px + (r[i] - px) * s / (steps + 1), pz + (r[i + 1] - pz) * s / (steps + 1), 'path'));
+        }
+        ns.push(addNode(r[i], r[i + 1], 'path'));
+      }
+      for (let i = 1; i < ns.length; i++) { const e = link(ns[i - 1], ns[i], 'path', Math.max(.4, w / 2 - .3), { gate }); if (e) added.push(e); }
+      for (const end of [ns[0], ns.at(-1)]) {
+        let best = null, bd = Infinity;
+        near(end.x, end.z, 8, m => {
+          if (ns.includes(m) || m.comp < 0) return;
+          const d = Math.hypot(m.x - end.x, m.z - end.z);
+          if (d < bd && clearLine(end.x, end.z, m.x, m.z, blocked, .2)) { bd = d; best = m; }
+        });
+        if (best) { const e = link(end, best, 'path', .6, { gate }); if (e) added.push(e); for (const n of ns) n.comp = best.comp; }
+      }
+    }
+    return added;
+  }
+  return { nodes, edges, compSizes: sizes, near, extend };
 }
 
 // ---------- routing ----------
@@ -543,6 +570,7 @@ export function findRoute(walk, from, to, maxNodes = 40000) {
     if (++seen > maxNodes) return null;
     const gn = g.get(n);
     for (const { to: m, e } of n.adj) {
+      if (e.gate && !e.gate.open) continue; // a walk not built yet (see extend)
       const cost = gn + e.len + (e.kind === 'cross' ? 6 : 0);
       if (cost < (g.get(m) ?? Infinity)) { g.set(m, cost); came.set(m, n); open.push(m, cost + h(m)); }
     }

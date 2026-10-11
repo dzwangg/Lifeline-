@@ -1,8 +1,21 @@
 // Pixel-art textures painted pixel by pixel from the shared palette: facades, ground floors, roofs,
-// ground surfaces, streets, water, and an atlas of building details. Sampled with nearest filtering,
-// so every texel stays a crisp square; mipmaps are nearest too, so distant views do not shimmer.
+// ground surfaces, streets, water, and an atlas of building details. Magnified, every texel stays a crisp square
+// (nearest filtering). Minified, each mip level is still sampled nearest, but neighbouring levels are blended and the
+// GPU's anisotropic filtering covers the camera's slant, so distant ground and roofs settle into their average colour
+// instead of shimmering or popping between levels. Atlases pad every region (see TileAtlas, detailAtlas), so mipmaps
+// never bleed one region's colour into the next.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
-import { P, WALLS, ROOFS, TEXEL, BAY, STOREY, AERO, AERO_BUILD as K, seeded } from './palette.js';
+import { P, WALLS, ROOFS, TEXEL, BAY, STOREY, AERO, AERO_BUILD as K, RENDER, seeded } from './palette.js';
+
+// The GPU's anisotropy, capped by RENDER.anisotropy; world.js sets it from the renderer before any texture is made.
+let anisotropy = 1;
+export function setAnisotropy(n) { anisotropy = Math.max(1, Math.min(n, RENDER.anisotropy)); }
+// Mip filtering for a pixel texture: nearest within a level, blended between levels, anisotropic at a slant.
+export function pixelFiltering(t, { aniso = true } = {}) {
+  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestMipmapLinearFilter; t.generateMipmaps = true;
+  if (aniso) t.anisotropy = anisotropy;
+  return t;
+}
 
 const rgbCache = new Map();
 const rgb = hex => {
@@ -25,6 +38,19 @@ export class Pix {
   }
   get(x, y) { const i = ((y | 0) * this.w + (x | 0)) * 4; return this.data[i + 3]; }
   rect(x, y, w, h, hex, a) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.set(x + i, y + j, hex, a); }
+  // Copies each edge of a region outward by pad pixels, so filtering and mipmaps at the region's edge find its own colour.
+  extrude(x0, y0, w, h, pad) {
+    const d = this.data, W = this.w, copy = (sx, sy, tx, ty) => {
+      if (tx < 0 || ty < 0 || tx >= W || ty >= this.h) return;
+      const a = (sy * W + sx) * 4, b = (ty * W + tx) * 4;
+      if (d[b + 3]) return; // never over another region's paint
+      d[b] = d[a]; d[b + 1] = d[a + 1]; d[b + 2] = d[a + 2]; d[b + 3] = d[a + 3];
+    };
+    for (let y = y0 - pad; y < y0 + h + pad; y++) for (let x = x0 - pad; x < x0 + w + pad; x++) {
+      if (x >= x0 && x < x0 + w && y >= y0 && y < y0 + h) continue;
+      copy(Math.min(Math.max(x, x0), x0 + w - 1), Math.min(Math.max(y, y0), y0 + h - 1), x, y);
+    }
+  }
   // Wrapping set for seamless tiles.
   wset(x, y, hex) { this.set(((x % this.w) + this.w) % this.w, ((y % this.h) + this.h) % this.h, hex); }
   canvas() {
@@ -34,9 +60,7 @@ export class Pix {
   }
   // Repeating texture where one texture pixel covers `texel` metres.
   texture({ texel = TEXEL, repeat = true, flipY = true } = {}) {
-    const t = new THREE.CanvasTexture(this.canvas());
-    t.magFilter = THREE.NearestFilter;
-    t.minFilter = THREE.NearestMipmapNearestFilter;
+    const t = pixelFiltering(new THREE.CanvasTexture(this.canvas()));
     t.colorSpace = THREE.SRGBColorSpace;
     t.flipY = flipY;
     if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / (this.w * texel), 1 / (this.h * texel)); }
@@ -272,29 +296,39 @@ export const GROUND_FLOOR_M = 4;
 
 // Packs repeating tiles into one atlas. A mesh stores each vertex's tile rect and tiling coordinates;
 // the tiling material wraps within the tile, so many wall and roof variants share one draw call.
+// Every tile sits in a gutter of TILE_GUTTER pixels filled with its own wrapped continuation, in a cell aligned to the
+// gutter, so mip levels up to log2(TILE_GUTTER) see only that tile (the tiling material never reads coarser ones there).
+export const TILE_GUTTER = 8;
 export class TileAtlas {
   constructor(size = 2048) { this.size = size; this.tiles = new Map(); this.cx = 0; this.cy = 0; this.rowH = 0; this.canvas = document.createElement('canvas'); this.canvas.width = this.canvas.height = size; this.g = this.canvas.getContext('2d'); }
   // Returns [u0, v0, du, dv] for the tile, painting it on first use.
   rect(key, paint) {
     if (this.tiles.has(key)) return this.tiles.get(key);
-    const pix = paint();
-    if (this.cx + pix.w > this.size) { this.cx = 0; this.cy += this.rowH; this.rowH = 0; }
-    if (this.cy + pix.h > this.size) throw new Error('Tile atlas is full');
-    this.g.drawImage(pix.canvas(), this.cx, this.cy);
-    const S = this.size, r = [this.cx / S, 1 - (this.cy + pix.h) / S, pix.w / S, pix.h / S];
+    const pix = paint(), G = TILE_GUTTER, up = n => Math.ceil(n / G) * G;
+    const cw = up(pix.w + 2 * G), ch = up(pix.h + 2 * G);
+    if (this.cx + cw > this.size) { this.cx = 0; this.cy += this.rowH; this.rowH = 0; }
+    if (this.cy + ch > this.size) throw new Error('Tile atlas is full');
+    const src = pix.canvas(), x = this.cx + G, y = this.cy + G, g = this.g;
+    g.save(); g.beginPath(); g.rect(this.cx, this.cy, cw, ch); g.clip();
+    for (let dy = -1; dy <= 2; dy++) for (let dx = -1; dx <= 2; dx++) g.drawImage(src, x + dx * pix.w, y + dy * pix.h); // the tile, wrapped through its gutter
+    g.restore();
+    const S = this.size, r = [x / S, 1 - (y + pix.h) / S, pix.w / S, pix.h / S];
     this.tiles.set(key, r);
-    this.cx += pix.w; this.rowH = Math.max(this.rowH, pix.h);
+    this.cx += cw; this.rowH = Math.max(this.rowH, ch);
     return r;
   }
   texture() {
-    const t = new THREE.CanvasTexture(this.canvas);
-    t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestMipmapNearestFilter; t.colorSpace = THREE.SRGBColorSpace;
+    const t = pixelFiltering(new THREE.CanvasTexture(this.canvas));
+    t.colorSpace = THREE.SRGBColorSpace;
     return t;
   }
 }
 
 // A glossy lit material that tiles each vertex's atlas rect (attribute aTile) by its uv. textureGrad keeps
 // mip selection smooth across the fract() seam, so tile edges do not sparkle. Phong gives the Aero sheen.
+// The gradients are capped at the tile gutter, so filtering never reaches a neighbouring tile; past that a facade
+// is a sub-pixel pattern anyway, and the sample eases into the tile's average colour (a coarse mip read at its
+// centre), so distant walls and roofs hold one steady tone rather than sparkling windows.
 export function tilingMaterial(texture) {
   const m = new THREE.MeshPhongMaterial({ map: texture, vertexColors: true, specular: AERO.gloss, shininess: AERO.shininess });
   m.onBeforeCompile = sh => {
@@ -304,7 +338,12 @@ export function tilingMaterial(texture) {
       .replace('#include <map_fragment>', `
         vec2 tuv = vMapUv;
         vec2 auv = vTile.xy + fract(tuv) * vTile.zw;
-        vec4 sampledDiffuseColor = textureGrad(map, auv, dFdx(tuv) * vTile.zw, dFdy(tuv) * vTile.zw);
+        vec2 gx = dFdx(tuv) * vTile.zw, gy = dFdy(tuv) * vTile.zw, tsz = vec2(textureSize(map, 0));
+        float fp = max(length(gx * tsz), length(gy * tsz)); // the pixel's footprint, in atlas texels
+        float cap = max(fp / ${TILE_GUTTER.toFixed(1)}, 1.0);
+        vec4 sampledDiffuseColor = textureGrad(map, auv, gx / cap, gy / cap);
+        vec4 tileMean = textureLod(map, vTile.xy + 0.5 * vTile.zw, 4.0);
+        sampledDiffuseColor = mix(sampledDiffuseColor, tileMean, smoothstep(${TILE_GUTTER.toFixed(1)}, ${(TILE_GUTTER * 3).toFixed(1)}, fp));
         diffuseColor *= sampledDiffuseColor;`);
   };
   return m;
@@ -375,14 +414,16 @@ export function waterFrames() {
 // Named regions (in pixels) of one 256 x 256 atlas: doors, awnings, signs, porch parts, chimneys,
 // rooftop kit, steeple and fence. uv(name) returns normalized [u0, v0, u1, v1].
 export function detailAtlas() {
-  const S = 512, p = new Pix(S, S, 4242), regions = {};
-  let cx = 0, cy = 0, rowH = 0;
+  // Regions are padded by PAD pixels of their own edge colour, so the finest mip levels stay clean (details are
+  // hidden before they shrink much further: LOD.details).
+  const S = 512, PAD = 3, p = new Pix(S, S, 4242), regions = {}, painted = [];
+  let cx = PAD, cy = PAD, rowH = 0;
   const region = (name, w, h, paint) => {
-    if (cx + w > S) { cx = 0; cy += rowH + 1; rowH = 0; }
-    if (cy + h > S) throw new Error(`Details atlas is full at "${name}"`);
+    if (cx + w + PAD > S) { cx = PAD; cy += rowH + 2 * PAD; rowH = 0; }
+    if (cy + h + PAD > S) throw new Error(`Details atlas is full at "${name}"`);
     paint(cx, cy, w, h);
-    regions[name] = [cx, cy, w, h];
-    cx += w + 1; rowH = Math.max(rowH, h);
+    regions[name] = [cx, cy, w, h]; painted.push(regions[name]);
+    cx += w + 2 * PAD; rowH = Math.max(rowH, h);
   };
   const door = (name, color, frame, glass) => region(name, 7, 12, (x, y) => {
     p.rect(x, y, 7, 12, frame);
@@ -455,8 +496,8 @@ export function detailAtlas() {
   region('dark', 4, 4, (x, y) => p.rect(x, y, 4, 4, '#2d2a28'));
   region('concrete', 16, 16, (x, y) => { p.rect(x, y, 16, 16, '#c9c3b6'); for (let i = 0; i < 30; i++) p.set(x + Math.floor(p.rnd() * 16), y + Math.floor(p.rnd() * 16), '#b3ad9f'); });
   region('bellFace', 12, 12, (x, y) => { p.rect(x, y, 12, 12, P.brick); p.rect(x + 1, y + 1, 10, 10, P.paper); p.rect(x + 2, y + 2, 8, 8, '#f6efdc'); p.rect(x + 6, y + 3, 1, 3, P.ink); p.rect(x + 6, y + 6, 3, 1, P.ink); p.set(x + 6, y + 2, P.goldDark); });
+  for (const [x, y, w, h] of painted) p.extrude(x, y, w, h, PAD);
   const tex = p.texture({ repeat: false, flipY: false });
-  tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false; // atlas regions must not bleed into each other
   const uv = name => { const [x, y, w, h] = regions[name]; return [x / S, y / S, (x + w) / S, (y + h) / S]; };
   // Inset by half a texel so nearest sampling never reaches a neighbouring region.
   const uvIn = name => { const [x, y, w, h] = regions[name]; const e = .5; return [(x + e) / S, (y + e) / S, (x + w - e) / S, (y + h - e) / S]; };

@@ -45,6 +45,7 @@ export function mountSelection({ view, buildings, host = document.body, onSelect
       m.floors ? ['Storeys', String(m.floors)] : null,
       ['Height', `${Math.round(m.height)} m`],
       ['Footprint', `${Math.round(m.area).toLocaleString()} m²`],
+      ...(m.growth ? growthFacts(m.growth) : []),
     ].filter(Boolean);
     card.querySelector('.building-card__facts').replaceChildren(...facts.flatMap(([k, v]) => {
       const dt = document.createElement('dt'), dd = document.createElement('dd');
@@ -74,6 +75,13 @@ export function mountSelection({ view, buildings, host = document.body, onSelect
     select, get selected() { return selected; },
     update(time) { if (outline) mat.opacity = .75 + .25 * Math.sin(time * 4); },
   };
+}
+
+// A planned building (growth/): its homes, and how its parcel's homes compare with what the policy asked for.
+function growthFacts({ homes, occupied, plan }) {
+  const out = [['Homes', occupied < homes ? `${occupied} of ${homes} filled` : String(homes)], [plan.parcels.length > 1 ? 'Block' : 'Parcel', `${plan.parcels.length > 1 ? `${plan.parcels.length} parcels` : plan.id} · ${plan.occupied} of ${plan.requested} homes`]];
+  if (plan.unmet) out.push(['Didn’t fit', `${plan.unmet} home${plan.unmet === 1 ? '' : 's'} (${plan.reason})`]);
+  return out;
 }
 
 const FRIENDLY = {

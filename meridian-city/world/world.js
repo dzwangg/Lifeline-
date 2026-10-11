@@ -3,9 +3,9 @@
 // fill what is left, so decorations never block roads, entrances or each other.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
 import { LOD, hash, pickBy } from './palette.js';
-import { Grid, Batch, OCC } from './geometry.js';
+import { Grid, Batch, OCC, mergeStatic } from './geometry.js';
 import { createView } from './view.js';
-import { detailAtlas, groundTextures, waterFrames as makeWaterFrames } from './textures.js';
+import { detailAtlas, groundTextures, waterFrames as makeWaterFrames, setAnisotropy } from './textures.js';
 import { spriteAtlas, TREE_KINDS, canopyTone } from './sprite-art.js';
 import { createSpriteSystem } from './sprites.js';
 import { buildBuildings } from './buildings.js';
@@ -13,7 +13,7 @@ import { buildStreets } from './streets.js';
 import { buildLand } from './land.js';
 import { buildTraffic } from './traffic.js';
 import { mountSelection } from './select.js';
-import { backdrop } from './aero.js';
+import { planOutskirts, buildOutskirts } from './outskirts.js';
 
 // Lets the loading bar repaint between stages: wait for a frame, then a task. A hidden tab gets no frames, so a
 // timer stands in rather than stalling the build.
@@ -26,42 +26,52 @@ export async function buildWorld({ container, osm, names = [], zones = [], progr
   const timings = {}, stage = (() => { let name = 'setup', t = performance.now(); return next => { const now = performance.now(); timings[name] = (timings[name] ?? 0) + Math.round(now - t); name = next; t = now; }; })();
   const view = createView(container, { ext: osm.ext });
   const { scene } = view;
-  const grid = new Grid(osm.ext + 250, 1);
+  setAnisotropy(view.renderer.capabilities.getMaxAnisotropy()); // before any texture is painted
+  const grid = new Grid(osm.ext + 700, 1); // the map plus the outskirts' parkway belt, sites and hamlets
   // Sim zones keep base-map trees out (street trees and planting); the zone layer plants its own there.
   for (const { ring } of zones) grid.fillRing(ring, OCC.zone);
   const details = detailAtlas(), art = spriteAtlas(), sprites = createSpriteSystem(art), ground = groundTextures();
-
-  // Base ground: one big lawn, so the map edge fades into countryside rather than a void.
-  const base = new Batch(), S = osm.ext + 2000, w = new THREE.Color(1, 1, 1);
-  base.flat([-S, -S], [S, -S], [S, S], 0, w, (x, z) => [x, -z]);
-  base.flat([-S, -S], [S, S], [-S, S], 0, w, (x, z) => [x, -z]);
-  const baseMesh = new THREE.Mesh(base.build(), new THREE.MeshLambertMaterial({ map: ground.grass, vertexColors: true }));
-  baseMesh.receiveShadow = true;
-  scene.add(baseMesh);
-  const aero = backdrop(scene, osm.ext, ground.grass); // hills and wind turbines beyond the mapped area
 
   stage('yields'); progress('Raising buildings…', .05); await tick();
   stage('buildings'); const buildings = buildBuildings({ osm, names, grid, details, parent: scene });
   stage('yields'); progress('Paving streets…', .35); await tick();
   stage('streets'); const streets = buildStreets({ osm, grid, ground, parent: scene });
+  // The outskirts' roads, parking and hamlet houses go through the same builders as the city's, as a separate,
+  // purely decorative set: none of it joins the street sim, building selection or the stats.
+  stage('outskirts'); const plan = planOutskirts({ osm, grid, roads: streets.roads });
+  const outerStreets = buildStreets({ osm: { r: plan.roads, a: plan.areas }, grid, ground, parent: scene });
+  const hamlets = buildBuildings({ osm: { b: plan.houses }, names: [], grid, details, parent: scene });
   stage('yields'); progress('Planting trees…', .55); await tick();
   stage('land'); const land = buildLand({ osm, grid, ground, waterFrames: makeWaterFrames(), parent: scene });
   land.plantYards(buildings.meta);
+  land.plantYards(hamlets.meta);
   land.fillOpen(buildings.meta, osm.ext);
   const landMeshes = land.build(details);
+  // Ground, terrain, structures and planting past the city. The parkway gets the outskirts' own landscaped transit
+  // stops, so the street builder's bus stops (and their benches) are left off it.
+  stage('outskirts');
+  const busStops = outerStreets.furniture.filter(f => f.name === 'busStop');
+  const outskirts = buildOutskirts({
+    plan, scene, sprites, art, ground, grid, streetTrees: outerStreets.trees,
+    furniture: outerStreets.furniture.filter(f => f.name !== 'busStop' && !(f.name === 'bench' && busStops.some(b => Math.hypot(b.x - f.x, b.z - f.z) < 4))),
+  });
+  stage('land');
 
   // Sprite layers, each with its own level of detail.
   const treeItems = [...land.trees, ...streets.trees.map(t => ({ ...t, name: pickBy(TREE_KINDS[t.kind], hash(t.x, t.z, 1)), scale: .85 + hash(t.x, t.z, 2) * .3 }))];
   const shadows = treeItems.map(t => ({ x: t.x + 1.4, y: .09, z: t.z - 1, name: 'shadow', scale: 2.8 * (t.scale ?? 1), phase: .5 }));
   sprites.layer(scene, shadows, { decal: true, transparent: true, opacity: .28, renderOrder: 1, name: 'tree shadows', minZoom: LOD.macro });
-  sprites.layer(scene, treeItems, { name: 'trees', minZoom: LOD.macro });
+  sprites.layer(scene, treeItems, { name: 'trees', minZoom: LOD.trees });
   // Far out, each tree is a flat disc a little wider than its crown, so neighbouring crowns merge into canopy.
-  sprites.canopyLayer(scene, treeItems.map(t => ({ x: t.x, z: t.z, r: art.sprites[t.name].w * (t.scale ?? 1) * .62, color: canopyTone(t.name) })), { maxZoom: LOD.macro, name: 'canopy' });
+  sprites.canopyLayer(scene, treeItems.map(t => ({ x: t.x, z: t.z, r: art.sprites[t.name].w * (t.scale ?? 1) * .62, color: canopyTone(t.name) })), { maxZoom: LOD.trees, name: 'canopy' });
   sprites.layer(scene, land.shrubs, { name: 'shrubs', minZoom: LOD.furniture });
   sprites.layer(scene, land.flowers, { name: 'flowers', minZoom: LOD.flowers });
+  // Static scenery built from many small parts, folded into fewer draw calls. Buildings (picking) and anything the
+  // zoom switches or the frame loop moves are left as they are.
+  timings.mergedDrawCalls = mergeStatic(scene, { keep: new Set([...sprites.managed, buildings.group, hamlets.group]) });
   let traffic = null;
   const selection = mountSelection({ view, buildings, onSelect: m => { if (m) traffic?.select(null); } });
-  const stats = { buildings: buildings.meta.length, tallest: Math.max(...buildings.meta.map(m => m.height)), trees: treeItems.length };
+  const stats = { buildings: buildings.meta.length, tallest: Math.max(...buildings.meta.map(m => m.height)), trees: treeItems.length, outskirts: outskirts.stats };
   // Street life, once the city is on screen: a few chunks, each in its own task.
   let startTraffic, frames = 0;
   const trafficReady = new Promise(r => { startTraffic = r; }).then(async () => {
@@ -86,6 +96,7 @@ export async function buildWorld({ container, osm, names = [], zones = [], progr
   let time = 0, simTime = 0;
   return {
     view, grid, buildings, streets, selection, zoneParts, lod: sprites.lod, timings, trafficReady, stats,
+    outskirts, // the scenery past the map: its plan, terrain heightAt and stats
     get traffic() { return traffic; },
     sprites, art, // the sprite system and its atlas, for layers added from outside (see WORLD.md)
     gridAt: (x, z) => grid.at(x, z),
@@ -101,9 +112,10 @@ export async function buildWorld({ container, osm, names = [], zones = [], progr
       sprites.update(view.renderCam, simTime, ppm);
       traffic?.update(dt, time, ppm); // street life runs in real time; the clock moves the years
       landMeshes.update(Math.min(simDt, .2));
-      aero.update(Math.min(simDt, .2));
+      outskirts.update(Math.min(simDt, .2));
       selection.update(time);
       buildings.setDetailVisible(ppm >= LOD.details);
+      hamlets.setDetailVisible(ppm >= LOD.details);
       view.render();
       if (++frames === 2) setTimeout(startTraffic, 0); // once the first frame is on screen
     },
@@ -128,8 +140,8 @@ function zoneArt({ sprites, buildings, ground }) {
   };
   return {
     tree: [
-      { make: (n, pick) => sprites.lod(sprites.slots(n, i => pickBy(TREE_KINDS.wood, pick(i))), { minZoom: LOD.macro }) },
-      { make: (n, pick) => sprites.lod(sprites.canopySlots(n, i => canopyTone(pickBy(TREE_KINDS.wood, pick(i))), 4.2), { maxZoom: LOD.macro }) },
+      { make: (n, pick) => sprites.lod(sprites.slots(n, i => pickBy(TREE_KINDS.wood, pick(i))), { minZoom: LOD.trees }) },
+      { make: (n, pick) => sprites.lod(sprites.canopySlots(n, i => canopyTone(pickBy(TREE_KINDS.wood, pick(i))), 4.2), { maxZoom: LOD.trees }) },
     ],
     house: [{ geo: box('f:sidingCream:shutter', 'r:plum', true), material: buildings.wallMaterial }],
     block: [{ geo: box('f:brickRed:sill', 'r:flatGravel', false), material: buildings.wallMaterial }],

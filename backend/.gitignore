@@ -1,0 +1,7 @@
+.venv/
+data/raw/
+chsim.db
+*.db-journal
+__pycache__/
+.pytest_cache/
+tests/_test_api.db

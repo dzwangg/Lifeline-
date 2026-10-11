@@ -199,10 +199,17 @@ export const SUN = { elevationDeg: 52, offsetDeg: -25, color: '#fffaf0', intensi
 export const AMBIENT = { sky: '#d8f6ff', ground: '#4f8a5a', intensity: 1.25 };
 export const OUTLINE = { color: P.ink, strength: .55, depthMetres: .9 };
 // Aero atmosphere: glossy specular on lit materials, a cyan haze toward the horizon, a sun glow, drifting bubbles.
-export const AERO = { gloss: '#3a4a55', shininess: 38, haze: '#bff0ff', hazeStrength: .22, glow: '#fffbe6', bubbles: 26 };
+// farAtmosphere: the share of the screen haze and sun glow kept at the farthest zoom (full strength from DEFAULT_ZOOM in).
+export const AERO = { gloss: '#3a4a55', shininess: 38, haze: '#bff0ff', hazeStrength: .22, glow: '#fffbe6', glowStrength: .28, farAtmosphere: .3, bubbles: 26 };
+// Render resolution caps: canvas pixels per CSS pixel, and canvas pixels in total (about a 2x laptop screen).
+// Anisotropy: the most texture anisotropy asked of the GPU, for roofs and ground seen at the camera's 35° slant.
+// Shadows: redrawn every frame from shadowLivePpm in (where vehicles cast them), otherwise only when the view moves or
+// every shadowRefreshFrames frames.
+export const RENDER = { maxPixelRatio: 2, maxPixels: 5.3e6, anisotropy: 8, shadowLivePpm: 1.2, shadowRefreshFrames: 6 };
 // Level of detail: below these zooms (px/m) the matching layer is hidden.
-// macro: at or below 1/16 (ppm under .5) single trees are sub-pixel, so canopies draw as flat discs and changed sim zones as fills.
-export const LOD = { people: 2.5, furniture: 1.25, details: 1.25, flowers: 2.5, cars: .625, macro: .5 };
+// macro: at or below 1/16 (ppm under .5) changed sim zones draw as fills. trees: tree sprites draw at every zoom (the
+// fine far-zoom grain and mipmapped atlas keep a few-pixel tree a readable crown); canopy discs stand in only below it.
+export const LOD = { people: 2.5, furniture: 1.25, details: 1.25, flowers: 2.5, cars: .625, macro: .5, trees: 0 };
 export const CHUNK = 350;           // metres per side of a culling chunk
 
 // ---------- deterministic variety ----------

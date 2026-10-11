@@ -9,7 +9,7 @@
 // the street sim adds them (addPed), they are drawn in the same layers, and clicking one opens its resident card
 // (onHousehold) instead of the walker card. Street life runs in real time, paused or playing (update()).
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
-import { P, CAMERA } from './palette.js';
+import { P, CAMERA, RENDER } from './palette.js';
 import { Batch, OCC } from './geometry.js';
 import { Pix } from './textures.js';
 import { DRIVE } from './streets.js';
@@ -114,7 +114,10 @@ const TYPES = [ // kind, share, colours, length
 const KIND_COLORS = Object.fromEntries(TYPES.map(([kind, , colors]) => [kind, colors]));
 const DOOR_WEIGHT = { shop: 4, campus: 4, civic: 3, office: 3, apartment: 2, house: 1, industrial: 1, garage: 1 };
 const OBSTACLE_R = { lamp: .3, hydrant: .25, bench: .8, busStop: 1.6, trafficLight: .25, stopSign: .2, streetSign: .2, trash: .3, mailbox: .3, bikeRack: .7, planter: .5, picnic: .9 };
-export const PEOPLE_MIN_PPM = 2.4;
+export const PEOPLE_MIN_PPM = 2.4; // full walking detail: shadows, and local avoidance in the sim
+// Below that, down to PEOPLE_FAR_PPM, walkers still show as their smallest directional sprite (one texel to a render
+// pixel there), so busy streets read as busy; vehicles stay as their 3D models (a few pixels long) to VEHICLE_MIN_PPM.
+const PEOPLE_FAR_PPM = 1.2, VEHICLE_MIN_PPM = .3;
 // Ambient walkers, capped so the sim's households (a few hundred, near their homes) outnumber them there.
 // HOUSEHOLD_SLOTS: room in the people layers for the households the street sim adds (the model makes ~350-450).
 const AMBIENT_MAX = 1200, HOUSEHOLD_SLOTS = 640;
@@ -213,7 +216,7 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
   tex.colorSpace = THREE.SRGBColorSpace; tex.needsUpdate = true;
   const sprites = createSpriteSystem({ texture: tex, sprites: art.sprites });
   const N = sim.peds.length + HOUSEHOLD_SLOTS;
-  const people = sprites.dynamicLayer(scene, N, { minZoom: PEOPLE_MIN_PPM });
+  const people = sprites.dynamicLayer(scene, N, { minZoom: PEOPLE_FAR_PPM });
   const shadows = sprites.dynamicLayer(scene, N, { minZoom: PEOPLE_MIN_PPM, decal: true, transparent: true, opacity: .3, renderOrder: 1 });
   const signalLayer = sprites.dynamicLayer(scene, Math.max(1, heads.length), { minZoom: 1.2 });
   const ringLayer = sprites.dynamicLayer(scene, 1, { decal: true, transparent: true, opacity: .95, renderOrder: 2 });
@@ -262,18 +265,21 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
   const householdHeads = new Map(); // household id -> { x, y, z } of its walker's head this frame, for the rent dots (agent-layer.js)
 
   function drawVehicles(alpha, ppm) {
+    const show = ppm >= VEHICLE_MIN_PPM;
+    for (const m of Object.values(meshes)) { m.visible = show; m.castShadow = ppm >= RENDER.shadowLivePpm; } // further out the shadow pass is cached
+    if (!show) return;
     for (const c of sim.vehicles) {
       pos.set(c.px + (c.x - c.px) * alpha, .06, c.pz + (c.z - c.pz) * alpha);
       m4.compose(pos, q4.setFromAxisAngle(UP, lerpAng(c.ph, c.h, alpha)), one);
       meshes[c.kind].setMatrixAt(c.slot, m4);
     }
-    for (const m of Object.values(meshes)) { m.instanceMatrix.needsUpdate = true; m.visible = ppm >= .6; }
+    for (const m of Object.values(meshes)) m.instanceMatrix.needsUpdate = true;
   }
 
   function drawPeople(alpha, ppm, cam, time) {
     visible = [];
     householdHeads.clear();
-    if (ppm < PEOPLE_MIN_PPM) { people.mesh.count = shadows.mesh.count = 0; ringLayer.mesh.count = 0; return; }
+    if (ppm < PEOPLE_FAR_PPM) { people.mesh.count = shadows.mesh.count = 0; ringLayer.mesh.count = 0; return; }
     const table = art.table[ppm >= 9 ? 'hi' : ppm >= 4.5 ? 'mid' : 'low'];
     // Camera axes on the ground, for choosing which of the eight facings to show.
     const e = cam.matrixWorld.elements, rx = e[0], rz = e[2], fl = Math.hypot(e[8], e[10]) || 1, fx = -e[8] / fl, fz = -e[10] / fl;

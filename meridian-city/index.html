@@ -126,7 +126,6 @@ mountSimPlate({ policyStore: store, cards });
 <script type="module">
 // The city: a retro isometric game world built from the OSM bake (see world/). The sim's zone layer draws on top.
 import { buildWorld } from './world/world.js';
-import { inside, bounds } from './world/geometry.js';
 import { ZOOMS, DEFAULT_ZOOM } from './world/palette.js';
 import { zonesReady, mountZoneLayer } from './sim/zone-layer.js';
 import { mountAgentLayer } from './sim/agent-layer.js';
@@ -160,7 +159,7 @@ try {
 }
 progress('Placing households…', .88); await frame();
 let t = performance.now();
-mountZoneLayer({ scene: world.view.scene, zones: ZONES, at: world.gridAt, inside, bounds, parts: world.zoneParts, lod: world.lod });
+mountZoneLayer({ world, zones: ZONES });
 mountAgentLayer({ world, osm: OSM, zones: ZONES });
 world.trafficReady.then(traffic => $('clock').setHour(traffic.hour)); // the street's time of day, under the date (clock-bar.js)
 mountFocus({ world, osm: OSM, zones: ZONES });

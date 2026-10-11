@@ -3,7 +3,7 @@
 // planes, depth testing sorts them correctly against roofs, walls and each other. Instances are split
 // into map chunks so the renderer skips chunks outside the view. Cut-out alpha keeps edges crisp.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
-import { CHUNK, CAMERA } from './palette.js';
+import { CHUNK, CAMERA, AERO } from './palette.js';
 import { chunkKey } from './geometry.js';
 
 const BILLBOARD_VS = /* glsl */`
@@ -39,11 +39,19 @@ const FS = /* glsl */`
   uniform sampler2D uMap;
   uniform float uOpacity;
   uniform vec3 uTint;
+  uniform vec3 uHaze;      // distant layers fade toward the horizon haze by uHazeAmount
+  uniform float uHazeAmount;
   varying vec2 vUv;
   void main() {
     vec4 c = texture2D(uMap, vUv);
+    // Minified, the atlas's mip levels average a sprite's edge with clear (black) pixels: undo that darkening, and
+    // lift alpha with the mip level so small sprites keep their silhouette through the cut-out instead of eroding.
+    vec2 t = vUv * vec2(textureSize(uMap, 0));
+    float lod = max(0.0, 0.5 * log2(max(dot(dFdx(t), dFdx(t)), dot(dFdy(t), dFdy(t)))));
+    c.rgb /= max(c.a, 1.0 / 255.0);
+    c.a *= 1.0 + lod * 0.3;
     if (c.a < 0.5) discard;
-    gl_FragColor = vec4(c.rgb * uTint, uOpacity);
+    gl_FragColor = vec4(mix(c.rgb * uTint, uHaze, uHazeAmount), uOpacity);
   }`;
 
 export function createSpriteSystem(atlas) {
@@ -53,14 +61,16 @@ export function createSpriteSystem(atlas) {
 
   const material = (vs, extra = {}) => new THREE.ShaderMaterial({
     vertexShader: vs, fragmentShader: FS,
-    uniforms: { ...uniforms, uMap: { value: atlas.texture }, uOpacity: { value: 1 }, uTint: { value: new THREE.Color(1, 1, 1) } },
+    uniforms: { ...uniforms, uMap: { value: atlas.texture }, uOpacity: { value: 1 }, uTint: { value: new THREE.Color(1, 1, 1) }, uHaze: { value: new THREE.Color(AERO.haze) }, uHazeAmount: { value: 0 } },
     ...extra,
   });
 
   // items: [{ x, y, z, name, scale?, phase? }]. Returns the layer, whose meshes are added to `parent`.
-  function layer(parent, items, { decal = false, transparent = false, opacity = 1, minZoom = 0, maxZoom = Infinity, renderOrder = 0, name = 'sprites' } = {}) {
+  // haze (0 to 1) fades the whole layer toward the horizon haze, for scenery far out.
+  function layer(parent, items, { decal = false, transparent = false, opacity = 1, haze = 0, minZoom = 0, maxZoom = Infinity, renderOrder = 0, name = 'sprites' } = {}) {
     const mat = material(decal ? DECAL_VS : BILLBOARD_VS, transparent ? { transparent: true, depthWrite: false } : {});
     mat.uniforms.uOpacity.value = opacity;
+    mat.uniforms.uHazeAmount.value = haze;
     const chunks = new Map();
     for (const it of items) {
       const k = chunkKey(it.x, it.z, CHUNK);
@@ -143,7 +153,7 @@ export function createSpriteSystem(atlas) {
     mesh.receiveShadow = true;
     return mesh;
   }
-  // Chunked canopy discs for fixed trees: items [{ x, z, r, color }].
+  // Chunked canopy discs for fixed trees: items [{ x, y?, z, r, color }], y lifting a disc onto raised ground.
   function canopyLayer(parent, items, { minZoom = 0, maxZoom = Infinity, name = 'canopy' } = {}) {
     const chunks = new Map(), group = new THREE.Group(), m4 = new THREE.Matrix4();
     group.name = name;
@@ -154,7 +164,7 @@ export function createSpriteSystem(atlas) {
     }
     for (const list of chunks.values()) {
       const mesh = canopySlots(list.length, i => list[i].color);
-      list.forEach((it, i) => mesh.setMatrixAt(i, m4.makeScale(it.r, 1, it.r).setPosition(it.x, 0, it.z)));
+      list.forEach((it, i) => mesh.setMatrixAt(i, m4.makeScale(it.r, 1, it.r).setPosition(it.x, it.y ?? 0, it.z)));
       mesh.computeBoundingSphere();
       group.add(mesh);
     }
@@ -166,6 +176,7 @@ export function createSpriteSystem(atlas) {
 
   return {
     layer, dynamicLayer, slots, canopySlots, canopyLayer, lod,
+    get managed() { return layers.map(l => l.group); }, // every object whose visibility follows the zoom
     // Per frame: camera axes for billboards, wind time, and level-of-detail visibility.
     update(camera, time, ppm) {
       uniforms.uTime.value = time;

@@ -119,6 +119,14 @@ store.subscribe(({ applied }) => {
 window.policyStore = store; // the simulation reads store.getState().applied once it models effects
 mountClockBar(); // starts paused, so policies can be set up before Play
 mountSimPlate({ policyStore: store, cards });
+// ?forecast adds the forecast dock (meridian-city/forecast/: the backend's forecasts, or its precomputed demos when no
+// server answers) and its housing markers on the map. Opt-in while the dock is new, so the default page is unchanged.
+if (new URLSearchParams(location.search).has('forecast')) {
+  document.head.append(Object.assign(document.createElement('link'), { rel: 'stylesheet', href: 'forecast/forecast.css' }));
+  const [{ mountForecastDock }, { mountForecastMap }] = await Promise.all([import('./forecast/dock.js'), import('./forecast/map-layer.js')]);
+  const dock = await mountForecastDock({ policyStore: store });
+  mountForecastMap({ dock });
+}
 </script>
 
 <script defer src="chapel-hill.js"></script>

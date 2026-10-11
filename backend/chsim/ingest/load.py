@@ -13,14 +13,23 @@ from .raw import manifest
 from .sources import SOURCES
 
 
-def _replace(table, df: pd.DataFrame) -> None:
-    with engine.begin() as c:
-        c.execute(delete(table))
-    df.to_sql(table.name, engine, if_exists="append", index=False, chunksize=5000)
+def replace_all(pairs, bind=None) -> None:
+    """Swaps the contents of several tables in one transaction on one connection: a failed insert rolls the deletions
+    back, so a broken refresh keeps the old evidence. Children are cleared before the rows they reference and parents
+    are written first, so foreign keys (Membership -> Area) hold on databases that enforce them, such as PostgreSQL."""
+    order = {t.name: i for i, t in enumerate(M.Base.metadata.sorted_tables)}  # parents before children
+    pairs = sorted(pairs, key=lambda p: order[p[0].name])
+    with (bind or engine).begin() as c:
+        for table, _ in reversed(pairs):
+            c.execute(delete(table))
+        for table, df in pairs:
+            df.to_sql(table.name, c, if_exists="append", index=False, chunksize=5000)
 
 
 def load() -> dict:
     init_db()
+    pending = []  # (table, rows): every table is built first, then all are swapped together (replace_all)
+    _replace = lambda table, df: pending.append((table, df))
     tracts = pd.read_csv(PROCESSED / "tracts_2020.csv", dtype={"geoid": str, "county": str})
     ty = pd.read_csv(PROCESSED / "lodes_tract_year.csv", dtype={"tract": str})
     town = pd.read_csv(PROCESSED / "lodes_town_year.csv")
@@ -91,6 +100,7 @@ def load() -> dict:
                        "access_result": f"{len(ok)} file(s) retrieved" if ok else ("not attempted" if not entries else "error"),
                        "coverage": None})
     _replace(M.SourceAsset.__table__, pd.DataFrame(assets))
+    replace_all(pending)
     return write_coverage(town, ev)
 
 

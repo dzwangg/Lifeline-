@@ -527,7 +527,9 @@ export function buildWalkNet(net, paths, { onRoad = () => false, inBuilding = ()
   }
   // Walks added after the city is built (new neighbourhoods' sidewalks and front paths, growth/): each path joins the
   // network at its ends, and its edges carry `gate`, which routing honours, so nobody walks it until gate.open.
-  // Earlier extensions count as network, so a front path can join a new street's sidewalk.
+  // Earlier extensions count as network while they are open (a front path joins its new street's sidewalk), but a
+  // path never ties on to a closed or retracted walk, from which the open network couldn't be reached.
+  const reachable = (m, gate) => !m.dead && m.adj.some(({ e }) => !e.gate || e.gate === gate || e.gate.open);
   function extend(paths, gate) {
     const added = [];
     for (const { r, w = 1.6 } of paths) {
@@ -543,7 +545,7 @@ export function buildWalkNet(net, paths, { onRoad = () => false, inBuilding = ()
       for (const end of [ns[0], ns.at(-1)]) {
         let best = null, bd = Infinity;
         near(end.x, end.z, 8, m => {
-          if (ns.includes(m) || m.comp < 0) return;
+          if (ns.includes(m) || m.comp < 0 || !reachable(m, gate)) return;
           const d = Math.hypot(m.x - end.x, m.z - end.z);
           if (d < bd && clearLine(end.x, end.z, m.x, m.z, blocked, .2)) { bd = d; best = m; }
         });
@@ -552,7 +554,22 @@ export function buildWalkNet(net, paths, { onRoad = () => false, inBuilding = ()
     }
     return added;
   }
-  return { nodes, edges, compSizes: sizes, near, extend };
+  // Removes the walks extend() added under `gate` (a plan no forecast shows any more): their edges leave the network and
+  // nodes left with no edge leave the spatial lookup, so later walks can't join them and routing never meets them.
+  function retract(gate) {
+    for (let k = edges.length - 1; k >= 0; k--) {
+      const e = edges[k];
+      if (e.gate !== gate) continue;
+      e.a.adj = e.a.adj.filter(l => l.e !== e); e.b.adj = e.b.adj.filter(l => l.e !== e);
+      edges.splice(k, 1);
+      for (const n of [e.a, e.b]) if (!n.adj.length && n.kind === 'path' && !n.dead) {
+        n.dead = true;
+        const bucket = hash.get(hk(n.x, n.z)), i = bucket?.indexOf(n) ?? -1;
+        if (i >= 0) bucket.splice(i, 1);
+      }
+    }
+  }
+  return { nodes, edges, compSizes: sizes, near, extend, retract };
 }
 
 // ---------- routing ----------

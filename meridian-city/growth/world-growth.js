@@ -19,8 +19,10 @@ export const isBuilt = state => !!MIXES[state];
  * @param {object} o.world buildWorld()'s result
  * @param {object[]} o.zones the sim's parcels, with ring in map metres
  * @param {Record<string, number>} o.upa assumptions.unitsPerAcre.value
+ * @param {(art: object) => void} [o.onDispose] called as a plan's or street's meshes are thrown away, so holders of it
+ *   (picking, walker gates) can let go
  */
-export function createGrowth({ world, zones, upa }) {
+export function createGrowth({ world, zones, upa, onDispose = () => {} }) {
   const occ = (x, z) => world.grid.at(x, z);
   const roads = world.streets.roads, junctions = findJunctions(roads);
   const art = createGrowthArt({ world, ground: groundTextures() });
@@ -31,7 +33,7 @@ export function createGrowth({ world, zones, upa }) {
   let blocked = new Set(), blockedKey = '', requested = new Map(), blockOf = new Map();
   const streetCache = new Map(), planCache = new Map(), parcelArt = new Map(), streetArt = new Map();
 
-  const ctxOf = site => (site.ctx ??= siteContext({ id: site.id, parcels: site.parcels, roads, junctions, buildings: world.buildings.meta.filter(m => !m.growth) }));
+  const ctxOf = site => (site.ctx ??= siteContext({ id: site.id, parcels: site.parcels, roads, junctions, buildings: world.buildings.meta.filter(m => !m.growth && !m.removed) }));
   /** The site's local streets, for the current set of protected parcels. */
   function streetsOf(site) {
     const key = `${site.id}|${blockedKey}`;
@@ -109,10 +111,15 @@ export function createGrowth({ world, zones, upa }) {
       const keep = new Set(queue.map(([z, s]) => keyOf(z, s).key));
       for (const [key, plan] of planCache) {
         if (keep.has(key)) continue;
-        parcelArt.get(plan)?.dispose();
+        const a = parcelArt.get(plan);
+        if (a) { // its info-card entries keep their index (meshes name owners by it) but let go of the plan
+          for (const m of a.metas) world.buildings.meta[m.idx] = { i: -1, removed: true };
+          a.dispose(); onDispose(a);
+        }
         parcelArt.delete(plan); planCache.delete(key);
       }
-      for (const [key, a] of streetArt) if (key.split('|')[1] !== blockedKey) { a.dispose(); streetArt.delete(key); }
+      for (const [key, a] of streetArt) if (key.split('|')[1] !== blockedKey) { a.dispose(); onDispose(a); streetArt.delete(key); }
+      for (const key of streetCache.keys()) if (key.split('|')[1] !== blockedKey) streetCache.delete(key); // streets for other protected parcels
       if (!timer && queue.length) timer = setTimeout(pump, 50);
     },
     plan: (zone, state) => (isBuilt(state) ? planOf(zone, state) : null),

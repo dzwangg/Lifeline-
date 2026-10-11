@@ -116,6 +116,18 @@ def test_mixed_policies_respect_budgets_capacity_and_shared_funds():
     assert np.all(sel["fund_balance"] >= -1e-6), "no borrowing: reserves never go negative"
 
 
+def test_earmarked_and_general_funds_share_one_cash_limit():
+    # The tax increment sits in receipts and in the earmark; spending it from both pools would count it twice.
+    tax = {"property_tax_adjustment": {"enabled": True, "change_cents_per_100": 5}}
+    both = sc({**tax, "hiring_subsidy": {"enabled": True, "funding_source": "tax_adjustment"},
+               "small_business_support_grant": {"enabled": True, "funding_source": "general_fund"}}, reserve_floor_pct=50)
+    _, sel = paths(both)
+    # A year that pays for policies must still end with reserves at or above the floor, whichever pool paid.
+    paid = sel["hire_paid"] + sel["sbg_paid"]
+    assert np.all(sel["fund_balance_pct"][paid > 0] >= 50 - 1e-6), "spending dipped below the reserve floor"
+    assert np.all(sel["funding_gap"] >= 0) and np.all(sel["fund_balance"] >= -1e-6)
+
+
 def test_unfunded_policy_shows_gap_and_spends_nothing():
     s = sc({"hiring_subsidy": {"enabled": True, "funding_source": "unfunded"}})
     base, sel = paths(s)

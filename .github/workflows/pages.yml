@@ -26,8 +26,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Assemble site
         run: |
-          mkdir _site
-          cp -r meridian-city index.html _site/
+          mkdir -p _site/tests
+          # The page imports shared/ and fetches data/ and tests/fixtures/ (the stub card, the sample result) by
+          # relative path from meridian-city/, so they ship alongside it.
+          cp -r meridian-city shared data index.html _site/
+          cp -r tests/fixtures _site/tests/
           rm -f _site/meridian-city/fetch_osm.py
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

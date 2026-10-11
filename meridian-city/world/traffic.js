@@ -188,7 +188,8 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
     }
   }
 
-  const doors = buildings.meta.filter(m => m.door).map(m => ({ x: m.door[0], z: m.door[1], label: m.name ?? m.label, family: m.family, weight: DOOR_WEIGHT[m.family] ?? 1 }));
+  // Planned homes (growth/) are not doors yet: the zone layer adds each, gated, once it is built (sim.addDoors).
+  const doors = buildings.meta.filter(m => m.door && !m.growth && !m.removed).map(m => ({ x: m.door[0], z: m.door[1], label: m.name ?? m.label, family: m.family, weight: DOOR_WEIGHT[m.family] ?? 1 }));
   const obstacles = [
     ...furniture.filter(f => OBSTACLE_R[f.name]).map(f => ({ x: f.x, z: f.z, r: OBSTACLE_R[f.name] })),
     ...trees.map(t => ({ x: t.x, z: t.z, r: .45 })),

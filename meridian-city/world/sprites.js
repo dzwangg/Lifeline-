@@ -173,9 +173,11 @@ export function createSpriteSystem(atlas) {
   }
   // Puts any object under the same zoom rule as the sprite layers: shown while minZoom <= ppm < maxZoom.
   function lod(object, { minZoom = 0, maxZoom = Infinity } = {}) { layers.push({ group: object, minZoom, maxZoom }); return object; }
+  // Takes an object back out of the zoom rules (it is being thrown away), so the per-frame pass stops visiting it.
+  function unlod(object) { const k = layers.findIndex(l => l.group === object); if (k >= 0) layers.splice(k, 1); }
 
   return {
-    layer, dynamicLayer, slots, canopySlots, canopyLayer, lod,
+    layer, dynamicLayer, slots, canopySlots, canopyLayer, lod, unlod,
     get managed() { return layers.map(l => l.group); }, // every object whose visibility follows the zoom
     // Per frame: camera axes for billboards, wind time, and level-of-detail visibility.
     update(camera, time, ppm) {

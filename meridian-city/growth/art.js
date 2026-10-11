@@ -137,7 +137,9 @@ export function createGrowthArt({ world, ground }) {
       dispose() {
         const pickables = buildings.pickables;
         for (const m of meshes) { const k = pickables.indexOf(m); if (k >= 0) pickables.splice(k, 1); m.geometry.dispose(); m.material.dispose(); m.customDepthMaterial?.dispose(); }
+        // Ground materials are shared by every plan and stay; each sprite mesh has its own material (the atlas stays).
         for (const o of [group, pads, lawn, paths, scaffold, planted].filter(Boolean)) { scene.remove(o); if (o !== group) o.geometry.dispose(); }
+        for (const o of [scaffold, planted].filter(Boolean)) { sprites.unlod(o); o.material.dispose(); }
         if (this.gate) this.gate.open = false;
       },
       /** Front paths for the walker network, and the doors walkers may visit (growth gates them until built). */

@@ -130,19 +130,27 @@ def run_path(sc: Scenario, sh: Shared, a: Anchors, seed: int) -> dict[str, np.nd
         floor = base_exp * sc.reserve_floor_pct / 100
         enc_gf = s.enc_pool.get("general_fund", _zeros(M))
         enc_tax = s.enc_pool.get("tax_adjustment", _zeros(M))
-        avail = {"general_fund": np.maximum(s.fund_balance + receipts - base_exp - floor - enc_gf, 0),
-                 "tax_adjustment": np.maximum(s.tax_reserve - enc_tax, 0), "unfunded": _zeros(M)}
+        # One cash limit covers every pool: the earmarked tax increment is already inside receipts and the fund balance,
+        # so it is carved out of the general pool rather than added to it, and spending from either pool draws down the
+        # same cash. Without this, cards on both pools could spend the earmark twice and dip below the reserve floor.
+        cash = np.maximum(s.fund_balance + receipts - base_exp - floor - enc_gf - enc_tax, 0)
+        earmark = np.minimum(np.maximum(s.tax_reserve - enc_tax, 0), cash)
+        avail = {"general_fund": cash - earmark, "tax_adjustment": earmark, "unfunded": _zeros(M)}
         avail["fund_balance"] = avail["general_fund"]  # same pool; differs in whether it counts as operating spending
 
         pay_operating, pay_reserves, gap, committed = _zeros(M), _zeros(M), _zeros(M), _zeros(M)
 
         def allocate(card, request):
+            nonlocal cash
             src = card.funding_source
             pool = "general_fund" if src == "fund_balance" else src
             granted = np.minimum(request, avail[pool])
             avail[pool] = avail[pool] - granted
-            if pool == "general_fund":
-                avail["fund_balance"] = avail["general_fund"]
+            if pool != "unfunded":  # the shared cash: neither pool may then promise more than is left
+                cash = cash - granted
+                avail["tax_adjustment"] = np.minimum(avail["tax_adjustment"], cash)
+                avail["general_fund"] = np.minimum(avail["general_fund"], cash - avail["tax_adjustment"])
+            avail["fund_balance"] = avail["general_fund"]
             return granted, request - granted
 
         def spend(card, amount):

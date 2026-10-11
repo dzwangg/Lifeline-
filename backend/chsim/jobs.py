@@ -5,6 +5,7 @@ results keyed by scenario + model + data + effects + benchmark versions, so repe
 """
 from __future__ import annotations
 import hashlib, json, threading, time, uuid
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import select, update
 from .config import DATA_VERSION, EFFECTS_VERSION, BENCHMARK_VERSION
 from .store.db import session, init_db
@@ -22,11 +23,35 @@ def result_key(sc: Scenario) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
+# A running job whose heartbeat (updated_at, bumped by every progress update) is older than this was abandoned by a
+# worker that stopped mid-run; the next claim puts it back in the queue.
+CLAIM_TTL = timedelta(minutes=15)
+
+
+def _insert_once(s, model, **values) -> None:
+    """INSERT that leaves an existing row alone, so two requests or workers writing the same record never collide."""
+    dialect = s.get_bind().dialect.name
+    if dialect == "postgresql":
+        from sqlalchemy.dialects.postgresql import insert
+    elif dialect == "sqlite":
+        from sqlalchemy.dialects.sqlite import insert
+    else:  # other databases: check, then add inside a savepoint that absorbs a lost race
+        from sqlalchemy.exc import IntegrityError
+        pk = model.__table__.primary_key.columns.values()[0].name
+        if s.get(model, values[pk]) is None:
+            try:
+                with s.begin_nested():
+                    s.add(model(**values))
+            except IntegrityError:
+                pass
+        return
+    s.execute(insert(model).values(**values).on_conflict_do_nothing())
+
+
 def submit(sc: Scenario) -> dict:
     key = result_key(sc)
     with session() as s:
-        if s.get(ScenarioRow, sc.full_hash()) is None:
-            s.add(ScenarioRow(hash=sc.full_hash(), spec=sc.model_dump()))
+        _insert_once(s, ScenarioRow, hash=sc.full_hash(), spec=sc.model_dump())
         cached = s.get(ScenarioResult, key) is not None
         job = Job(id=str(uuid.uuid4()), scenario_hash=sc.full_hash(), result_key=key,
                   status="done" if cached else "queued", progress=1.0 if cached else 0.0,
@@ -57,6 +82,9 @@ def latest_result_for_scenario(scenario_hash: str) -> dict | None:
 
 def _claim() -> Job | None:
     with session() as s:
+        stale = datetime.now(timezone.utc) - CLAIM_TTL
+        s.execute(update(Job).where(Job.status == "running", Job.updated_at < stale)
+                  .values(status="queued", progress=0.0, message="requeued: its worker stopped mid-run"))
         j = s.scalars(select(Job).where(Job.status == "queued").order_by(Job.created_at)).first()
         if j is None:
             return None
@@ -82,9 +110,8 @@ def work_once() -> bool:
             payload = run_scenario(sc, progress=lambda f, msg="": _set(j.id, progress=round(f, 3), message=msg))
             payload = json.loads(json.dumps(payload, default=float))
             payload["result_key"] = j.result_key
-            with session() as s:
-                if s.get(ScenarioResult, j.result_key) is None:
-                    s.add(ScenarioResult(result_key=j.result_key, scenario_hash=j.scenario_hash, payload=payload))
+            with session() as s:  # an identical job may have finished first: its result stands, and so does ours
+                _insert_once(s, ScenarioResult, result_key=j.result_key, scenario_hash=j.scenario_hash, payload=payload)
         _set(j.id, status="done", progress=1.0, message="done")
     except Exception as e:  # surfaced to the client; never silently swallowed
         _set(j.id, status="error", message=f"{type(e).__name__}: {e}")

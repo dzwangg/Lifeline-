@@ -111,7 +111,7 @@ export function mountZoneLayer({ world, zones }) {
   dataReady.then(([, assumptions]) => mountGrowth(assumptions));
 
   function mountGrowth(assumptions) {
-    const growth = createGrowth({ world, zones, upa: assumptions.unitsPerAcre.value });
+    const growth = createGrowth({ world, zones, upa: assumptions.unitsPerAcre.value, onDispose: art => forget(art) });
     // Which trees each plan fells, and which new street's corridor each tree stands in, worked out once.
     // A tree falls if it stands in a plan's footprints, paths or front yards, or if its drawn crown (sprites are far wider
     // than trunks) would reach one of the plan's homes, whichever parcel of the site it stands in.
@@ -221,6 +221,7 @@ export function mountZoneLayer({ world, zones }) {
       const traffic = world.traffic;
       if (!traffic) return;
       const all = growth.allArt(), order = [...all.filter(a => !a.meshes), ...all.filter(a => a.meshes)];
+      let closed = false;
       for (const art of order) {
         const open = touched.has(art) && art.done;
         if (open && !gates.has(art)) {
@@ -228,8 +229,20 @@ export function mountZoneLayer({ world, zones }) {
           traffic.walk.extend(art.walks(), gate);
           if (art.doors) traffic.sim.addDoors(art.doors().map(d => ({ ...d, gate })));
           gates.set(art, gate); art.gate = gate;
-        } else if (gates.has(art)) gates.get(art).open = open;
+        } else if (gates.has(art)) {
+          const gate = gates.get(art);
+          if (gate.open && !open) closed = true;
+          gate.open = open;
+        }
       }
+      if (closed) traffic.sim.gatesChanged(); // walkers already on their way give up the walks that just closed
+    }
+    // A plan or street no forecast shows any more: it leaves picking, and its walks and doors leave the street sim.
+    function forget(art) {
+      for (const m of art.meshes ?? []) picks.delete(m);
+      const gate = gates.get(art), traffic = world.traffic;
+      gates.delete(art); touched.delete(art);
+      if (gate && traffic) { traffic.walk.retract(gate); traffic.sim.dropDoors(gate); traffic.sim.gatesChanged(); }
     }
     world.trafficReady?.then(() => syncWalks());
     const hideUntouched = () => {

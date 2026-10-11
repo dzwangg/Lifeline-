@@ -61,6 +61,32 @@ def test_job_flow_cache_and_distinct_hashes(client):
     assert ex["source"] in ("template",) or ex["source"].startswith("gemini")
 
 
+def test_abandoned_running_job_is_requeued_and_finishes(client):
+    from datetime import datetime, timedelta, timezone
+    from chsim import jobs
+    from chsim.sim.scenario import Scenario
+    from chsim.store.db import session
+    from chsim.store.models import Job
+    sc = Scenario.model_validate({"draws": 100, "policies": {"small_business_support_grant": {"enabled": True, "annual_budget": 321000}}})
+    old = datetime.now(timezone.utc) - timedelta(minutes=30)
+    with session() as s:  # claimed by a worker that died half an hour ago: only the expiring claim can finish it
+        jobs._insert_once(s, jobs.ScenarioRow, hash=sc.full_hash(), spec=sc.model_dump())
+        s.add(Job(id="abandoned-job", scenario_hash=sc.full_hash(), result_key=jobs.result_key(sc), status="running",
+                  progress=.4, created_at=old, updated_at=old))
+    assert wait(client, "abandoned-job")["status"] == "done"
+
+
+def test_identical_records_insert_once(client):
+    from chsim import jobs
+    from chsim.store.db import session
+    from chsim.store.models import Scenario as ScenarioRow, ScenarioResult
+    for _ in range(2):  # the second write of each is a no-op, not an IntegrityError
+        with session() as s:
+            jobs._insert_once(s, ScenarioRow, hash="z" * 64, spec={"policies": {}})
+            jobs._insert_once(s, ScenarioResult, result_key="y" * 64, scenario_hash="z" * 64, payload={"first": True})
+    assert jobs.result("y" * 64) == {"first": True}
+
+
 def test_backend_files_are_not_served(client):
     assert client.get("/backend/chsim.db").status_code == 404
     assert client.get("/meridian-city/index.html").status_code == 200

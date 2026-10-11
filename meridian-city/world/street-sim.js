@@ -657,6 +657,35 @@ export function createStreetSim({ net, walk, seed = 11, doors = [], obstacles = 
     /** Plan queued trips for up to `ms` milliseconds. Planning moves nobody, so it runs even while paused. */
     plan(ms = 4) { routeBudget(ms); },
     /** Doors added after the start (new homes, growth/), each { x, z, label, gate }: a destination while gate.open. */
+    /**
+     * Some gates closed (walks and homes the shown year no longer has, growth/). Walkers already on their way stop at
+     * the last open node of their route instead of crossing a street that isn't there; one standing on a closed walk
+     * steps back to the nearest open node; and calls at homes that aren't built are dropped. Each then plans afresh.
+     */
+    gatesChanged() {
+      const shut = e => !e || (e.gate && !e.gate.open);
+      const usable = n => !!n && !n.dead && n.adj.some(l => !shut(l.e));
+      for (const p of peds) {
+        const doorShut = !!(p.door?.gate && !p.door.gate.open);
+        let cut = -1;
+        if (p.route) for (let i = Math.max(1, p.ri); i < p.route.length; i++) if (shut(pedEdge(p.route[i - 1], p.route[i]))) { cut = i; break; }
+        if (cut < 0 && !doorShut && usable(p.node)) continue;
+        if (doorShut) { p.door = null; p.doorLeg = false; if (p.dest) p.dest.door = null; }
+        if (cut > p.ri) { p.route = p.route.slice(0, cut); continue; } // walk on to the edge of the open network, then replan
+        if (cut < 0 && usable(p.node)) continue; // only the home closed: carry on, without calling there
+        // On the closed walk itself: back to the nearest node with an open way out.
+        let best = null, bd = Infinity;
+        walk.near(p.x, p.z, 60, n => { const d = (n.x - p.x) ** 2 + (n.z - p.z) ** 2; if (d < bd && usable(n)) { bd = d; best = n; } });
+        if (best) { jump(p, best.x, best.z); p.node = best; }
+        if (p.cw) { p.cw.peds.delete(p); p.cw = null; }
+        if (p.state === 'waiting' || p.state === 'crossing') setState(p, 'walking');
+        arrive(p);
+      }
+    },
+    /** Forgets the doors added under `gate` (homes no forecast shows any more). */
+    dropDoors(gate) {
+      for (const [comp, list] of doorsByComp) doorsByComp.set(comp, list.filter(d => d.gate !== gate));
+    },
     addDoors(list) {
       for (const d of list) {
         let best = null, bd = 30 * 30;

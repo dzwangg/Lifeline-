@@ -263,7 +263,7 @@ test('seeding keeps every id Nessie returned when a request fails partway, and a
   });
 });
 
-test('handler: a showcase resident\'s ledger is only read back, as seed:nessie wrote it; one it didn\'t is computed here', async () => withSeeded(async nessie => {
+test('handler: a showcase resident\'s ledger seed:nessie wrote is only read back; one it didn\'t is written to Nessie once', async () => withSeeded(async nessie => {
   await withFetch({ nessie }, async () => assert.ok(await seedLedgers({ NESSIE_API_KEY: KEY }, d.bank, residents.filter(r => r.id === 'bryce'), [BIKES]) > 0));
   await withFetch({ nessie }, async calls => {
     const r = await bank({ resident: 'bryce', policies: BIKES, ledger: true });
@@ -271,7 +271,7 @@ test('handler: a showcase resident\'s ledger is only read back, as seed:nessie w
     assert.equal(r.ledger.source, 'nessie');
     assert.equal(r.ledger.written, 0);
     const entries = ledgerEntries(r.policy, r.resident, d.bank.merchants);
-    assert.equal(calls.filter(c => c.method === 'POST').length, 0, 'the endpoint never writes a showcase ledger');
+    assert.equal(calls.filter(c => c.method === 'POST').length, 0, 'a seeded ledger costs reads, not writes');
     assert.deepEqual(r.ledger.entries.map(e => e.amount), entries.map(e => e.body.amount ?? e.body.payment_amount));
     assert.ok(r.ledger.entries.every(e => e.id));
     assert.deepEqual(r.ledger.totals, { checking: r.policy.years.at(-1).net, savings: r.policy.years.at(-1).savings, loan: r.policy.years.at(-1).borrowed }, 'summed from what Nessie returned');
@@ -280,12 +280,31 @@ test('handler: a showcase resident\'s ledger is only read back, as seed:nessie w
     const n = calls.length;
     assert.equal((await bank({ resident: 'bryce', policies: BIKES })).ledger.cached, true, 'cached, even without ledger: true');
     assert.equal(calls.length, n);
-    // a scenario seed:nessie didn't write: read, found missing, computed here, and still nothing written
+    // a scenario seed:nessie didn't write (say, the model changed after demo freeze): written now, read back from Nessie
     const other = await bank({ resident: 'bryce', policies: NONE, ledger: true });
-    assert.deepEqual([other.ledger.source, other.ledger.note], ['local', 'Not in Nessie: showcase ledgers are written for the demo\'s scenarios at demo freeze (npm run seed:nessie). Computed here.']);
-    assert.equal(calls.filter(c => c.method === 'POST').length, 0);
+    const otherEntries = ledgerEntries(other.policy, other.resident, d.bank.merchants);
+    assert.equal(other.ledger.source, 'nessie');
+    assert.equal(other.ledger.written, otherEntries.length);
+    assert.ok(other.ledger.entries.every(e => e.id));
+    assert.deepEqual(other.ledger.totals, { checking: other.policy.years.at(-1).net, savings: other.policy.years.at(-1).savings, loan: other.policy.years.at(-1).borrowed });
     const { checking, savings, loan } = d.bank.residents.bryce;
-    assert.equal(Object.values(nessie.store.txns).filter(t => [checking, savings, loan].includes(t.account_id)).length, entries.length, 'only what the script wrote');
+    const held = () => Object.values(nessie.store.txns).filter(t => [checking, savings, loan].includes(t.account_id)).length;
+    assert.equal(held(), entries.length + otherEntries.length, 'both scenarios, once each');
+    // two at once from one instance write it once
+    await Promise.all([1, 2].map(() => bank({ resident: 'bryce', policies: TAX, ledger: true })));
+    const tax = await statementFor('bryce', TAX);
+    assert.equal(held(), entries.length + otherEntries.length + ledgerEntries(tax.policy, tax.resident, d.bank.merchants).length);
+  });
+}));
+
+test('readLedger tolerates a ledger two server instances both wrote: each entry is counted once', async () => withSeeded(async nessie => {
+  const s = await statementFor('maya', NONE), entries = ledgerEntries(s.policy, s.resident, d.bank.merchants), accounts = d.bank.residents.maya;
+  await withFetch({ nessie }, async () => {
+    await writeLedger({ NESSIE_API_KEY: KEY }, accounts, entries);
+    for (const e of entries) nessie.handle('POST', `/accounts/${accounts[e.account]}/${e.kind}`, e.body); // the other instance's copy
+    const again = await writeLedger({ NESSIE_API_KEY: KEY }, accounts, entries);
+    assert.equal(again.written, 0);
+    assert.deepEqual(again.totals, { checking: s.policy.years.at(-1).net, savings: s.policy.years.at(-1).savings, loan: s.policy.years.at(-1).borrowed });
   });
 }));
 

@@ -6,8 +6,8 @@
 //                                   median home value × rate, with the tax card's change); jobs, businesses, storefront
 //                                   vacancy, home value, town budget, bus ridership, car traffic
 //                                   home price to income, income-restricted homes, car share, job access, commute CO2
-//   household model (agents.js)     households, priced out (year-0 households who have left) and rent burden (after any
-//                                   rental assistance, cash or job training), and the map's households,
+//   household model (agents.js)     households, priced out (year-0 households who have left), rent burden and median real
+//                                   income (after any rental assistance, cash or job training), and the map's households,
 //                                   whose rents and commutes follow CH-LUTI's for their zone
 // All run at central assumptions; shared/luti/run.js adds CH-LUTI's ranges. Deltas compare the last year (10, or later in a
 // game of turns) with the same models run with no new policy, so the town's growth isn't put down to the policy.
@@ -126,6 +126,11 @@ export function runModels(cards, params, zones, assumptions, baselines, { years 
         netFiscal: Math.round(L.netFiscal), transitRidership: Math.round(L.transitRidership), trafficIndex: round4(L.trafficIndex),
         // indicators for the city-health framework (shared/indicators.js)
         priceToIncome: round2(L.homeValue / (TOWN.medianHouseholdIncome * L.incomeIndex)),
+        // what a household lives on and what the Town takes, the two the health score reads as income and tax
+        realIncome: Math.round(h.medianIncome / L.priceIndex),
+        // the whole bill a homeowner gets, not just the Town's third of it: the published US range this is scored
+        // against is for the combined bill, and the player's rate change has to be read against the same total
+        taxBurden: round4(L.homeValue * (L.taxRate + assumptions.lutiOtherPropertyTaxCents.value) / 1e4 / h.medianOwnerIncome),
         affordableHomes: Math.round(L.affordableHomes), carShare: round4(L.carShare), jobAccess: round4(L.accessIndex), commuteCO2: Math.round(L.commuteCO2),
       },
     };

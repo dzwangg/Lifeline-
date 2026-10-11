@@ -244,7 +244,7 @@ export function createModel(assumptions, baselines) {
       taxRate: TAX_CENTS, propertyTax: propertyTaxAt(sum(s.units), 0), salesTax: TOWN.salesTax,
       rentBurden: 1 - Phi((Math.log(0.30) - Math.log(TOWN.rentToIncomeMedian)) / F.rentBurdenSigma), carShare: cal.travel0.share.car,
       accessIndex: 1, commuteCO2: cal.travel0.carKm * 2 * F.workdaysPerYear * F.carCo2GramsPerMile / KM_PER_MILE / 1e6,
-      affordableHomes: 0, incomeIndex: 1,
+      affordableHomes: 0, incomeIndex: 1, priceIndex: 1,
     };
     start.netFiscal = start.propertyTax + start.salesTax;
     start.zones = ZONES.map((z, i) => ({ units: z.units, households: z.households, rent: rent0[i], commute: cal.travel0.zones[i].time * cal.timeScale }));

@@ -37,9 +37,11 @@ const GLYPHS = {
 export const glyph = name => h('span', { class: 'pp-glyph', 'aria-hidden': 'true', html: `<svg viewBox="0 0 12 12">${GLYPHS[name]}</svg>` });
 
 // A collectible-style policy card. `place` is 'library' or 'slot'; `inUse` labels a library card already slotted.
-export function PolicyCard(policy, category, { place = 'library', key, inUse = null, armed = false } = {}) {
+// A card the player drafted (policy.drafted) is held in a wrapper that carries its Discard button, so the button is a
+// sibling of the card and not a control buried inside one: `confirming` swaps it for the two-step confirmation.
+export function PolicyCard(policy, category, { place = 'library', key, inUse = null, armed = false, confirming = false } = {}) {
   const where = inUse ? `, ${inUse.toLowerCase()}` : '';
-  return h('div', {
+  const card = h('div', {
     class: cls('pp-card', inUse && 'is-in-use', armed && 'is-armed'),
     role: 'button',
     tabindex: 0,
@@ -50,11 +52,22 @@ export function PolicyCard(policy, category, { place = 'library', key, inUse = n
     'aria-label': `${policy.title}, ${category.label} policy${where}. ${policy.summary}`,
     style: catVars(category),
   },
-    h('span', { class: 'pp-card__cat' }, category.label),
+    h('span', { class: 'pp-card__cat' }, policy.drafted ? `${category.label} \u00b7 yours` : category.label),
     h('span', { class: 'pp-card__orb', 'aria-hidden': 'true', html: icon(policy.icon) }),
     h('strong', { class: 'pp-card__title' }, policy.title),
     h('span', { class: 'pp-card__desc' }, policy.summary),
     inUse && h('span', { class: 'pp-card__badge' }, inUse));
+  if (!policy.drafted || place !== 'library') return card;
+  return h('div', { class: cls('pp-held', confirming && 'is-confirming'), style: catVars(category) }, card,
+    confirming
+      ? h('div', { class: 'pp-held__confirm', role: 'group', 'aria-label': `Discard ${policy.title}?` },
+        h('p', { class: 'pp-held__ask' }, 'Discard this card?'),
+        h('p', { class: 'pp-held__note' }, 'It leaves your library for good. Ask the city for it again to get it back.'),
+        h('div', { class: 'pp-held__row' },
+          h('button', { class: 'pp-scen__yes', type: 'button', 'data-discard-yes': policy.id }, 'Discard'),
+          h('button', { class: 'pp-scen__no', type: 'button', 'data-discard-no': policy.id }, 'Keep')))
+      : h('button', { class: 'pp-held__btn', type: 'button', 'data-discard': policy.id, title: 'Discard this card',
+        'aria-label': `Discard ${policy.title}, a card you drafted` }, glyph('trash')));
 }
 
 // An active-policy slot. Filled: the policy's face (select or drag it to move it), its status, Change and Remove,

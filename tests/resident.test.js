@@ -195,12 +195,31 @@ test('cards move the money: a 10-cent tax rise costs an owner, and the policy ch
   assert.ok(femi.change.net < 0 && femi.change.net === -femi.change.housing, 'the tax is the only thing that changes');
 });
 
+// One card is the exception, deliberately: the set-aside is the only card that builds income-restricted homes, and
+// those go to the most rent-burdened renter first (shared/agents.js), so it is the only card that can change whether a
+// showcase resident stays. The test after this one pins exactly what it does, so the exception is not a hole.
+const SET_ASIDE = 'inclusionary-set-aside';
+const staysWith = async (resident, policies) => (await statementFor(resident, policies)).policy.left === null;
+
 test('no card at its defaults moves a showcase resident out of town who would otherwise stay, or keeps one who would leave', async () => {
-  const cardIds = [...(await loadCards()).keys()].filter(id => id !== 'stub-card');
+  const cardIds = [...(await loadCards()).keys()].filter(id => id !== 'stub-card' && id !== SET_ASIDE);
   for (const r of residents) {
     const stays = (await statementFor(r.id, NONE)).noPolicy.left === null;
     for (const id of cardIds) assert.equal((await statementFor(r.id, [{ id, params: {} }])).policy.left === null, stays, `${r.id} with ${id}`);
   }
+});
+
+test('the set-aside houses the one showcase renter it reaches, and leaves the other 49 where they were', async () => {
+  const moved = [];
+  for (const r of residents) {
+    const before = (await statementFor(r.id, NONE)).noPolicy.left === null;
+    if (await staysWith(r.id, [{ id: SET_ASIDE, params: {} }]) !== before) moved.push(r.id);
+  }
+  assert.deepEqual(moved, ['elena'], 'one household wins a below-market home; nobody else moves');
+  assert.notEqual((await statementFor('elena', NONE)).noPolicy.left, null, 'she leaves when the town does nothing');
+  // not an artefact of the slider's default: the smallest set-aside the card offers houses her too
+  const least = (await loadCards()).get(SET_ASIDE).params[0].min;
+  assert.ok(await staysWith('elena', [{ id: SET_ASIDE, params: { percent_below_market: least } }]), `at ${least}%`);
 });
 
 test('"You": the visitor\'s rent follows CH-LUTI\'s for their zone and their income grows as CH-LUTI\'s does', async () => {

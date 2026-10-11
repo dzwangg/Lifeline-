@@ -9,7 +9,7 @@ import { validateCard } from '../../shared/schema.js';
 import { LEVERS } from '../../shared/luti/levers.js';
 import { describeDrivers } from '../../shared/luti/drivers.js';
 import { scenario } from '../sim/scenario.js';
-import { loadPlayerCards, savePlayerCards } from './player-cards.js';
+import { forgetPlayerCard, loadPlayerCards, rememberPlayerCard } from './player-cards.js';
 
 const EXAMPLES = [
   'Run buses twice as often on the MLK corridor',
@@ -19,12 +19,19 @@ const EXAMPLES = [
   'Unlock Durham',
 ];
 const STATES = { forest: 'woods', parking: 'parking lots', low_res: 'houses', mid_res: 'apartments', mixed_use: 'shops with homes above', transit_station: 'a transit station' };
-const panelPolicy = c => ({ id: c.id, title: c.title, category: c.category ?? 'housing', icon: c.icon ?? 'house', summary: c.summary });
+// drafted marks it as the player's own, so the panel offers to discard it again.
+const panelPolicy = c => ({ id: c.id, title: c.title, category: c.category ?? 'housing', icon: c.icon ?? 'house', summary: c.summary, drafted: true });
 
 export function mountAskBar({ store, cards, game = null, host = document.body }) {
   // cards drafted on an earlier visit join the deck (not applied)
-  let saved = loadPlayerCards(new Set(cards.map(c => c.id)));
-  for (const { card } of saved) addCard(card);
+  for (const { card } of loadPlayerCards(new Set(cards.map(c => c.id)))) addCard(card);
+  // Discarded in the panel, or superseded by a redraft: out of the simulator's cards too.
+  store.subscribe((_, change) => {
+    if (change?.type !== 'dropPolicy') return;
+    const i = cards.findIndex(c => c.id === change.policyId);
+    if (i >= 0) cards.splice(i, 1);
+    forget(change.policyId); // and its slider values, as the ask bar does for a library card it re-applies
+  });
 
   const input = h('input', { class: 'ask__input', type: 'text', maxlength: 1000, autocomplete: 'off', spellcheck: 'true',
     placeholder: 'Ask the city: a policy, a what-if, or a question…', 'aria-label': 'Ask the city' });
@@ -82,6 +89,7 @@ export function mountAskBar({ store, cards, game = null, host = document.body })
   function apply(r, prompt) {
     const before = { applied: { ...store.getState().applied }, params: scenario.get().params, drivers: scenario.get().drivers };
     const done = [];
+    let superseded = []; // earlier drafts this prompt's card replaced, kept whole so Undo can put them back
     if (r.kind === 'refuse') {
       return show('ask__out--refuse', h('p', { class: 'ask__kicker' }, 'Can’t simulate that'), h('p', { class: 'ask__lede' }, r.refusal?.reason ?? r.reply),
         r.refusal?.alternative && h('p', { class: 'ask__note' }, r.refusal.alternative), notesOf(r));
@@ -90,8 +98,10 @@ export function mountAskBar({ store, cards, game = null, host = document.body })
       const errors = validateCard(r.card);
       if (errors.length) return show('ask__out--error', h('p', { class: 'ask__lede' }, 'The drafted card didn’t pass the checks, so nothing changed.'));
       addCard(r.card);
-      saved = [...saved.filter(e => e.card.id !== r.card.id), { card: r.card, signature: r.signature ?? null }];
-      savePlayerCards(saved);
+      // An earlier draft of the same policy steps aside, unless a decade already enacted it: that one is in force for
+      // good, so the new draft is a second card beside it.
+      superseded = rememberPlayerCard({ card: r.card, signature: r.signature ?? null }, enacted())
+        .filter(e => store.dropPolicy(e.card.id));
       const placed = place(r.card);
       done.push(h('div', { class: 'ask__card' },
         h('p', { class: 'ask__kicker' }, placed ? appliedIn('Applied in', placed) : 'Added to your library; no slot could take it'),
@@ -137,6 +147,13 @@ export function mountAskBar({ store, cards, game = null, host = document.body })
     }
     const changed = r.card || library || adjust.length || r.drivers;
     if (changed) undo = () => { // the last change stays undoable until another one replaces it
+      // A redraft put the draft before it out of the library and out of this browser. Undo puts it back and takes the
+      // redraft out again, so "how it was" is true of the deck as well as the slots.
+      if (superseded.length) {
+        forgetPlayerCard(r.card.id);
+        store.dropPolicy(r.card.id);
+        for (const e of superseded) { rememberPlayerCard(e); addCard(e.card); }
+      }
       store.clear();
       for (const [slot, id] of Object.entries(before.applied)) if (id) store.place(id, slot);
       store.apply();
@@ -154,6 +171,13 @@ export function mountAskBar({ store, cards, game = null, host = document.body })
   }
   const notesOf = r => (r.notes?.length ? h('ul', { class: 'ask__list ask__list--notes' }, r.notes.map(n => h('li', {}, n))) : null);
 
+  // A card that has left the deck leaves nothing behind.
+  function forget(id) {
+    const params = { ...scenario.get().params };
+    if (!(id in params)) return;
+    delete params[id];
+    scenario.set({ params });
+  }
   // A drafted card joins the sim's cards and the policy panel's deck.
   function addCard(card) {
     if (!cards.some(c => c.id === card.id)) cards.push(card);

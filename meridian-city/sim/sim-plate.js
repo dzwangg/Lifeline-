@@ -11,6 +11,7 @@ import { scenario, simClock, dataReady, devMode, demoMode, stubOn, stubAuto, STA
 import { VARIABLES, explain, MODEL } from '../../shared/luti/run.js';
 import { LEVERS } from '../../shared/luti/levers.js';
 import { INDICATORS, PILLARS } from '../../shared/indicators.js';
+import { scoreAgainst } from '../../shared/health.js';
 import { createModel } from '../../shared/luti/model.js';
 import { paramRanges } from '../../shared/luti/params.js';
 import { ZONES as LUTI_ZONES, SOURCES } from '../../shared/luti/data.js';
@@ -209,11 +210,12 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
   const realIn = h('input', { type: 'checkbox', checked: true, onchange: () => { ui.real = realIn.checked; drawn = []; render(); } });
   const settings = h('details', { class: 'rp-settings' });
   const residentEl = h('div', { class: 'sim__resident', 'aria-live': 'polite' });
+  const health = h('section', { class: 'rp-health', 'aria-label': 'City health score' });
   const tiles = h('div', { class: 'rp-groups', 'aria-label': 'City-health indicators, with their change against no new policy' });
   const detail = h('section', { class: 'rp-detail', 'aria-live': 'polite' });
   const assume = h('details', { class: 'rp-assume' }, h('summary', {}, 'Assumptions, sources and checks'));
   const dlBtn = h('button', { class: 'rp-dl', type: 'button', onclick: download }, 'Download scenario and results (JSON)');
-  const scroll = h('div', { class: 'rp-scroll' }, h('div', { class: 'rp-side' }, residentEl, tiles), detail, assume, dlBtn,
+  const scroll = h('div', { class: 'rp-scroll' }, h('div', { class: 'rp-side' }, health, residentEl, tiles), detail, assume, dlBtn,
     h('div', { class: 'rp-foot' },
       h('a', { class: 'sim__sources', href: 'sources.html', target: '_blank', rel: 'noopener' }, 'Sources'),
       devMode && !stubAuto && h('label', { class: 'sim__check sim__dev' }, h('input', { type: 'checkbox', checked: stubOn, onchange: e => toggleStub(e.target.checked) }), 'Load stub card (dev)')));
@@ -288,8 +290,15 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
     const g = game.get(), n = game.cardIds().length - g.enacted.length, end = yearLabel(DECADE * g.turns);
     kicker.textContent = g.over ? `Game complete · ${decade(0, g.to)}` : `Decade ${g.turn + 1} of ${g.turns} · ${decade(g.from, g.to)}`;
     if (g.over) {
-      turnRow.replaceChildren(h('p', { class: 'rp-turn__text' }, `All ${g.turns} decades are played. Here is your Chapel Hill in ${yearLabel(g.to)}, compared with a town that adopted no new policy.`),
-        h('div', { class: 'rp-turn__actions' }, GlassButton('New game', { variant: 'quiet', onclick: () => location.reload() })));
+      const scored = run ? scoreAgainst(run.result.timeline, run.noPolicy.timeline) : null;
+      // replaceChildren does not drop a falsy child the way h() does: it would print "false". There is no score when the
+      // forecast hasn't arrived, so the panel simply says the decades are played.
+      turnRow.replaceChildren(...[
+        scored?.scored && h('p', { class: 'rp-turn__final' }, h('strong', {}, fixed(scored.overall, 0)), '/100 · ', scored.band,
+          h('span', {}, ' than doing nothing'), h('small', {}, `Economy ${fixed(scored.economic, 0)} · Residents ${fixed(scored.social, 0)}, ${scored.mood.toLowerCase()}`)),
+        h('p', { class: 'rp-turn__text' }, `All ${g.turns} decades are played. This is your Chapel Hill in ${yearLabel(g.to)}.`),
+        h('div', { class: 'rp-turn__actions' }, GlassButton('New game', { variant: 'quiet', onclick: () => location.reload() })),
+      ].filter(Boolean));
       return;
     }
     const these = `${n} polic${n === 1 ? 'y' : 'ies'}`, finish = g.last ? 'Finish the game' : `End decade ${g.turn + 1}`;
@@ -311,6 +320,9 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
         : 'Apply policies for this decade in the Policies panel and play it, then end the decade.'),
       h('div', { class: 'rp-turn__actions' }, GlassButton(finish, { variant: 'primary', onclick: choose(true) })));
   }
+  // Declared before the subscriptions below: game.subscribe calls back as it registers (sim/turns.js), and renderTurn
+  // reads `run` once the last decade is played.
+  let drawn = [], run = null, y = 0, luti = null;
   policyStore.subscribe(() => { sync(); renderTurn(); });
   game.subscribe(() => { sync(); renderTurn(); });
 
@@ -336,7 +348,6 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
   }
 
   // ---------- render: only when the shown year, its data, the resident, CH-LUTI's runs or the picked metric change ----------
-  let drawn = [], run = null, y = 0, luti = null;
   function render() {
     const c = simClock.get(), { resident } = scenario.get();
     luti = scenario.get().luti;
@@ -356,10 +367,10 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
     // nothing to show: no parcel changes use, and no policy puts anything on the street (effects-layer.js)
     const onStreet = run.effects?.some(row => Object.values(row).some(v => v.n));
     changesBtn.disabled = !scenario.get().focus && !onStreet && Object.keys(last).every(id => last[id] === first[id]);
-    meta.replaceChildren(
-      h('strong', {}, 'Under these assumptions, this is a plausible range of outcomes, not a forecast. '),
-      luti ? `${MODEL.id} v${MODEL.version} · ${luti.runs} paired runs · seed ${luti.seed}` : `${MODEL.id} v${MODEL.version} · ranges loading…`);
+    meta.replaceChildren(h('strong', {}, 'A range of outcomes, not a forecast. '),
+      luti ? `${MODEL.id} · ${luti.runs} runs` : `${MODEL.id} · ranges loading…`);
     if (!ui.picked) ui.metric = pickMetric();
+    renderHealth();
     renderTiles();
     renderDetail();
     renderResident(run.households, resident, y);
@@ -413,10 +424,47 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
     return best;
   }
 
+  // ---------- city health: one score out of 100, where 50 is the town that did nothing ----------
+  // shared/health.js scores every indicator against the no-policy run, so 50 means a policy changed nothing worth
+  // noting and the number always answers one question. This draws it: the score, a half each for the economy and the
+  // people, each with the indicators that carried it, and the whole breakdown folded away underneath.
+  function renderHealth() {
+    const s = scoreAgainst(run.result.timeline, run.noPolicy.timeline, y);
+    if (!s.scored) { // year 0 is today, the same town in both runs
+      health.replaceChildren(
+        h('h3', { class: 'rp-health__head' }, 'City health', h('span', {}, yearLabel(y))),
+        h('p', { class: 'rp-health__base' }, 'Nothing has happened yet. Play the decade to see how it leaves the town.'));
+      return;
+    }
+    const tone = v => (v >= 58 ? 'good' : v <= 43 ? 'bad' : 'flat');
+    // a growth indicator reads as its change since year 0, not as the bare ratio behind it
+    const show = i => (i.basis === 'ratioToStart' ? `${i.value >= 1 ? '+' : '−'}${fixed(Math.abs(i.value - 1) * 100, 1)}%` : (FMT[i.fmt] ?? FMT.dec)(i.value));
+    const half = cat => h('div', { class: 'rp-half' },
+      h('span', { class: 'rp-half__name' }, cat.label),
+      h('span', { class: 'rp-hbar__track' }, h('span', { class: cls('rp-hbar__fill', `is-${tone(cat.score)}`), style: { '--w': `${cat.score}%` } })),
+      h('span', { class: cls('rp-half__score', `is-${tone(cat.score)}`) }, fixed(cat.score, 0)),
+      h('p', { class: 'rp-half__says' }, cat.id === 'social' ? h('b', {}, `${s.mood}. `) : null, cat.summary));
+    const row = i => h('div', { class: 'rp-hrow', title: `${i.why}\nThis run ${show(i)}${i.today ? `, today ${i.today}` : ''}. 50 is the same decade with no new policy.` },
+      h('span', { class: 'rp-hrow__label' }, i.label, h('small', {}, ` ${show(i)}`)),
+      h('span', { class: 'rp-hbar__track' }, h('span', { class: cls('rp-hbar__fill', `is-${tone(i.score)}`), style: { '--w': `${i.score}%` } })),
+      h('span', { class: cls('rp-hrow__score', `is-${tone(i.score)}`) }, fixed(i.score, 0)));
+    health.replaceChildren(
+      h('h3', { class: 'rp-health__head' }, 'City health', h('span', {}, yearLabel(y))),
+      h('div', { class: 'rp-health__score' },
+        h('strong', { class: cls(`is-${tone(s.overall)}`) }, fixed(s.overall, 0)), h('span', { class: 'rp-health__max' }, '/100'),
+        h('span', { class: cls('rp-health__band', `is-${tone(s.overall)}`) }, s.band),
+        h('span', { class: 'rp-health__base' }, 'than doing nothing, which scores 50')),
+      h('div', { class: 'rp-health__bars' }, s.categories.map(half)),
+      h('details', { class: 'rp-health__detail' },
+        h('summary', {}, 'Every indicator'),
+        s.categories.map(cat => h('div', { class: 'rp-hgroup' }, h('h4', { class: 'rp-h4' }, cat.label), cat.indicators.map(row))),
+        h('p', { class: 'rp-note' }, 'Each line is scored against the same decade with no new policy: 50 is no change, 100 a decisive gain, 0 a decisive loss. Hover one for what it measures. docs/health-score.md has the method.')));
+  }
+
   // ---------- tiles ----------
   function renderTiles() {
     tiles.replaceChildren(...PILLARS.map(p => h('section', { class: 'rp-pillar', 'aria-label': p.label },
-      h('h3', { class: 'rp-pillar__title' }, p.label, h('span', {}, p.question)),
+      h('h3', { class: 'rp-pillar__title' }, p.label),
       h('div', { class: 'rp-tiles', role: 'list' }, METRICS.filter(m => m.pillar === p.id).map(tile)))));
   }
   function tile(m) {
@@ -449,18 +497,18 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
     const kids = [
       h('h3', { class: 'rp-h3' }, m.fullLabel, h('span', {}, ` · ${yearLabel(y)}`)),
       h('p', { class: 'rp-lede' }, summary(m, diff, base, band)),
-      (m.today || m.benchmarks.length > 0) && h('div', { class: 'rp-today' },
+      (m.today || m.benchmarks.length > 0) && h('div', { class: 'rp-today', title: m.today ? `Today: ${m.today.source}` : null },
         m.today && h('span', { class: 'rp-bench is-today' }, h('b', {}, 'Today'), m.today.text),
-        m.benchmarks.map(b => h('span', { class: 'rp-bench' }, h('b', {}, b.label), b.text))),
-      h('p', { class: 'rp-note' }, m.title, m.today ? ` Today's value: ${m.today.source}.` : ''),
+        m.benchmarks.map(b => h('span', { class: 'rp-bench', title: b.source }, h('b', {}, b.label), b.text))),
+      h('p', { class: 'rp-note' }, m.title),
       h('h4', { class: 'rp-h4' }, 'Change vs. no new policy'),
-      h('div', { class: 'rp-legend' }, h('span', { class: 'rp-key is-policy' }), 'Central estimate', band && [h('span', { class: 'rp-swatch' }), '80% of runs fall in the band']),
+      h('div', { class: 'rp-legend' }, h('span', { class: 'rp-key is-policy' }), 'Central', band && [h('span', { class: 'rp-swatch' }), '80% of runs']),
       lineChart({ title: `${m.label}: change vs. no new policy`, y, zero: true, fit, series: [{ label: 'change', kind: 'policy', values: diff, band }],
         tick: v => (Math.abs(v) < 1e-12 ? '0' : short(v).replace(/^\+/, '')), tip: short }),
     ];
     if (!m.diffOnly) kids.push(
-      h('h4', { class: 'rp-h4' }, 'Level, with and without the policies'),
-      h('div', { class: 'rp-legend' }, h('span', { class: 'rp-key is-base' }), 'No new policy', h('span', { class: 'rp-key is-policy' }), 'With these policies'),
+      h('h4', { class: 'rp-h4' }, 'Level'),
+      h('div', { class: 'rp-legend' }, h('span', { class: 'rp-key is-base' }), 'No new policy', h('span', { class: 'rp-key is-policy' }), 'With yours'),
       lineChart({ title: `${m.label}: level`, y, height: 150, fit, series: [
         { label: 'no new policy', kind: 'base', values: base },
         { label: 'with policies', kind: 'policy', values: pol },
@@ -470,14 +518,14 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
     else if (!lutiCurrent()) kids.push(h('p', { class: 'rp-note' }, 'Running CH-LUTI’s 200 paired futures…'));
     else if (!y || !ui.active.length) kids.push(h('p', { class: 'rp-note' }, 'No change to trace yet. Move the year forward or apply a policy.'));
     else kids.push(whyTree(explain(luti, m.luti, q)),
-      h('p', { class: 'rp-note' }, 'Traced through CH-LUTI at central assumptions. Each line is a model variable; branches that barely moved are left out.'));
+      h('p', { class: 'rp-note' }, 'Branches that barely moved are left out.'));
     if (lutiCurrent() && m.luti && y && luti.perPolicy.length > 1) {
       const lb = luti.baseline[m.luti].p50[q];
       const pf = VARIABLES[m.luti]?.fmt ?? 'dec';
       kids.push(h('h4', { class: 'rp-h4' }, 'Which policy did it'), barList(luti.perPolicy.map(pp => ({
         label: cardById.get(pp.id)?.title ?? pp.title, value: pp.diff[q][m.luti], text: fmtChange(pf, real(pp.diff[q][m.luti], pf), real(lb, pf)),
       })), 'Effect of each policy on its own'),
-      h('p', { class: 'rp-note' }, 'Each card run on its own in CH-LUTI at central assumptions; together they can add up to more or less than the sum.'));
+      h('p', { class: 'rp-note' }, 'Each card on its own; together they can add up to more or less than the sum.'));
     }
     if (lutiCurrent() && m.zone && y && ui.active.length) {
       const bz = luti.mid.baseline.zones[q], pz = luti.mid.policy.zones[q], f = VARIABLES[m.luti]?.fmt;
@@ -487,7 +535,8 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
       }), 'Change by zone'));
     }
     kids.push(h('h4', { class: 'rp-h4' }, 'On the map'), h('p', { class: 'rp-note' }, mapNote()));
-    detail.replaceChildren(...kids);
+    // replaceChildren is the DOM's, not h()'s: a false from a `cond && element` would land as the text "false"
+    detail.replaceChildren(...kids.flat(Infinity).filter(k => k != null && k !== false));
   }
 
   function summary(m, diff, base, band) {

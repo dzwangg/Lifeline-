@@ -79,6 +79,18 @@ export function createPolicyStore({
       emit({ type: 'addPolicy', policyId: policy.id });
       return true;
     },
+    // A drafted policy the player discarded: out of the library and out of every selection. Unlike retire this forgets
+    // it entirely — nothing is left to name it — and drafting the same policy again brings it back. A policy a decade
+    // already enacted is never dropped: it is in force for good, and retire keeps it here so the In force list can
+    // still name it.
+    dropPolicy(id) {
+      if (retired.has(id) || !policyById.delete(id)) return false;
+      policies.splice(0, policies.length, ...policies.filter(p => p.id !== id));
+      for (const selection of [applied, ...scenarios.map(sc => sc.selection), ...saved.map(sc => sc.selection)])
+        for (const s of slots) if (selection[s.id] === id) selection[s.id] = null;
+      emit({ type: 'dropPolicy', policyId: id });
+      return true;
+    },
 
     // Puts a policy in a slot. A policy already in another slot moves (each policy appears once);
     // whatever was in the target either swaps into the vacated slot or returns to the library.

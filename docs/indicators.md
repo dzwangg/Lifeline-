@@ -56,16 +56,8 @@ against 334 a year permitted in 2015–2025), the LUMO canopy rule for new devel
 exists (priced out, storefront businesses, traffic), the comparison is the same town with no new policy, which the panel
 already shows.
 
-## For the health rating (not built yet)
+## The health rating
 
-Each indicator has a direction (`better`) and, for most, a benchmark, which is enough to score it.
-
-1. Score each indicator's year-10 value against its benchmark, or its change against no new policy where there is none.
-   Leave out the "context" ones.
-2. Average within each pillar, so a pillar with five indicators doesn't outweigh one with two.
-3. Combine the six pillars into an economic score (local economy, town finances, housing supply) and a social score
-   (affordability, staying put, getting around, environment), or one overall score. Show the pillar scores too, so the
-   rating explains itself.
-
-Fixed weights are a value judgement. Equal weights across pillars, as the AARP index uses across its categories, are the
-neutral default.
+Built: the score that reads these indicators is [health-score.md](health-score.md). It uses the `score` block on each
+indicator — which half it belongs to, the basis it is read in, the anchors that score 0 and 100, and its weight.
+Indicators with no `score` block are context and stay out of the number.

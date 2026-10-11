@@ -1,5 +1,6 @@
 import { h, cls, catVars, slotLabel, glyph, PolicyCard, PolicySlot, ScenarioItem, GlassButton, FilterChip } from './components.js';
 import { createDrag, flyFrom } from './drag.js';
+import { forgetPlayerCard } from './player-cards.js';
 
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const ARROWS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
@@ -12,7 +13,8 @@ export function mountPolicyPanel({ store, game = null, host = document.body } = 
   // armed: a card picked up by click or keyboard, waiting for a destination. from: its slot, if any.
   // target: a slot whose Add policy or Change was chosen; the next fitting library card goes straight into it.
   // scen: a scenario being renamed or confirming its deletion. expanded: slots showing their description.
-  const ui = { query: '', filter: 'all', armed: null, target: null, filterBefore: null, scen: null, expanded: new Set(), dragging: null, open: false, returnFocus: null };
+  // discard: a drafted card asking whether to be thrown away.
+  const ui = { query: '', filter: 'all', armed: null, target: null, filterBefore: null, scen: null, discard: null, expanded: new Set(), dragging: null, open: false, returnFocus: null };
 
   // ---------- skeleton ----------
   const live = h('div', { class: 'pp-sr', 'aria-live': 'polite' });
@@ -157,6 +159,7 @@ export function mountPolicyPanel({ store, game = null, host = document.body } = 
         key: `lib:${p.id}`,
         inUse: at ? `In ${slotLabel(store.getSlot(at), catOf(p))}` : null,
         armed: ui.armed?.policyId === p.id && !ui.armed.from,
+        confirming: ui.discard === p.id,
       });
     }));
   }
@@ -400,6 +403,7 @@ export function mountPolicyPanel({ store, game = null, host = document.body } = 
     ui.open = false;
     drag.abort();
     ui.armed = null;
+    ui.discard = null;
     if (reducedMotion()) backdrop.hidden = true;
     else {
       backdrop.classList.add('is-closing');
@@ -416,6 +420,23 @@ export function mountPolicyPanel({ store, game = null, host = document.body } = 
     }
     ui.returnFocus?.focus?.();
   }
+
+  // A card the player drafted with the ask bar: out of the library and out of this browser, for good. The simulator's
+  // own list of cards follows the store (ask-bar.js), and asking the city for the policy again drafts it anew.
+  function discardCard(id) {
+    const title = store.getPolicy(id)?.title ?? 'That card';
+    ui.discard = null;
+    if (ui.armed?.policyId === id) ui.armed = null;
+    const saved = forgetPlayerCard(id);
+    if (!store.dropPolicy(id)) render();
+    announce(saved
+      ? `Discarded ${title}. It has left your library.`
+      : `Discarded ${title} for now. This browser wouldn’t save the change, so it may come back next visit.`);
+    search.focus();
+  }
+  // The Discard button and its confirmation sit outside the card's own keyboard grid, so they are found by their own
+  // attribute rather than by data-key.
+  const focusDiscard = (id, attr) => panel.querySelector(`[data-${attr}="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
 
   function cancel() {
     store.revert();
@@ -448,6 +469,14 @@ export function mountPolicyPanel({ store, game = null, host = document.body } = 
 
   panel.addEventListener('click', e => {
     const viaKeyboard = e.detail === 0;
+    const disc = e.target.closest('[data-discard], [data-discard-yes], [data-discard-no]');
+    if (disc) {
+      const d = disc.dataset;
+      if (d.discardYes) return discardCard(d.discardYes);
+      ui.discard = d.discard ?? null;
+      render();
+      return focusDiscard(d.discard ?? d.discardNo, d.discard ? 'discard-no' : 'discard');
+    }
     const remove = e.target.closest('[data-remove]');
     if (remove) return returnToLibrary(remove.dataset.remove, null, viaKeyboard);
     const change = e.target.closest('[data-change]');
@@ -488,6 +517,7 @@ export function mountPolicyPanel({ store, game = null, host = document.body } = 
     if (e.key === 'Escape') {
       if (e.target === search && search.value) return; // let the field clear itself first
       e.preventDefault();
+      if (ui.discard) { const id = ui.discard; ui.discard = null; render(); return focusDiscard(id, 'discard'); }
       if (ui.scen) return keepScenario(ui.scen.id);
       if (ui.target) return stopChoosing(true);
       if (ui.armed) return focusByKey(disarm('Selection cancelled.'));

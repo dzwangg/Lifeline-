@@ -244,6 +244,28 @@
 .pp-card.is-returned { animation: pp-returned .7s var(--pp-ease); }
 @keyframes pp-returned { 30% { box-shadow: 0 0 0 4px #fff, 0 0 24px 8px color-mix(in srgb, var(--cat) 70%, transparent); } }
 
+/* A card the player drafted: the same card, held in a wrapper that carries its Discard button and, on the second
+   click, the confirmation over the card's face. */
+.pp-held { position: relative; display: grid; }
+.pp-held__btn {
+  position: absolute; z-index: 2; top: 6px; right: 6px; display: grid; place-items: center;
+  width: 26px; height: 26px; padding: 0; cursor: pointer; color: var(--cat-deep);
+  background: rgba(255, 255, 255, .85); border: 2px solid color-mix(in srgb, var(--cat) 55%, #fff); border-radius: 8px;
+  opacity: .6; transition: opacity .15s, background .15s, border-color .15s, color .15s;
+}
+.pp-held:hover .pp-held__btn, .pp-held:focus-within .pp-held__btn { opacity: 1; }
+.pp-held__btn:hover { color: #a32c50; background: #fff; border-color: #e0587e; }
+.pp-held__btn:focus-visible { opacity: 1; outline: 3px solid var(--pp-gold); outline-offset: 2px; box-shadow: 0 0 0 5px var(--pp-line); }
+.pp-held.is-confirming .pp-card { filter: saturate(.3) blur(1px); }
+.pp-held__confirm {
+  position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; justify-content: center; gap: 6px;
+  padding: 10px; text-align: center; border-radius: 15px;
+  background: rgba(255, 255, 255, .94); box-shadow: inset 0 0 0 3px var(--cat);
+}
+.pp-held__ask { margin: 0; font-size: 13px; font-weight: 800; line-height: 1.2; color: var(--pp-ink); }
+.pp-held__note { margin: 0; font-size: 11px; line-height: 1.25; color: var(--pp-ink-soft); }
+.pp-held__row { display: flex; flex-direction: column; gap: 5px; margin-top: 2px; }
+
 .pp-ghost, .pp-flying { position: fixed; z-index: 1000; margin: 0; pointer-events: none; opacity: 1; filter: none; animation: none; }
 .pp-ghost { box-shadow: 0 30px 50px -16px rgba(4, 36, 66, .55), 0 0 0 3px rgba(255,255,255,.8); transition: none; }
 .pp-ghost .pp-card__badge, .pp-flying .pp-card__badge { display: none; }

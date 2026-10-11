@@ -1,10 +1,10 @@
-// One-off: derive the sim's zones from the OSM woods already baked into meridian-city/chapel-hill.js (no network).
-// The 30 largest woods are cut into ~1-acre parcels, so policies spread through a wood year by year
-// instead of flipping it whole. Usage: npm run zones   -> data/zones.geojson
+// One-off: derive the sim's zones from the OSM woods and parking lots already baked into meridian-city/chapel-hill.js
+// (no network). The 30 largest woods are cut into ~1-acre parcels, so policies spread through a wood year by year
+// instead of flipping it whole; each parking lot is one zone. Usage: npm run zones   -> data/zones.geojson
 import { readFileSync, writeFileSync } from 'node:fs';
 import { toLngLat } from '../shared/geo.js';
 
-const COUNT = 30, PARCEL_M = 64, MIN_ACRES = .1, EDGE_M = 50, CORRIDOR_M = 150, SIMPLIFY_M = 3, ACRE = 4046.86;
+const COUNT = 30, PARCEL_M = 64, MIN_ACRES = .1, EDGE_M = 50, CORRIDOR_M = 150, NEAR_M = 100, SIMPLIFY_M = 3, ACRE = 4046.86;
 const src = readFileSync(new URL('../meridian-city/chapel-hill.js', import.meta.url), 'utf8');
 const osm = JSON.parse(src.slice(src.indexOf('{'), src.lastIndexOf('}') + 1));
 const EXT = osm.ext; // the base map only draws inside +-EXT, so zones are clipped to it
@@ -64,8 +64,32 @@ const features = woods.flatMap((r, i) => {
   });
 });
 
-const head = { type: 'FeatureCollection', source: 'The 30 largest OSM natural=wood polygons in meridian-city/chapel-hill.js, clipped to the map, simplified and cut into ~1-acre parcels by scripts/make-zones.js. Map data (c) OpenStreetMap contributors, ODbL.' };
+// Parking lots: each OSM amenity=parking polygon, clipped to the map, is one zone in state "parking", tagged "parking" plus
+// near_campus (within NEAR_M of a university, dormitory or hospital building) and downtown (within NEAR_M of a retail or
+// commercial building, which line Franklin St). They never take the woods' tags, so a forest card's pool, and so its
+// results, are the same as before the lots were added.
+const near = kinds => {
+  const rings = osm.b.filter(([kind]) => kinds.includes(kind)).map(b => pairs(b[4]));
+  return r => rings.some(b => r.some(p => b.some((q, i) => segDist(p, b.at(i - 1), q) <= NEAR_M)));
+};
+const nearCampus = near(['university', 'dormitory', 'hospital']), nearDowntown = near(['retail', 'commercial']);
+const lots = osm.a.filter(([kind]) => kind === 'parking')
+  .map(([, r]) => clip(pairs(r), [-EXT, -EXT, EXT, EXT])).filter(r => r.length > 2)
+  .map(r => simplify([...r, r[0]]).slice(0, -1)).filter(r => r.length > 2 && area(r) / ACRE >= MIN_ACRES)
+  .sort((a, b) => area(b) - area(a));
+features.push(...lots.map((r, i) => {
+  const ring = r.map(q => toLngLat(q).map(round6));
+  if (signed(ring) < 0) ring.reverse();
+  return {
+    type: 'Feature',
+    properties: { id: `parking-${String(i + 1).padStart(3, '0')}`, state: 'parking', areaAcres: Math.round(area(r) / ACRE * 100) / 100,
+      tags: ['parking', nearCampus(r) && 'near_campus', nearDowntown(r) && 'downtown'].filter(Boolean), edgeDistM: edgeDist(r) },
+    geometry: { type: 'Polygon', coordinates: [[...ring, ring[0]]] },
+  };
+}));
+
+const head = { type: 'FeatureCollection', source: 'The 30 largest OSM natural=wood polygons in meridian-city/chapel-hill.js, clipped to the map, simplified and cut into ~1-acre parcels, and its amenity=parking polygons, one zone each, by scripts/make-zones.js. Map data (c) OpenStreetMap contributors, ODbL.' };
 writeFileSync(new URL('../data/zones.geojson', import.meta.url), `${JSON.stringify(head).slice(0, -1)},"features":[\n${features.map(f => JSON.stringify(f)).join(',\n')}\n]}\n`); // a zone per line
 const count = tag => features.filter(f => f.properties.tags.includes(tag)).length;
 const acres = tag => Math.round(features.filter(f => f.properties.tags.includes(tag)).reduce((s, f) => s + f.properties.areaAcres, 0));
-console.log(`data/zones.geojson: ${features.length} parcels in ${woods.length} woods, ${Math.round(features.reduce((s, f) => s + f.properties.areaAcres, 0))} acres; map_edge ${count('map_edge')} (${acres('map_edge')} acres), corridor ${count('corridor')} (${acres('corridor')} acres)`);
+console.log(`data/zones.geojson: ${features.length - lots.length} parcels in ${woods.length} woods, ${Math.round(features.reduce((s, f) => s + (f.properties.state === 'forest' ? f.properties.areaAcres : 0), 0))} acres; map_edge ${count('map_edge')} (${acres('map_edge')} acres), corridor ${count('corridor')} (${acres('corridor')} acres); ${lots.length} parking lots (${acres('parking')} acres), near_campus ${count('near_campus')} (${acres('near_campus')} acres), downtown ${count('downtown')} (${acres('downtown')} acres)`);

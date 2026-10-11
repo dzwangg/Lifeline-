@@ -12,8 +12,8 @@ export const HOUSEHOLD_METRICS = ['households', 'pricedOut']; // added by shared
 export const LUTI_METRICS = ['jobs', 'businesses', 'storefrontVacancy', 'homeValue', 'netFiscal', 'transitRidership', 'trafficIndex']; // added by shared/combined.js
 const OPTIONAL_METRICS = [...HOUSEHOLD_METRICS, ...LUTI_METRICS];
 
-/** Does a rule's `where` ("tag:<tag>" or "id:<zoneId>") select this zone? @param {string} where @param {Pick<Zone, 'id' | 'tags'>} zone */
-export const matchesWhere = (where, zone) => where === `id:${zone.id}` || (where.startsWith('tag:') && zone.tags.includes(where.slice(4)));
+/** Does a rule's `where` ("tag:<tag>", "id:<zoneId>" or "all") select this zone? @param {string} where @param {Pick<Zone, 'id' | 'tags'>} zone */
+export const matchesWhere = (where, zone) => where === 'all' || where === `id:${zone.id}` || (where.startsWith('tag:') && zone.tags.includes(where.slice(4)));
 
 const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 /** A param's slider step: its own, else 1 when min, max and default are whole numbers, else a hundredth of the range. */
@@ -70,9 +70,15 @@ export function validateCard(card) {
 
   ok(card.zoneRules?.length || card.levers?.length, '(card)', 'needs at least one entry in zoneRules or levers');
   if ('zoneRules' in card && list(card.zoneRules, 'zoneRules')) card.zoneRules.forEach((r, i) => {
-    const path = `zoneRules[${i}]`;
+    const path = `zoneRules[${i}]`, where = () => ok(typeof r.where === 'string' && /^((tag|id):\S+|all)$/.test(r.where), `${path}.where`, 'must be "tag:<tag>", "id:<zoneId>" or "all"');
+    if (isObj(r) && 'protect' in r) { // a protect rule: { where, protect }
+      if (!obj(r, path, ['where', 'protect'])) return;
+      where();
+      ok(ZONE_STATES.includes(r.protect), `${path}.protect`, `must be one of ${ZONE_STATES.join(', ')}`);
+      return;
+    }
     if (!obj(r, path, ['where', 'from', 'to', 'ratePerYear'], ['capParam'])) return;
-    ok(typeof r.where === 'string' && /^(tag|id):\S+$/.test(r.where), `${path}.where`, 'must be "tag:<tag>" or "id:<zoneId>"');
+    where();
     for (const k of ['from', 'to']) ok(ZONE_STATES.includes(r[k]), `${path}.${k}`, `must be one of ${ZONE_STATES.join(', ')}`);
     ok(r.from !== r.to, `${path}.to`, 'must differ from "from"');
     ok(isNum(r.ratePerYear) && r.ratePerYear > 0 && r.ratePerYear <= 1, `${path}.ratePerYear`, 'must be a number above 0 and at most 1');

@@ -1,4 +1,4 @@
-# Meridian policy card spec
+# Prosperia policy card spec
 
 A policy card is one JSON file in `data/policies/`. Each card describes a local policy: who decides it, the knobs a resident can turn, which zones on the map it changes or which levers of the town's economy it sets, and the tradeoffs on both sides. The simulator and the UI are built entirely from cards. No policy names are hardcoded.
 
@@ -8,12 +8,13 @@ A policy card is one JSON file in `data/policies/`. Each card describes a local 
 
 `npm run create:card -- "Allow mid-rise homes near the corridor"` (or no argument, to be asked) sends the idea to Gemini with `GEMINI_API_KEY` and `GEMINI_MODEL` from `.env.local`, then writes `data/policies/<id>.json` and `data/cards.index.json`. Review the text before committing it. The same generator serves players at `POST /api/policies/generate` with body `{ "idea": "..." }`. It replies `{ card, signature, unmodeled }` and keeps the API key on the server.
 
-Gemini may use zone rules, levers, timing and evidence. It lists the parts of the idea that the sim can't represent in `unmodeled` instead of substituting another mechanism. An idea with nothing modelable gets a 422 with `unsupportedReason`.
+Gemini may use zone rules (conversions and protect rules, on woods or parking lots), levers, timing and evidence. For each lever it also says whether the idea asks to `increase` or `decrease` that input. That field is checked and then dropped from the card. It lists the parts of the idea that the sim can't represent in `unmodeled` instead of substituting another mechanism. An idea with nothing modelable gets a 422 with `unsupportedReason`.
 
 A draft is used only when all of these hold:
 - It passes `validateCard`.
-- Every zone rule matches a forest parcel.
-- At its default params it changes at least one metric over 10 years.
+- Every zone rule matches a parcel in its `from` state (or its `protect` state).
+- Each lever's value goes the way Gemini declared, so "cut property tax 3 cents" can't come out as +3¢. The value is the lever's own or its param's default. Amounts compare with 0 and multipliers with 1. Caps can only lower.
+- At its default params it changes at least one metric over 10 years. A card with protect rules may instead block a conversion by a catalog card, since protecting land changes nothing on its own.
 - Its title, summary, pros and cons contain no numbers from outside the card's settings or the idea, and no evaluative words.
 
 A failed draft gets one retry, with the problems fed back to Gemini. Param defaults are clamped onto their sliders. Evidence is kept only when it is copied from an existing card.
@@ -61,6 +62,8 @@ A card needs at least one zone rule or one lever (or both). Unknown fields are r
 | `step` | number, optional | Slider step, above 0. Without it: 1 when `min`, `max` and `default` are whole numbers, else a hundredth of the range. `default` must be `min` plus a whole number of steps, so the slider can return to it. |
 
 ### Zone rules
+
+A zone rule either **converts** zones (the fields below) or **protects** them: `{ "where": "all", "protect": "forest" }` keeps every zone matching `where` that is in the `protect` state in that state while the card is applied. No card's rule converts it, including the protect card's own rules and those of cards that come first by `id`. On its own a protect rule changes no metric, because with no policy nothing is converted. Its effect shows when it is applied together with cards that would build there. The card `protect-remaining-forest` is an example.
 
 | Field | Type | Rules |
 |---|---|---|
@@ -129,7 +132,9 @@ Without `timing`, levers take full effect in the first quarter.
 | `parking` | Cleared ground |
 | `transit_station` | Taller blocks |
 
-Every zone in `data/zones.geojson` starts as `forest`. A zone is a parcel of about an acre or less. The 30 largest woods on the map are each cut into parcels, so a policy spreads through a wood over the years instead of flipping all of it at once.
+`data/zones.geojson` (`npm run zones`) holds two kinds of zones:
+- **Woods** start as `forest`. Each is a parcel of about an acre or less: the 30 largest woods on the map are each cut into parcels, so a policy spreads through a wood over the years instead of flipping all of it at once.
+- **Parking lots** start as `parking`. Each OSM `amenity=parking` polygon on the map (at least 0.1 acre) is one zone, `parking-001` to `parking-180`, largest first. A card can turn them into homes, e.g. `{ "where": "tag:near_campus", "from": "parking", "to": "mid_res", ... }`. Parking lots never carry the woods' tags, so the cards that convert woods select the same zones as before the lots were added.
 
 ## `where` syntax
 
@@ -137,7 +142,11 @@ Every zone in `data/zones.geojson` starts as `forest`. A zone is a parcel of abo
   - `map_edge`: in a wood within 50 m of the map boundary. This is the edge of the area the map covers (downtown and UNC), **not** the town limit.
   - `corridor`: in a wood within 150 m of an OSM trunk road. In this map those run along the south edge (the 15-501 corridor). Corridor parcels are also `map_edge`, but their homes count as their own zone, with no commute penalty (see below).
   - `wood-01` to `wood-30`: every parcel of one wood. `wood-01` is the largest.
-- `id:<zoneId>` matches one parcel, e.g. `id:zone-07-03` (wood 07, parcel 03). Open `data/zones.geojson` to see each parcel's acres and tags.
+  - `parking`: every parking lot (180 lots, 74 acres).
+  - `near_campus`: a parking lot within 100 m of a university, dormitory or hospital building (65 lots, 29 acres).
+  - `downtown`: a parking lot within 100 m of a retail or commercial building, which line Franklin Street (90 lots, 34 acres). A lot can be both `near_campus` and `downtown`.
+- `id:<zoneId>` matches one parcel, e.g. `id:zone-07-03` (wood 07, parcel 03) or `id:parking-012`. Open `data/zones.geojson` to see each zone's acres and tags.
+- `all` matches every zone. Together with `from` or `protect` it means every zone in that state, e.g. all remaining forest.
 
 The validate script warns when a `where` matches no zone.
 
@@ -146,7 +155,7 @@ The validate script warns when a `where` matches no zone.
 Each year, for every active card (cards run in `id` order) and every rule on the card, in order:
 
 1. The rule's quota so far is `round(ratePerYear × year × number of zones matching where)`, minus the zones it has already converted.
-2. It walks the matching zones **closest to the map edge first**, with ties broken by zone id, and converts each zone that is still in `from` until the quota is met.
+2. It walks the matching zones **closest to the map edge first**, with ties broken by zone id, and converts each zone that is still in `from` and not protected by an active card's protect rule until the quota is met.
 3. If the zone would push the card past its cap, it is skipped and the next zone is tried.
 
 Converting a zone changes the stocks: housing units come from `unitsPerAcre`, and the zone's canopy share comes from `canopyMinPct` (both in `data/assumptions.json`). The metrics follow from the stocks:
@@ -171,7 +180,7 @@ Only the `SimResult` returned directly by `runScenario` carries the aggregate re
 - **Priced out** counts households living in town in year 0 that have left by the shown year. Each year a renter may leave, with a chance that grows with how far their rent burden has risen above 30% since they arrived (`agentLeaveRate`), so it follows rent rising faster than income. Newcomers can leave too (they fade out on the map) but aren't counted.
 - **Homes** are today's 23,713, plus that growth, plus the homes your zone rules build (each parcel feeds the CH-LUTI zone it lies in, a quarter of each year's homes per quarter), plus homes lever cards add. New homes can crowd out a little other building, so the total can rise less than a card's own homes.
 - **Property tax revenue** is homes × `medianHomeValue` × (`propertyTaxRate` + the tax card's change), in today's dollars. The town budget line uses the same number.
-- **The household model** places your rules' homes by parcel: corridor parcels in a corridor zone (no extra trip on 15-501), other `map_edge` parcels at the edge (they commute over 15-501), the rest downtown. CH-LUTI's other new homes go by its zone: east and south to the edge, the rest in town. For CH-LUTI, `map_edge` and corridor parcels feed its east or south zone (the 15-501 side), the others the zone they lie in.
+- **The household model** places your rules' homes by parcel: corridor parcels in a corridor zone (no extra trip on 15-501), other `map_edge` parcels at the edge (they commute over 15-501), the rest (core woods and parking lots) downtown. CH-LUTI's other new homes go by its zone: east and south to the edge, the rest in town. For CH-LUTI, `map_edge` and corridor parcels feed its east or south zone (the 15-501 side), the others the zone they lie in.
 - **Changes in points.** Tree cover, storefront vacancy and car traffic deltas also carry `changePts`, the change in percentage points, as the panel shows them.
 - **Every change** is against the same three models run with no new policy, in the same year.
 
@@ -185,7 +194,7 @@ CH-LUTI simulates 40 quarters from 2027 in five zones. The `SimResult` uses its 
 
 ## Both sides, always
 
-Every card must list at least one pro **and** at least one con, and validation fails otherwise. Meridian shows tradeoffs, never recommendations. Write both sides in neutral, concrete language ("adds homes near the corridor", "removes tree canopy from the edge woods"), not advocacy ("a smart investment", "a reckless giveaway"). Leave out numbers that depend on a slider or on what the model works out, such as home counts, acres or a cost at the default: the panel shows those, and card text would drift from them. Fixed facts and figures from a cited study are fine ("about 0.5% more riders per 1% more service in the studies cited"), as long as the panel doesn't show a different number for the same thing.
+Every card must list at least one pro **and** at least one con, and validation fails otherwise. Prosperia shows tradeoffs, never recommendations. Write both sides in neutral, concrete language ("adds homes near the corridor", "removes tree canopy from the edge woods"), not advocacy ("a smart investment", "a reckless giveaway"). Leave out numbers that depend on a slider or on what the model works out, such as home counts, acres or a cost at the default: the panel shows those, and card text would drift from them. Fixed facts and figures from a cited study are fine ("about 0.5% more riders per 1% more service in the studies cited"), as long as the panel doesn't show a different number for the same thing.
 
 ## Example
 

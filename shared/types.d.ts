@@ -7,15 +7,23 @@ export interface Zone {
   id: string;
   state: ZoneState;
   areaAcres: number;
-  tags: string[]; // "map_edge" (wood near the map boundary, not the town limit), "corridor" (wood near a trunk road such as 15-501), "wood-NN"
+  tags: string[]; // woods: "map_edge" (near the map boundary, not the town limit), "corridor" (near a trunk road such as 15-501), "wood-NN";
+  // parking lots: "parking", "near_campus" (near a university, dormitory or hospital building), "downtown" (near a retail or commercial building)
   edgeDistM: number; // metres to the map boundary: rules convert zones closest-to-edge first
   geometry: { type: 'Polygon'; coordinates: [number, number][][] }; // GeoJSON, WGS84 lng/lat
 }
 
 export interface PolicyParam { key: string; label: string; min: number; max: number; default: number; unit: string; step?: number } // step: see paramStep in schema.js
 
-export interface ZoneRule {
-  where: string; // "tag:<tag>" or "id:<zoneId>"
+// A zone rule converts zones, or (with `protect`) keeps every zone it matches in that state while the card is applied:
+// no card's rule converts them.
+export type ZoneRule = ConvertRule | ProtectRule;
+export interface ProtectRule {
+  where: string; // "tag:<tag>", "id:<zoneId>" or "all"
+  protect: ZoneState;
+}
+export interface ConvertRule {
+  where: string; // "tag:<tag>", "id:<zoneId>" or "all"
   from: ZoneState;
   to: ZoneState;
   ratePerYear: number; // fraction of the zones matching `where` converted each year, (0, 1]

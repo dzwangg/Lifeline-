@@ -29,17 +29,21 @@ export function runScenario(cards, params, zones, assumptions, baselines, years 
   }));
   // Running totals per card, so each card's percentage effects can be summed and clamped.
   const fx = cards.map(() => ({ units: 0, edgeUnits: 0, canopyAcres: 0, acres: {}, done: [] }));
+  // Protect rules from every active card: a zone one of them matches, in its protected state, is never converted.
+  const protects = cards.flatMap(c => (c.zoneRules ?? []).filter(r => 'protect' in r));
+  const isProtected = z => protects.some(p => state[z.id] === p.protect && matchesWhere(p.where, z));
 
   const timeline = [];
   for (let year = 0; year <= years; year++) {
     if (year) cards.forEach((card, ci) => (card.zoneRules ?? []).forEach((rule, ri) => {
+      if ('protect' in rule) return;
       const f = fx[ci], pool = order.filter(z => matchesWhere(rule.where, z));
       const cap = rule.capParam ? policies[ci].params[rule.capParam] : Infinity;
       let quota = Math.round(rule.ratePerYear * year * pool.length) - (f.done[ri] ?? 0);
       for (const z of pool) {
         if (quota <= 0) break;
         const used = f.acres[rule.capParam] ?? 0;
-        if (state[z.id] !== rule.from || used + z.areaAcres > cap) continue;
+        if (state[z.id] !== rule.from || used + z.areaAcres > cap || isProtected(z)) continue;
         state[z.id] = rule.to;
         f.acres[rule.capParam] = used + z.areaAcres;
         f.done[ri] = (f.done[ri] ?? 0) + 1;

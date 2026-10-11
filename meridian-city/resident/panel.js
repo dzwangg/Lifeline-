@@ -201,7 +201,7 @@ export async function mountResidentPanel({ launch }) {
     const fromNessie = ledger.source === 'nessie';
     panes.bank.replaceChildren(
       h('div', { class: `mr-bank${fromNessie ? ' is-live' : ''}` },
-        h('span', { class: 'mr-bank__badge' }, fromNessie ? (ledger.written ? 'Nessie · just written' : 'Nessie · on file') : 'Computed here'),
+        h('span', { class: 'mr-bank__badge' }, fromNessie ? `Capital One Nessie sandbox · ${ledger.written ? 'just written' : 'on file'}` : 'Computed here, not in the Capital One Nessie sandbox'),
         h('p', {}, fromNessie ? `Read back from Capital One's Nessie sandbox. Its entries add up to ${money(ledger.totals.checking)} left in checking for the month and ${money(ledger.totals.savings)} in savings${ledger.totals.loan ? `, with ${money(ledger.totals.loan)} owed on the loan account` : ''}.`
           : `${ledger.note} The entries add up to ${money(ledger.totals.checking)} left for the month and ${money(ledger.totals.savings)} in savings${ledger.totals.loan ? `, with ${money(ledger.totals.loan)} owed` : ''}.`)),
       h('table', { class: 'mr-table mr-ledger' },
@@ -263,9 +263,10 @@ export async function mountResidentPanel({ launch }) {
         reply.classList.remove('is-typing');
         reply.textContent = res.ok ? out.text : out.error;
         if (out.fallback) reply.append(h('small', {}, 'A standard answer: the AI answer was unavailable.'));
+        else if (res.ok) reply.append(h('small', { class: 'mr-credit' }, 'Answered by Gemini'));
         if (out.audio) {
           const play = h('button', { type: 'button', class: 'mr-play', 'aria-label': `Hear ${r.name} say it`, onclick: () => { audio.src = `data:audio/mpeg;base64,${out.audio}`; audio.play(); } }, '▶ Hear it');
-          reply.append(play);
+          reply.append(h('span', { class: 'mr-voice' }, play, h('small', { class: 'mr-credit' }, 'Voice by ElevenLabs')));
         }
       } catch {
         if (mine === asked) { reply.classList.remove('is-typing'); reply.textContent = `${r.name} can't answer right now. Check your connection and ask again.`; }
@@ -277,7 +278,7 @@ export async function mountResidentPanel({ launch }) {
     panes.talk.replaceChildren(log,
       h('div', { class: 'mr-starters', role: 'group', 'aria-label': 'Questions to start with' }, demo.questions.map(q => h('button', { type: 'button', class: 'mr-chip', onclick: () => ask(q) }, q))),
       h('form', { class: 'mr-ask', onsubmit: e => { e.preventDefault(); ask(input.value); } }, input, send),
-      h('p', { class: 'mr-fine' }, `AI-written, in character, from ${r.name}'s simulated numbers only.`));
+      h('p', { class: 'mr-fine' }, `Answered by Gemini, in character, from ${r.name}'s simulated numbers only. Voice by ElevenLabs.`));
   }
 
   function showTab() {

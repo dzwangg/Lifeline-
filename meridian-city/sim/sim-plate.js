@@ -3,7 +3,7 @@
 // from card data and the SimResult (shared/combined.js), and it never recommends anything.
 // Years, metrics and the resident card follow the shared clock (clock.js); the playback toolbar (clock-bar.js) runs it.
 import { h } from '../policy/components.js';
-import { scenario, simClock, dataReady, devMode, stubOn, stubAuto } from './scenario.js';
+import { scenario, simClock, dataReady, devMode, demoMode, stubOn, stubAuto } from './scenario.js';
 import { VARIABLES, explain } from '../../shared/luti/run.js';
 import { LEVERS } from '../../shared/luti/levers.js';
 import { paramStep } from '../../shared/schema.js';
@@ -87,7 +87,8 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
     h('div', { class: 'sim__time' },
       h('div', { class: 'sim__year' }, h('label', { class: 'sim__slider' }, h('span', {}, 'Year ', yearOut), yearIn)),
       h('label', { class: 'sim__check' }, beforeIn, 'Show before (year 0)'),
-      h('div', { class: 'sim__views' }, changesBtn, roadBtn, wipeBtn)),
+      h('div', { class: 'sim__views' }, changesBtn, roadBtn, wipeBtn,
+        demoMode && h('button', { class: 'sim__road sim__demo', type: 'button', onclick: runDemo }, 'Demo scenario'))),
     h('div', { class: 'sim__metrics', role: 'group', 'aria-label': 'Metrics, with their change against no new policy' },
       h('div', { class: 'sim-metric sim-metric--head', 'aria-hidden': 'true' }, h('span', {}), yearHead, h('span', {}, 'vs. no new policy')),
       rows.slice(0, HEADLINE.length).map(r => r.el),
@@ -123,6 +124,20 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
   };
   policyStore.subscribe(sync);
   sync(policyStore.getState());
+
+  // ?demo: edge subdivisions at their most plus core infill, played from year 0 at 2x. Applying cards with zone rules
+  // flies the camera to the parcels they convert (focus.js), here the edge woods.
+  function runDemo() {
+    const edge = cardById.get('edge-subdivisions'), core = cardById.get('core-infill');
+    if (!edge || !core) return console.warn('The demo needs the edge-subdivisions and core-infill cards.');
+    scenario.set({ params: { ...scenario.get().params, [edge.id]: Object.fromEntries(edge.params.map(p => [p.key, p.max])) }, focus: null, focusZones: null });
+    policyStore.clear();
+    policyStore.place(edge.id, 'housing-1');
+    policyStore.place(core.id, 'housing-2');
+    policyStore.apply();
+    simClock.seek(0);
+    simClock.play(2);
+  }
 
   // The shown year changes only when the clock commits one, so every speed shows the same numbers on the same date.
   let drawn = [];

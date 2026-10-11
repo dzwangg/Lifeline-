@@ -95,12 +95,15 @@
 // Policy panel: kept apart from the WebGL build below so it works while the city is still loading.
 import { createPolicyStore } from './policy/store.js';
 import { mountPolicyPanel } from './policy/policy-panel.js';
-import { cardsReady, panelPolicies } from './sim/scenario.js';
+import { cardsReady, panelPolicies, demoMode } from './sim/scenario.js';
+import { CATEGORIES, slotsOf } from './policy/policies.js';
 import { mountSimPlate } from './sim/sim-plate.js';
 import { mountClockBar } from './sim/clock-bar.js';
 
 const cards = await cardsReady; // policy cards from data/policies/ join the hardcoded policies in the panel
-const store = createPolicyStore({ policies: panelPolicies(cards) });
+// ?demo runs two housing cards together, so housing gets a second slot.
+const categories = demoMode ? CATEGORIES.map(c => (c.id === 'housing' ? { ...c, slots: 2 } : c)) : CATEGORIES;
+const store = createPolicyStore({ policies: panelPolicies(cards), categories, slots: slotsOf(categories) });
 const panel = mountPolicyPanel({ store });
 const launch = document.getElementById('policy-launch'), count = document.getElementById('policy-count');
 launch.addEventListener('click', () => panel.open(launch));

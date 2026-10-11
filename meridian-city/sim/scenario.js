@@ -9,6 +9,7 @@ const query = new URLSearchParams(location.search);
 export const stubOn = query.has('stub'); // ?stub adds tests/fixtures/stub-card.json next to the real cards
 export let stubAuto = false; // set once the index loads: with no real cards yet, the stub stands in so the loop is always demoable
 export const devMode = stubOn || query.has('dev') || ['localhost', '127.0.0.1'].includes(location.hostname);
+export const demoMode = query.has('demo'); // ?demo: the "Demo scenario" button, and a second housing slot for it
 
 export const zonesReady = json('../../data/zones.geojson')
   .then(fc => fc.features.map(f => ({ ...f.properties, geometry: f.geometry, ring: f.geometry.coordinates[0].slice(0, -1).flatMap(toLocal) })))

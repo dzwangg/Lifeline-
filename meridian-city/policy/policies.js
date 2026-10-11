@@ -16,8 +16,9 @@ export const CATEGORIES = [
   { id: 'transport',  label: 'Transport',  slots: 1, color: '#8a63d2', deep: '#563596', light: '#d9c8ff', tint: '#f1ebfd' },
 ];
 
-export const SLOTS = CATEGORIES.flatMap(c =>
+export const slotsOf = categories => categories.flatMap(c =>
   Array.from({ length: c.slots }, (_, index) => ({ id: `${c.id}-${index + 1}`, category: c.id, index })));
+export const SLOTS = slotsOf(CATEGORIES);
 
 export const POLICIES = [
   {

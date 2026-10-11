@@ -18,7 +18,7 @@ import { buildRoadNet, buildWalkNet } from './roadnet.js';
 import { createStreetSim } from './street-sim.js';
 import { paintPeopleAtlas, LOOKS } from './people-art.js';
 import { createSpriteSystem } from './sprites.js';
-import { pickWalker } from './households.js';
+import { hourAt, pickWalker } from './households.js';
 
 // ---------- vehicle atlas: alpha 255 marks paintable body, 254 keeps the pixel's own colour ----------
 function vehicleAtlas() {
@@ -379,6 +379,8 @@ export async function buildTraffic({ lanes, walks, scene, grid, buildings, furni
     /** fn() each frame once the walkers are placed (residentHeads is current): the dots draw then, so they keep up. */
     onPeopleDrawn(fn) { onPeople = fn; },
     pickAt, residentHeads, doors,
+    /** The hour of the street's day (households.js DAY_S): it runs with street life, so it holds while paused. Not shown. */
+    hour: () => hourAt(sim.time),
     /** Where a walker's body is on screen, in client pixels (for tests and tooling). */
     screenOf(p) {
       const cam = view.renderCam, rect = canvas.getBoundingClientRect();

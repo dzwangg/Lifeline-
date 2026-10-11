@@ -187,6 +187,19 @@ export function spriteAtlas() {
   add('picnic', 10, 5, (x, y) => { p.rect(x, y, 10, 2, P.woodLight); p.rect(x, y + 1, 10, 1, P.wood); p.rect(x + 1, y + 2, 1, 3, P.woodDark); p.rect(x + 8, y + 2, 1, 3, P.woodDark); p.rect(x - 0, y + 3, 10, 1, P.wood); outline(p, x - 1, y - 1, 12, 7); });
   add('headstone', 3, 4, (x, y) => { p.rect(x, y + 1, 3, 3, P.stone); p.set(x + 1, y, P.stone); p.set(x, y + 1, P.stoneLight); outline(p, x - 1, y - 1, 5, 6); });
   add('planter', 8, 5, (x, y) => { p.rect(x, y + 2, 8, 3, P.terracotta); p.rect(x, y + 2, 8, 1, P.terracottaLight); for (let i = 0; i < 8; i++) { p.set(x + i, y + 1, i % 2 ? P.leafLight : P.leaf); if (i % 3 === 0) p.set(x + i, y, P.blossom); } outline(p, x - 1, y - 1, 10, 7); }, { sway: .2 });
+  // Land being built on (the sim's zone layer): a felled tree's stump, and a scaffold of poles, planks and braces.
+  add('stump', 6, 5, (x, y) => {
+    p.rect(x, y + 1, 6, 4, P.wood); p.rect(x, y + 1, 1, 4, P.woodLight); p.rect(x + 5, y + 1, 1, 4, P.woodDark);
+    p.rect(x, y, 6, 2, P.tan); p.rect(x + 2, y, 2, 1, P.woodLight); p.set(x + 3, y + 1, P.tanDark);
+    outline(p, x - 1, y - 1, 8, 7);
+  });
+  add('scaffold', 40, 24, (x, y) => {
+    for (let j = 0; j < 24; j += 8) for (let i = 0; i < 39; i += 8) for (let t = 0; t < 7; t++) p.set(x + i + 1 + t, y + j + 6 - t, P.goldDark); // braces
+    for (let i = 0; i < 40; i += 8) { p.rect(x + Math.min(i, 39), y, 1, 24, P.gold); }
+    p.rect(x + 39, y, 1, 24, P.gold);
+    for (const j of [6, 14, 22]) { p.rect(x, y + j, 40, 1, P.woodLight); p.rect(x, y + j + 1, 40, 1, P.wood); }
+    outline(p, x - 1, y - 1, 42, 26);
+  });
   add('shadow', 16, 8, (x, y) => { for (let j = 0; j < 8; j++) for (let i = 0; i < 16; i++) { const d = ((i - 7.5) / 8) ** 2 + ((j - 3.5) / 4) ** 2; if (d < 1 && (d < .55 || (i + j) % 2)) p.set(x + i, y + j, '#000000'); } });
 
   // ---------- people: two-frame walk cycle ----------

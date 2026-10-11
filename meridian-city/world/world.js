@@ -80,7 +80,7 @@ export async function buildWorld({ container, osm, names = [], zones = [], progr
   if (start) view.lookAt(start.cx, start.cz); // open on the heart of campus
 
   // Parts for the sim's zone layer, drawn in the same art as everything else.
-  const zoneParts = zoneArt({ sprites, buildings });
+  const zoneParts = zoneArt({ sprites, buildings, ground });
   stage('done'); progress('Drawing the city…', 1);
 
   let time = 0, simTime = 0;
@@ -111,7 +111,7 @@ export async function buildWorld({ container, osm, names = [], zones = [], progr
 
 // The sim converts zones between forest, houses and blocks. Its trees are sprite billboards and its
 // buildings use the same tiling atlas material as the city, in house and block colourways.
-function zoneArt({ sprites, buildings }) {
+function zoneArt({ sprites, buildings, ground }) {
   const box = (wallTile, roofTile, roof) => {
     const b = new Batch(), W = new THREE.Color(1, 1, 1), at = buildings.atlasTile;
     b.tile = at(wallTile);
@@ -132,5 +132,9 @@ function zoneArt({ sprites, buildings }) {
     ],
     house: [{ geo: box('f:sidingCream:shutter', 'r:plum', true), material: buildings.wallMaterial }],
     block: [{ geo: box('f:brickRed:sill', 'r:flatGravel', false), material: buildings.wallMaterial }],
+    // Construction: stumps where trees were felled, scaffolds round rising buildings, and cleared soil (uvs in metres).
+    stump: [{ make: n => sprites.lod(sprites.slots(n, () => 'stump'), { minZoom: LOD.macro }) }],
+    scaffold: [{ make: n => sprites.lod(sprites.slots(n, () => 'scaffold'), { minZoom: LOD.macro }) }],
+    dirt: new THREE.MeshLambertMaterial({ map: ground.soil, polygonOffset: true, polygonOffsetFactor: -1.8, polygonOffsetUnits: -3.6 }), // over land cover (up to 1.5), under paths and roads (2 and up)
   };
 }

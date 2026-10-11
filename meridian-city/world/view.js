@@ -129,6 +129,7 @@ export function createView(container, { ext }) {
     ray.setFromCamera(ndcOf(sx, sy), camera);
     return ray.ray.intersectPlane(ground, new THREE.Vector3());
   }
+  ray.layers.enable(2); // the current side of the before/after wipe (render(), below)
   function raycastScreen(sx, sy, objects) {
     setFrustum(camera); camera.updateMatrixWorld();
     ray.setFromCamera(ndcOf(sx, sy), camera);
@@ -193,7 +194,9 @@ export function createView(container, { ext }) {
       if (now) { const d = anchor.world.clone().sub(now); d.y = 0; target.add(d); camera.position.add(d); }
       if (ppm === ppmGoal) anchor = null;
     }
-    target.x = THREE.MathUtils.clamp(target.x, -ext, ext); target.z = THREE.MathUtils.clamp(target.z, -ext, ext); target.y = 0;
+    // A margin past the map, so a view can centre parcels at the edge in the part of the screen a panel leaves free.
+    const lim = ext + 600;
+    target.x = THREE.MathUtils.clamp(target.x, -lim, lim); target.z = THREE.MathUtils.clamp(target.z, -lim, lim); target.y = 0;
     placeCamera();
     setFrustum(camera);
     camera.updateMatrixWorld();
@@ -220,9 +223,22 @@ export function createView(container, { ext }) {
     sun.target.position.set(cx, 0, cz); sun.position.set(cx, 0, cz).addScaledVector(sunDir, radius + 500);
   }
 
+  // The before/after wipe: objects on layer 1 (the year-0 side) draw left of the split, objects on layer 2 (the shown
+  // year) right of it, and layer 0 (the city) on both. With no split, layer 1 is left out.
+  let split = null;
   function render() {
-    renderer.setRenderTarget(rt);
-    renderer.render(scene, renderCam);
+    renderCam.layers.set(0); renderCam.layers.enable(2);
+    if (split == null) {
+      renderer.setRenderTarget(rt);
+      renderer.render(scene, renderCam);
+    } else {
+      const cut = Math.round(rw * split);
+      rt.scissorTest = true;
+      rt.scissor.set(cut, 0, rw - cut, rh); renderer.setRenderTarget(rt); renderer.render(scene, renderCam);
+      renderCam.layers.set(0); renderCam.layers.enable(1);
+      rt.scissor.set(0, 0, cut, rh); renderer.setRenderTarget(rt); renderer.render(scene, renderCam);
+      rt.scissorTest = false;
+    }
     renderer.setRenderTarget(null);
     renderer.render(blitScene, blitCam);
   }
@@ -231,6 +247,7 @@ export function createView(container, { ext }) {
     renderer, scene, camera, renderCam, controls, target, sun,
     get ppm() { return ppm; }, get level() { return level; }, get azimuth() { return azimuth; },
     update, render, rotate, zoomTo, zoomBy: d => zoomTo(level + d), screenToGround, raycastScreen,
+    get split() { return split; }, set split(v) { split = v == null ? null : THREE.MathUtils.clamp(v, 0, 1); }, // the wipe, 0..1 from the left
     onChange(f) { listeners.add(f); f({ level, ppm: ppmGoal, azimuth: azimuthGoal }); return () => listeners.delete(f); },
     lookAt(x, z) { const d = new THREE.Vector3(x - target.x, 0, z - target.z); target.add(d); camera.position.add(d); },
   };

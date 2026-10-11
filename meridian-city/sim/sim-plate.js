@@ -76,15 +76,18 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
   const yearOut = h('output', { class: 'sim__val' });
   const yearIn = h('input', { type: 'range', min: 0, max: simClock.get().steps, step: 1, value: 0, oninput: () => simClock.seek(+yearIn.value) });
   const beforeIn = h('input', { type: 'checkbox', onchange: () => simClock.setBefore(beforeIn.checked) });
-  const roadBtn = h('button', { class: 'sim__road', type: 'button', 'aria-pressed': 'false', onclick: () => scenario.set({ roadView: !scenario.get().roadView }) }, 'View 15-501');
+  // Guided views (focus.js): each button reads "Back" while its view is on. The wipe compares year 0 with the shown year.
+  const viewBtn = (focus, label) => h('button', { class: 'sim__road', type: 'button', 'aria-pressed': 'false',
+    onclick: () => scenario.set({ focus: scenario.get().focus === focus ? null : focus, focusZones: null }) }, label);
+  const changesBtn = viewBtn('changes', 'Show changes'), roadBtn = viewBtn('road', 'View 15-501');
+  const wipeBtn = h('button', { class: 'sim__road', type: 'button', 'aria-pressed': 'false', onclick: () => scenario.set({ wipe: !scenario.get().wipe }) }, 'Before / after');
   const rows = [...HEADLINE, ...MORE].map(Metric), yearHead = h('span', {});
   const body = h('div', { class: 'sim__body', id: 'sim-body' },
     h('div', { class: 'sim__cards' }, residentEl, cardsEl),
     h('div', { class: 'sim__time' },
       h('div', { class: 'sim__year' }, h('label', { class: 'sim__slider' }, h('span', {}, 'Year ', yearOut), yearIn)),
-      h('div', { class: 'sim__row' },
-        h('label', { class: 'sim__check' }, beforeIn, 'Show before (year 0)'),
-        roadBtn)),
+      h('label', { class: 'sim__check' }, beforeIn, 'Show before (year 0)'),
+      h('div', { class: 'sim__views' }, changesBtn, roadBtn, wipeBtn)),
     h('div', { class: 'sim__metrics', role: 'group', 'aria-label': 'Metrics, with their change against no new policy' },
       h('div', { class: 'sim-metric sim-metric--head', 'aria-hidden': 'true' }, h('span', {}), yearHead, h('span', {}, 'vs. no new policy')),
       rows.slice(0, HEADLINE.length).map(r => r.el),
@@ -134,6 +137,8 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
     yearOut.textContent = before ? '0 (before)' : y;
     yearIn.value = shown.step;
     yearHead.textContent = `Year ${y}`;
+    const first = run.result.timeline[0].zoneStates, last = run.result.timeline.at(-1).zoneStates;
+    changesBtn.disabled = !scenario.get().focus && Object.keys(last).every(id => last[id] === first[id]); // nothing to show
     for (const { m, value, delta, range, why } of rows) {
       const v = run.result.timeline[y].metrics[m.key], base = run.noPolicy.timeline[y].metrics[m.key];
       value.textContent = m.fmt(v);
@@ -144,8 +149,12 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
   }
   simClock.subscribe(render);
   scenario.subscribe(s => {
-    roadBtn.textContent = s.roadView ? 'Back' : 'View 15-501';
-    roadBtn.setAttribute('aria-pressed', String(!!s.roadView));
+    for (const [btn, focus, label] of [[changesBtn, 'changes', 'Show changes'], [roadBtn, 'road', 'View 15-501']]) {
+      btn.textContent = s.focus === focus ? 'Back' : label;
+      btn.setAttribute('aria-pressed', String(s.focus === focus));
+    }
+    wipeBtn.setAttribute('aria-pressed', String(!!s.wipe));
+    drawn = []; // the changes button depends on the focus too
     render();
   });
 

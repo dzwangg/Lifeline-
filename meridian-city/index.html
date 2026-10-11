@@ -127,6 +127,8 @@ import { inside, bounds } from './world/geometry.js';
 import { ZOOMS, DEFAULT_ZOOM } from './world/palette.js';
 import { zonesReady, mountZoneLayer } from './sim/zone-layer.js';
 import { mountAgentLayer } from './sim/agent-layer.js';
+import { mountFocus } from './sim/focus.js';
+import { mountWipe } from './sim/wipe.js';
 import { mountBubbles } from './world/aero.js';
 import { onFrame } from './sim/scenario.js';
 
@@ -157,6 +159,8 @@ progress('Placing households…', .88); await frame();
 let t = performance.now();
 mountZoneLayer({ scene: world.view.scene, zones: ZONES, at: world.gridAt, inside, bounds, parts: world.zoneParts, lod: world.lod });
 mountAgentLayer({ world, osm: OSM, zones: ZONES });
+mountFocus({ world, osm: OSM, zones: ZONES });
+mountWipe({ world });
 timings.simLayers = Math.round(performance.now() - t);
 $('stats').textContent = `Chapel Hill, NC · ${world.stats.buildings.toLocaleString()} buildings · tallest ${Math.round(world.stats.tallest)} m`;
 

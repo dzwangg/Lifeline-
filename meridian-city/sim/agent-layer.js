@@ -3,13 +3,13 @@
 // the year they leave. Markers keep one size on screen at every zoom and draw over buildings and trees with the world's
 // ink outline, so they read as data, apart from the street-life walkers. The trunk roads (15-501) carry a thin tint in
 // the model's road load colour, with travel time on hover. Clicking a marker opens that household in the sim panel.
-// "View 15-501" in the panel pans, zooms and turns the view to the corridor, and back to where it was.
+// "View 15-501" in the panel (focus.js) flies the camera to the corridor; the tint is then at full strength.
 // Everything follows the shared clock (clock.js): the year it shows, and the run behind that year.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
 import { scenario, simClock, onFrame } from './scenario.js';
 import { modelZone } from '../../shared/agents.js';
 import { inside, bounds } from '../world/geometry.js';
-import { ZOOMS, PIXEL_SCALE, CAMERA, P } from '../world/palette.js';
+import { CAMERA, P } from '../world/palette.js';
 
 // Where the model's zones sit today. The baked map has no street names, so downtown = open ground beside the
 // shops clustered along Franklin St, campus = beside UNC's university buildings, edge = beside existing houses near
@@ -25,12 +25,11 @@ const band = (bands, v) => bands.find(([max]) => v < max)[1];
 const CAPACITY = 800; // markers; the model makes ~350-450 households
 const MARKER_PX = 9, LIFT_PX = 6, BORDER_PX = 1.5; // marker width, how far it floats and its ink border, in rendered pixels at every zoom
 const FADE_YEARS = .4; // leavers fade out over this much of their last year's simulated time; paused, they stay faint
-const FLY_MS = 1400;
 // The road tint, mixed into the asphalt colour: subtle by default, strong on hover, and full strength in the 15-501
 // view. Its width is a share of the carriageway, never under 3 rendered pixels so it survives the far zooms; in the
 // 15-501 view it covers the whole carriageway and at least 6 pixels, since that view is zoomed far out.
 const ASPHALT = new THREE.Color(P.asphalt), TINT = { rest: .35, hover: .9, view: 1 }, TINT_SHARE = .4, TINT_MIN_PX = 3, VIEW_MIN_PX = 6;
-const COS_EL = Math.cos(THREE.MathUtils.degToRad(CAMERA.elevationDeg)), SIN_EL = Math.sin(THREE.MathUtils.degToRad(CAMERA.elevationDeg));
+const COS_EL = Math.cos(THREE.MathUtils.degToRad(CAMERA.elevationDeg));
 
 export function mountAgentLayer({ world, osm, zones }) {
   const { view } = world, { scene } = view, dom = view.renderer.domElement, at = world.gridAt;
@@ -71,21 +70,25 @@ export function mountAgentLayer({ world, osm, zones }) {
   // from the autumn tree canopies, which share their hues.
   const markerGeo = new THREE.OctahedronGeometry(.5).scale(1, 1.5, 1).translate(0, .75, 0);
   const ringGeo = new THREE.TorusGeometry(.85, .17, 4, 16).rotateX(Math.PI / 2).translate(0, .75, 0);
-  const layer = (geo, material, order) => {
+  // side: the layer the mesh draws on, 2 for the shown year and 1 for the wipe's year 0 (see world/view.js render()).
+  const layer = (geo, material, order, side = 2) => {
     const m = new THREE.InstancedMesh(geo, material, CAPACITY);
     m.count = 0;
+    m.layers.set(side);
     m.frustumCulled = false;
     m.renderOrder = order; // above the zone highlights (997, 998) and the building selection (999)
     scene.add(m);
     return m;
   };
   const overlay = o => new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, ...o }); // transparent: drawn after the zone fills
-  const rings = layer(ringGeo, overlay({ color: 0xffffff }), 1000);
-  const shells = layer(markerGeo, overlay({ color: P.ink }), 1001);
-  const markers = layer(markerGeo, overlay({}), 1002);
-  const fadeMat = overlay({ depthWrite: false });
-  const leaving = layer(markerGeo, fadeMat, 1002);
-  markers.setColorAt(0, OWNER); leaving.setColorAt(0, OWNER); // allocate the colour buffers
+  const ringMat = overlay({ color: 0xffffff }), shellMat = overlay({ color: P.ink }), markerMat = overlay({}), fadeMat = overlay({ depthWrite: false });
+  const markerSet = side => {
+    const set = { rings: layer(ringGeo, ringMat, 1000, side), shells: layer(markerGeo, shellMat, 1001, side), markers: layer(markerGeo, markerMat, 1002, side), leaving: layer(markerGeo, fadeMat, 1002, side) };
+    set.markers.setColorAt(0, OWNER); set.leaving.setColorAt(0, OWNER); // allocate the colour buffers
+    return set;
+  };
+  const current = markerSet(2), { markers } = current;
+  let yearZero = null; // the wipe's year-0 side, made the first time the wipe is on
 
   // 15-501: the trunk roads inside the map. The tint covers the middle of each carriageway, clipped to the map's edge.
   const E = osm.ext;
@@ -99,14 +102,19 @@ export function mountAgentLayer({ world, osm, zones }) {
   function shapeRoad(ppm) { // the tint's width depends on the zoom, so it is rebuilt when the zoom level changes
     roadPpm = ppm;
     road.geometry.dispose();
-    const width = q => (saved ? Math.max(q.w, VIEW_MIN_PX / ppm) : Math.min(q.w, Math.max(q.w * TINT_SHARE, TINT_MIN_PX / ppm)));
+    const width = q => (roadFocus ? Math.max(q.w, VIEW_MIN_PX / ppm) : Math.min(q.w, Math.max(q.w * TINT_SHARE, TINT_MIN_PX / ppm)));
     road.geometry = ribbons(trunks.map(q => [q.r, width(q)]), .06, E);
   }
 
   const _m = new THREE.Matrix4(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), HIDE = new THREE.Matrix4().makeScale(0, 0, 0);
   let run = null, agents = [], pos = [], t = -1, resident = null, drawnPpm = 0;
-  function draw() { // every marker for the shown year, at the current zoom
-    const ppm = drawnPpm = view.ppm, size = MARKER_PX / ppm, lift = LIFT_PX / (ppm * COS_EL), border = 2 * BORDER_PX / ppm;
+  function draw() { // every marker for the shown year (and year 0 for the wipe), at the current zoom
+    drawnPpm = view.ppm;
+    drawSet(current, t);
+    if (yearZero) drawSet(yearZero, 0);
+  }
+  function drawSet({ markers, shells, rings, leaving }, t) {
+    const ppm = view.ppm, size = MARKER_PX / ppm, lift = LIFT_PX / (ppm * COS_EL), border = 2 * BORDER_PX / ppm;
     const n = Math.min(agents.length, CAPACITY);
     markers.count = shells.count = rings.count = leaving.count = n;
     for (let i = 0; i < n; i++) {
@@ -125,8 +133,8 @@ export function mountAgentLayer({ world, osm, zones }) {
     markers.instanceColor.needsUpdate = leaving.instanceColor.needsUpdate = true;
   }
 
-  let hovered = false, saved = null;
-  const tint = () => { roadMat.color.copy(ASPHALT).lerp(road.userData.color, saved ? TINT.view : hovered ? TINT.hover : TINT.rest); };
+  let hovered = false, roadFocus = false;
+  const tint = () => { roadMat.color.copy(ASPHALT).lerp(road.userData.color, roadFocus ? TINT.view : hovered ? TINT.hover : TINT.rest); };
   simClock.subscribe(({ shown, before, frac }) => {
     if (!shown?.data) return;
     const r = shown.data.run, y = before ? 0 : shown.step;
@@ -142,65 +150,15 @@ export function mountAgentLayer({ world, osm, zones }) {
   });
   scenario.subscribe(s => {
     if (s.resident !== resident) { resident = s.resident; if (run) draw(); }
-    if (!!s.roadView !== !!saved) roadView(!!s.roadView);
+    if (s.wipe && !yearZero) { yearZero = markerSet(1); if (run) draw(); }
+    if ((s.focus === 'road') !== roadFocus) { // the camera is flown by focus.js; the road follows
+      roadFocus = s.focus === 'road';
+      if (road.userData.color) tint();
+      shapeRoad(view.ppm);
+    }
   });
 
-  // View 15-501 and back. The view takes in 15-501 inside the map (Fordham Blvd, and 15-501 South west of the NC 86
-  // interchange) and the corridor parcels along it, so every parcel a corridor card converts is in frame. It turns a
-  // quarter if that lays the road more across the screen, takes the closest zoom level that fits it all, and centres it
-  // in the part of the screen the sim panel leaves free.
-  const seg = [];
-  for (const { r } of trunks) for (let i = 0; i + 3 < r.length; i += 2)
-    if (Math.max(Math.abs((r[i] + r[i + 2]) / 2), Math.abs((r[i + 1] + r[i + 3]) / 2)) < E) seg.push([r[i], r[i + 1], r[i + 2], r[i + 3]]);
-  const pts = [...seg.flatMap(([ax, az, bx, bz]) => [[ax, az], [bx, bz]]), ...zones.filter(z => z.tags.includes('corridor')).flatMap(z => z.ring.flatMap((v, i) => (i % 2 ? [] : [[v, z.ring[i + 1]]])))];
-  let dxx = 0, dxz = 0, dzz = 0; // the road's direction tensor, length-weighted
-  for (const [ax, az, bx, bz] of seg) {
-    const l = Math.hypot(bx - ax, bz - az), ux = (bx - ax) / (l || 1), uz = (bz - az) / (l || 1);
-    dxx += ux * ux * l; dxz += ux * uz * l; dzz += uz * uz * l;
-  }
-  const ang = Math.atan2(2 * dxz, dxx - dzz) / 2, dir = [Math.cos(ang), Math.sin(ang)]; // the corridor's main direction
-  const right = az => [Math.cos(az), -Math.sin(az)], fwd = az => [-Math.sin(az), -Math.cos(az)]; // on the ground, as the camera sees it
-  const dot = (a, b) => a[0] * b[0] + a[1] * b[1];
-  let azGoal = view.azimuth;
-  view.onChange(({ azimuth }) => { azGoal = azimuth; });
-  function corridorView() {
-    const turn = Math.abs(dot(dir, right(azGoal + Math.PI / 2))) > Math.abs(dot(dir, right(azGoal))) + .1 ? 1 : 0, az = azGoal + turn * Math.PI / 2;
-    const R = right(az), F = fwd(az), range = axis => { const v = pts.map(p => dot(p, axis)); return [Math.min(...v), Math.max(...v)]; };
-    const [r0, r1] = range(R), [f0, f1] = range(F), mr = (r0 + r1) / 2, mf = (f0 + f1) / 2; // the frame's centre, in view axes
-    const w = dom.clientWidth, h = dom.clientHeight, plate = document.querySelector('.plate.sim')?.getBoundingClientRect();
-    const free = plate && plate.width && plate.left > w / 2 ? plate.left : w; // the map left of the panel
-    let level = 0;
-    ZOOMS.forEach((z, i) => { const k = z * PIXEL_SCALE; if ((r1 - r0) * k <= free * .9 && (f1 - f0) * SIN_EL * k <= h * .8) level = i; });
-    const shift = (w / 2 - free / 2) / (ZOOMS[level] * PIXEL_SCALE);
-    return { x: R[0] * (mr + shift) + F[0] * mf, z: R[1] * (mr + shift) + F[1] * mf, level, turn };
-  }
-  let flight = null;
-  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function roadView(on) {
-    if (on) {
-      saved = { x: view.target.x, z: view.target.z, level: view.level, azimuth: azGoal };
-      const to = corridorView();
-      view.rotate(to.turn);
-      view.zoomTo(to.level);
-      flight = { x0: view.target.x, z0: view.target.z, x1: to.x, z1: to.z, p: 0 };
-    } else {
-      const back = saved;
-      saved = null;
-      view.rotate(Math.round((back.azimuth - azGoal) / (Math.PI / 2)));
-      view.zoomTo(back.level);
-      flight = { x0: view.target.x, z0: view.target.z, x1: back.x, z1: back.z, p: 0 };
-    }
-    if (road.userData.color) tint();
-    shapeRoad(ZOOMS[view.level]); // the width the view is zooming to
-  }
-
-  onFrame(dt => { // real time: the camera moves while the sim is paused
-    if (flight) {
-      flight.p = still ? 1 : Math.min(1, flight.p + dt * 1000 / FLY_MS);
-      const p = flight.p, e = p < .5 ? 2 * p * p : 1 - (2 - 2 * p) ** 2 / 2;
-      view.lookAt(flight.x0 + (flight.x1 - flight.x0) * e, flight.z0 + (flight.z1 - flight.z0) * e);
-      if (p === 1) flight = null;
-    }
+  onFrame(() => {
     if (run && view.ppm !== drawnPpm) draw();
     if (!roadPpm || Math.abs(Math.log(view.ppm / roadPpm)) > .2) shapeRoad(view.ppm); // as the zoom eases, not every frame
   });

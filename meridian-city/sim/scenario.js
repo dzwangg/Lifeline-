@@ -41,9 +41,11 @@ export const panelPolicies = cards => [
 // The scenario's inputs. cards: the applied cards. params: card id -> param key -> value. Changing either bumps the
 // version; the clock (clock.js) drops predictions made for older versions. The rest is view state, which never touches
 // the forecast: result, the latest full SimResult (shared/combined.js), for the narration pipeline (the panel and map read
-// the clock's shown year instead); resident, the household picked on the map; roadView, the camera is on 15-501;
+// the clock's shown year instead); resident, the household picked on the map; focus and focusZones, the guided view
+// (focus.js): null, 'road' or 'changes', and the parcels a 'changes' view frames (null: all the forecast converts);
+// wipe, the before/after split screen is on;
 // luti, CH-LUTI's 200-run ranges and "why" traces (shared/luti/run.js runScenario).
-let state = { cards: [], params: {}, version: 0, result: null, resident: null, roadView: false, luti: null };
+let state = { cards: [], params: {}, version: 0, result: null, resident: null, focus: null, focusZones: null, wipe: false, luti: null };
 const listeners = new Set();
 export const scenario = {
   get: () => state,

@@ -36,9 +36,10 @@
 .sim__year .sim__slider { flex: 1; margin: 0; }
 .sim__val { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .sim__check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-.sim__row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sim__views { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .sim__road { padding: 3px 10px; border: 1px solid var(--sodium); border-radius: 999px; background: none; font: 600 12px var(--display); color: var(--sodium); cursor: pointer; }
 .sim__road[aria-pressed="true"] { background: var(--sodium); color: #fff; }
+.sim__road:disabled { opacity: .45; cursor: default; }
 .sim__check input { margin: 0; accent-color: var(--sodium); }
 .sim__dev { font: 11px var(--mono); color: var(--muted); }
 
@@ -128,3 +129,20 @@
   .clock { left: 12px; right: 12px; gap: 4px; }
   .clock-readout { min-width: 0; }
 }
+
+/* The before/after wipe (wipe.js): a divider over the map, year 0 on its left, the shown year on its right. */
+.wipe { position: fixed; top: 0; bottom: 0; width: 0; z-index: 8; pointer-events: none; }
+.wipe[hidden] { display: none; }
+.wipe::before { content: ''; position: absolute; top: 0; bottom: 0; left: -2px; width: 4px; background: #fff; box-shadow: 0 0 0 2px #1c2c5e; }
+.wipe__label {
+  position: absolute; top: calc(84px + env(safe-area-inset-top, 0px)); padding: 4px 9px; border: 2px solid #1c2c5e; border-radius: 6px;
+  background: #fff; color: #1c2c5e; font: 600 13px var(--ae-pixel, var(--mono)); white-space: nowrap; box-shadow: 0 3px 0 rgba(28, 44, 94, .35);
+}
+.wipe__label--before { right: 12px; }
+.wipe__label--after { left: 12px; }
+.wipe__handle {
+  position: absolute; top: 50%; left: -18px; width: 36px; height: 48px; margin-top: -24px; padding: 0; pointer-events: auto; cursor: ew-resize;
+  display: grid; place-items: center; border: 2px solid #1c2c5e; border-radius: 8px; background: #fff; color: #1c2c5e; box-shadow: 0 3px 0 rgba(28, 44, 94, .35); touch-action: none;
+}
+.wipe__handle svg { width: 22px; height: 14px; }
+.wipe__handle:focus-visible { outline: 3px solid var(--sodium); outline-offset: 2px; }

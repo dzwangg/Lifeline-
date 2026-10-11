@@ -2,7 +2,8 @@
 // card (docs/policy-card-spec.md) that the sim can run. Body (at most 4 KB): { idea } of 1-1200 characters.
 // Reply: { card, signature, unmodeled, cached }, where unmodeled lists the parts of the idea the sim can't represent and
 // signature is the card's HMAC (CARD_SIGNING_KEY, null without one), which /api/narration needs before it reads the card's
-// text. An idea with nothing the sim can represent gets 422 { error, unsupportedReason, cached }. Both are cached by idea.
+// text. An idea with nothing the sim can represent gets 422 { error, unsupportedReason, cached }; one that redrafts a catalog
+// card gets 200 { duplicateOf, message: "That policy is already in the library: <title>", cached }. All are cached by idea.
 // Checks: validateCard; every zone rule's selector matches a parcel in its from (or protected) state; each lever's value goes
 // the way Gemini says the idea asks ("increase" or "decrease", so a "cut" can't come out as a rise); the card changes at
 // least one metric over 10 years at its default params (runCombined), or its protect rules block a catalog card's
@@ -96,7 +97,8 @@ Examples of cards (a conversion rule; a protect rule; zoned levers with a fixed 
 }
 
 /** Turns the reply's zone rules into card rules, clamps each param's default into [min, max], turns the evidence numbers into
- *  the catalog's entries, drops the levers' directions (checked by directionErrors) and drops empty lists. */
+ *  the catalog's entries, drops the levers' directions (checked by directionErrors) and drops empty lists. A card whose rules
+ *  and levers are a catalog card's comes back as { duplicateOf: <its id> }; a new card on a taken id gets "-draft" (-draft-2, …). */
 export function tidy(card, catalog) {
   // ponytail: clamp, not snap: a default off the slider's steps goes back to Gemini via validateCard's message, since
   // snapping turns a 3 into 2.971 on a step of 0.099.
@@ -106,7 +108,23 @@ export function tidy(card, catalog) {
   const out = { ...card, params, ...(Array.isArray(card.zoneRules) && { zoneRules: zoneRules(card.zoneRules, params) }), ...(Array.isArray(card.evidence) && { evidence: [...new Set(card.evidence)].filter(Number.isInteger).map(i => library[i]).filter(Boolean) }),
     ...(Array.isArray(card.levers) && { levers: card.levers.map(l => (l && typeof l === 'object' ? (({ direction, ...rest }) => rest)(l) : l)) }) };
   for (const k of ['zoneRules', 'levers', 'evidence']) if (Array.isArray(out[k]) && !out[k].length) delete out[k];
+  const same = mechanism(out), dup = same !== '[]' && [...catalog.values()].find(c => mechanism(c) === same);
+  if (dup) return { duplicateOf: dup.id };
+  if (typeof out.id === 'string' && catalog.has(out.id)) {
+    let n = 1;
+    while (catalog.has(`${out.id}-draft${n > 1 ? `-${n}` : ''}`)) n++;
+    out.id = `${out.id}-draft${n > 1 ? `-${n}` : ''}`;
+  }
   return out;
+}
+
+/** What a card does, for spotting a catalog card drafted again: its zone rules and levers, with a param's default standing in
+ *  for its key (Gemini names params its own way), in any order. */
+function mechanism(card) {
+  const val = key => card.params?.find?.(p => p?.key === key)?.default;
+  const list = k => (Array.isArray(card[k]) ? card[k] : []).filter(x => x && typeof x === 'object');
+  return JSON.stringify([...list('zoneRules').map(r => JSON.stringify([r.where, r.from, r.to, r.ratePerYear, val(r.capParam), r.protect])),
+    ...list('levers').map(l => JSON.stringify([l.lever, 'value' in l ? l.value : val(l.param), [...(l.zones ?? [])].sort()]))].sort());
 }
 
 /** The reply's all-fields zone rules as the card's: { where, protect } or { where, from, to, ratePerYear, capParam? }. Backstops,
@@ -179,7 +197,7 @@ const fail = (status, error, extra = {}) => Object.assign(new Error(error), { st
 /**
  * Drafts a card for the idea: Gemini, then tidy and checkCard, with one retry that names the problems.
  * Throws an error with status 422 (nothing modelable, or still unusable after the retry) or 502 (Gemini failed).
- * @returns {Promise<{ card: PolicyCard, unmodeled: string[] }>}
+ * @returns {Promise<{ card: PolicyCard, unmodeled: string[] } | { duplicateOf: string, title: string }>} duplicateOf: a catalog card it redrafted
  */
 export async function generateCard(idea, env = process.env) {
   const ctx = await loadContext();
@@ -202,6 +220,7 @@ export async function generateCard(idea, env = process.env) {
     if (reply && !reply.card && reply.unsupportedReason)
       throw fail(422, `This idea can't be simulated yet: ${reply.unsupportedReason}`, { unsupportedReason: reply.unsupportedReason, unmodeled });
     const card = reply?.card && typeof reply.card === 'object' ? tidy(reply.card, ctx.catalog) : null;
+    if (card?.duplicateOf) return { duplicateOf: card.duplicateOf, title: ctx.catalog.get(card.duplicateOf).title };
     errors = card ? [...directionErrors(reply.card.levers, card), ...checkCard(card, idea, ctx)]
       : ['(reply): must be JSON with a card, or a null card and an unsupportedReason'];
     if (!errors.length) return { card, unmodeled };
@@ -243,6 +262,7 @@ export async function POST(request) {
     if (drafts.size > 100) drafts.delete(drafts.keys().next().value);
   }
   if (!hit.draft) return Response.json({ ...hit.body, cached }, { status: hit.status });
+  if (hit.draft.duplicateOf) return Response.json({ duplicateOf: hit.draft.duplicateOf, message: `That policy is already in the library: ${hit.draft.title}`, cached });
   // A fresh id suffix per reply: unique among players' cards, so a browser never renames one after signing.
   const card = { ...hit.draft.card, id: `${hit.draft.card.id}-${randomBytes(2).toString('hex')}` }, key = process.env.CARD_SIGNING_KEY;
   return Response.json({ card, signature: key ? signCard(card, key) : null, unmodeled: hit.draft.unmodeled, cached });

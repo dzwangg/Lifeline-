@@ -11,8 +11,9 @@ import { validateCard } from '../shared/schema.js';
 const ctx = await loadContext();
 const sample = JSON.parse(readFileSync(new URL('./fixtures/narration-sample.json', import.meta.url), 'utf8'));
 const byId = id => structuredClone(cards.find(c => c.id === id));
-const zoneCard = { ...byId('corridor-midrise'), id: 'corridor-apartments' };
-const leverCard = { ...byId('bus-frequency-boost'), id: 'more-buses' };
+// Catalog cards with one value changed, as a copy is a duplicate (see tidy).
+const zoneCard = { ...byId('corridor-midrise'), id: 'corridor-apartments', zoneRules: [{ ...byId('corridor-midrise').zoneRules[0], ratePerYear: 0.2 }] };
+const leverCard = { ...byId('bus-frequency-boost'), id: 'more-buses', params: [{ ...byId('bus-frequency-boost').params[0], default: 1.3 }] };
 const directed = (card, direction) => ({ ...card, levers: card.levers.map(l => ({ ...l, direction })) }); // as Gemini replies
 const taxCard = (cents, direction) => directed({ ...byId('property-tax-adjustment'), id: 'tax-change',
   params: [{ ...byId('property-tax-adjustment').params[0], default: cents }] }, direction);
@@ -96,6 +97,29 @@ test('tidy backstops: a conversion rule with no usable ratePerYear gets 0.2; the
   } finally {
     console.warn = warn;
   }
+});
+
+// Gemini's live reply to "protect all remaining forest" (2026-10-11): the catalog's protect-remaining-forest, id and all.
+const forest = JSON.parse(readFileSync(new URL('./fixtures/forest-draft.json', import.meta.url), 'utf8'));
+
+test('tidy: a draft whose rules and levers are a catalog card\'s is that card', () => {
+  assert.deepEqual(tidy(forest.card, ctx.catalog), { duplicateOf: 'protect-remaining-forest' });
+});
+
+test('tidy: a new card on a taken id gets -draft, then -draft-2', () => {
+  const edge = { ...forest.card, zoneRules: [{ ...forest.card.zoneRules[0], where: 'tag:map_edge' }] };
+  assert.equal(tidy(edge, ctx.catalog).id, 'protect-remaining-forest-draft');
+  const taken = new Map([...ctx.catalog, ['protect-remaining-forest-draft', { id: 'protect-remaining-forest-draft', zoneRules: [] }]]);
+  assert.equal(tidy(edge, taken).id, 'protect-remaining-forest-draft-2');
+});
+
+test('generate: a redrafted catalog card gets 200 with the library\'s title and no card, from one Gemini call', async () => {
+  await withGemini([JSON.stringify(forest)], async bodies => {
+    const res = await generate('protect all remaining forest');
+    assert.deepEqual([res.status, await res.json()], [200, { duplicateOf: 'protect-remaining-forest',
+      message: 'That policy is already in the library: Protect remaining forest', cached: false }]);
+    assert.equal(bodies.length, 1);
+  });
 });
 
 test('generate: a valid zone-rule card comes back signed, from one Gemini call with the schema and minimal thinking', async () => {

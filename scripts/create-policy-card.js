@@ -13,7 +13,8 @@ const policyDir = new URL('policies/', data);
 export async function createCard(idea, env = process.env) {
   if (!env.GEMINI_API_KEY) throw new Error('Set GEMINI_API_KEY in .env.local or your environment.');
   if (!idea?.trim()) throw new Error('Describe the policy you want to create.');
-  const { card, unmodeled } = await generateCard(idea, env);
+  const { card, unmodeled, duplicateOf, title } = await generateCard(idea, env);
+  if (duplicateOf) throw new Error(`That policy is already in the library: ${title} (data/policies/${duplicateOf}.json).`);
   const names = await readdir(policyDir);
   if (names.includes(`${card.id}.json`)) throw new Error(`A card named ${card.id} already exists. Try a more specific idea.`);
   const path = new URL(`${card.id}.json`, policyDir);

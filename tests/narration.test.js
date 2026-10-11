@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
-import { POST, badNumbers, hashInput, loadCards, modelFor, nextModel, parseInput, speakable, speechKey, templateRecap } from '../api/narration.js';
+import { POST, badNumbers, clearGeminiPauses, hashInput, loadCards, modelFor, nextModel, parseInput, speakable, speechKey, templateRecap } from '../api/narration.js';
 
 // A frozen SimResult (the stub card, as of the narration PR), so these tests don't move whenever the models do.
 // The last test checks the current one, tests/fixtures/sim-result.json.
@@ -22,6 +22,7 @@ const KEYS = { GEMINI_API_KEY: 'gem-secret', GEMINI_MODEL: 'gemini-test', GEMINI
 async function withMocks(env, drafts, fn) {
   const saved = { fetch: globalThis.fetch, env: { ...process.env } };
   const calls = [];
+  clearGeminiPauses(); // a daily quota spent in an earlier case doesn't carry over
   Object.assign(process.env, env);
   globalThis.fetch = async (url, init) => {
     calls.push({ url: String(url), init });

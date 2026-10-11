@@ -1,0 +1,173 @@
+{
+  "federalStandardDeduction": {
+    "value": {
+      "single": 16100,
+      "joint": 32200
+    },
+    "unit": "$ (2026)",
+    "source": "IRS Rev. Proc. 2025-32, inflation adjustments for tax year 2026. https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
+    "note": "Year 0 is 2026. Take-home pay is wages less federal and North Carolina income tax and payroll tax, with the standard deduction and no credits (such as the child tax credit). Students, single renters and \"You\" file single; families and owners file jointly (data/residents.json). Later years index every dollar threshold with rent inflation (CH-LUTI's rentDrift)."
+  },
+  "federalBracketsSingle": {
+    "value": {
+      "0": 0.1,
+      "12400": 0.12,
+      "50400": 0.22,
+      "105700": 0.24,
+      "201775": 0.32,
+      "256225": 0.35,
+      "640600": 0.37
+    },
+    "unit": "taxable income ($, 2026) where each rate starts",
+    "source": "IRS Rev. Proc. 2025-32 (unmarried individuals). https://www.irs.gov/pub/irs-drop/rp-25-32.pdf"
+  },
+  "federalBracketsJoint": {
+    "value": {
+      "0": 0.1,
+      "24800": 0.12,
+      "100800": 0.22,
+      "211400": 0.24,
+      "403550": 0.32,
+      "512450": 0.35,
+      "768700": 0.37
+    },
+    "unit": "taxable income ($, 2026) where each rate starts",
+    "source": "IRS Rev. Proc. 2025-32 (married filing jointly). https://www.irs.gov/pub/irs-drop/rp-25-32.pdf"
+  },
+  "ncIncomeTaxRate": {
+    "value": 0.0399,
+    "source": "NC Department of Revenue, tax rate schedules: 3.99% for tax years beginning in 2026 and after (S.L. 2023-134). https://www.ncdor.gov/taxes-forms/tax-rate-schedules"
+  },
+  "ncStandardDeduction": {
+    "value": {
+      "single": 12750,
+      "joint": 25500
+    },
+    "unit": "$",
+    "source": "NC Department of Revenue, North Carolina standard deduction. https://www.ncdor.gov/taxes-forms/individual-income-tax/north-carolina-standard-deduction-or-north-carolina-itemized-deductions"
+  },
+  "socialSecurityTax": {
+    "value": {
+      "rate": 0.062,
+      "wageBase": 184500
+    },
+    "unit": "employee share; wage base in $ (2026)",
+    "source": "IRS Topic 751 (6.2% employee Social Security tax) https://www.irs.gov/taxtopics/tc751 ; SSA 2026 taxable maximum $184,500, announced October 2025 (Journal of Accountancy) https://www.journalofaccountancy.com/news/2025/oct/social-security-wage-base-and-cola-announced-for-2026/"
+  },
+  "medicareTaxRate": {
+    "value": 0.0145,
+    "source": "IRS Topic 751: 1.45% employee Medicare tax. https://www.irs.gov/taxtopics/tc751"
+  },
+  "additionalMedicareTax": {
+    "value": {
+      "rate": 0.009,
+      "threshold": {
+        "single": 200000,
+        "joint": 250000
+      }
+    },
+    "unit": "employee rate on wages above the threshold for the filing status ($)",
+    "source": "IRS Topic 560, Additional Medicare Tax: 0.9% of wages over $200,000 (single) or $250,000 (married filing jointly). The thresholds are set in law and not indexed. https://www.irs.gov/taxtopics/tc560"
+  },
+  "ceTotalSpending": {
+    "value": {
+      "16658": 35046,
+      "42925": 50054,
+      "74474": 66900,
+      "121548": 89972,
+      "264510": 150342
+    },
+    "unit": "average income before taxes of each quintile -> yearly total expenditures, both in 2024 $",
+    "source": "BLS Consumer Expenditure Surveys 2024, quintiles of income before taxes (released December 19, 2025), via FRED series CXUTOTALEXPLB0102M-0106M; the keys are each quintile's average income before taxes (CXUINCBEFTXLB0102M-0106M). https://www.bls.gov/news.release/cesan.htm https://fred.stlouisfed.org/series/CXUTOTALEXPLB0102M",
+    "note": "Other spending (everything but housing and the commute) is what a household of the same income spends in the CE: its after-tax income x (1 - personalSavingRate), times the share of CE spending, less personal insurance and pensions, that is neither shelter nor the commute: (total - insurance and pensions - shelter - commuteShareOfDriving x transportation) / (total - insurance and pensions). The share (about 0.69-0.71) is interpolated on year-0 income between the quintiles (flat beyond the end ones). A household whose rent takes a typical share saves about the national saving rate; one whose rent takes more falls short. Set in year 0, it grows with rent inflation (CH-LUTI's rentDrift)."
+  },
+  "ceShelter": {
+    "value": {
+      "16658": 9178,
+      "42925": 11902,
+      "74474": 15257,
+      "121548": 17851,
+      "264510": 27338
+    },
+    "unit": "average income before taxes of each quintile -> yearly shelter spending, both in 2024 $",
+    "source": "BLS Consumer Expenditure Surveys 2024, quintiles of income before taxes (released December 19, 2025), via FRED series CXUSHELTERLB0102M-0106M; the keys are each quintile's average income before taxes (CXUINCBEFTXLB0102M-0106M). https://www.bls.gov/news.release/cesan.htm https://fred.stlouisfed.org/series/CXUSHELTERLB0102M",
+    "note": "Rent, or mortgage interest, property tax, upkeep and insurance: modelled per household instead."
+  },
+  "ceTransport": {
+    "value": {
+      "16658": 5105,
+      "42925": 8430,
+      "74474": 11657,
+      "121548": 15952,
+      "264510": 25378
+    },
+    "unit": "average income before taxes of each quintile -> yearly transportation spending, both in 2024 $",
+    "source": "BLS Consumer Expenditure Surveys 2024, quintiles of income before taxes (released December 19, 2025), via FRED series CXUTRANSLB0102M-0106M; the keys are each quintile's average income before taxes (CXUINCBEFTXLB0102M-0106M). https://www.bls.gov/news.release/cesan.htm https://fred.stlouisfed.org/series/CXUTRANSLB0102M",
+    "note": "Vehicles, fuel, upkeep, insurance and fares. The commute's part is modelled per household instead."
+  },
+  "ceInsurancePensions": {
+    "value": {
+      "16658": 711,
+      "42925": 2712,
+      "74474": 6248,
+      "121548": 11934,
+      "264510": 27279
+    },
+    "unit": "average income before taxes of each quintile -> yearly personal insurance and pensions, both in 2024 $",
+    "source": "BLS Consumer Expenditure Surveys 2024, quintiles of income before taxes (released December 19, 2025), via FRED series CXUINSPENSNLB0102M-0106M; the keys are each quintile's average income before taxes (CXUINCBEFTXLB0102M-0106M). https://www.bls.gov/news.release/cesan.htm https://fred.stlouisfed.org/series/CXUINSPENSNLB0102M",
+    "note": "Mostly Social Security and pension contributions: payroll tax is in take-home pay, and pensions are saving, so this is left out of spending."
+  },
+  "personalSavingRate": {
+    "value": 0.054,
+    "source": "U.S. Bureau of Economic Analysis, personal saving as a percentage of disposable personal income, 2025 average of the monthly rates (via FRED PSAVERT). https://fred.stlouisfed.org/series/PSAVERT"
+  },
+  "commuteShareOfDriving": {
+    "value": 0.3,
+    "source": "VERIFY - commuting is reported as about 30% of household vehicle miles in the 2017 and 2022 National Household Travel Survey (summary seen, not yet the primary table). https://nhts.ornl.gov/",
+    "note": "The share of a household's transportation spending that is its commute."
+  },
+  "startingSavings": {
+    "value": {
+      "0": 900,
+      "29932": 2600,
+      "57452": 7100,
+      "94511": 15700,
+      "155925": 33700
+    },
+    "unit": "lower bound of income before taxes (2024 $) -> savings ($, 2022)",
+    "source": "Federal Reserve, 2022 Survey of Consumer Finances, Table 6 (family holdings of financial assets): median transaction accounts (checking, savings, money market) of families holding them, by percentile of income: less than 20th 900, 20-39.9 2,600, 40-59.9 7,100, 60-79.9 15,700, 80-89.9 33,700. https://www.federalreserve.gov/econres/files/scf2022_tables_internal_nominal_historical.xlsx ; quintile lower bounds from BLS Consumer Expenditure Surveys 2024 (29,932 / 57,452 / 94,511 / 155,925). https://www.bls.gov/news.release/cesan.htm",
+    "note": "Savings at the start of year 0, by the income quintile of the household's year-0 income, in year-0 dollars. The top quintile takes the 80-89.9 median, not the 90-100 one ($111,100), as no showcase household is near the 90th percentile. No interest. Savings never go below zero: a shortfall after they are gone is bills falling behind."
+  },
+  "carCostPerMile": {
+    "value": 0.725,
+    "unit": "$/mile (2026)",
+    "source": "IRS Notice 2026-10 (IR-2025-128): 2026 standard mileage rate for business use, 72.5 cents a mile. https://www.irs.gov/newsroom/irs-sets-2026-business-standard-mileage-rate-at-725-cents-per-mile-up-25-cents",
+    "note": "A car commute costs commute minutes x CH-LUTI's peak car speed (lutiSpeedKmh.car) x this, so a slower commute costs more. Grows with rent inflation."
+  },
+  "busFare": {
+    "value": {
+      "town": 0,
+      "durham": 2.5
+    },
+    "unit": "$ a trip (2026)",
+    "source": "Chapel Hill Transit has been fare-free since 2002 (The Local Reporter) https://thelocalreporter.press/how-free-transit-works-in-chapel-hill-and-carrboro/ ; GoTriangle full fare $2.50 https://gotriangle.org/fares",
+    "note": "durham: a GoTriangle regional bus to Durham. Grows with rent inflation."
+  },
+  "busMonthlyCap": {
+    "value": {
+      "durham": 80
+    },
+    "unit": "$ a month (2026)",
+    "source": "GoTriangle fare capping: $5 a day, $20 a week, $80 a month. https://gotriangle.org/fares"
+  },
+  "workDaysPerMonth": {
+    "value": 21,
+    "source": "Derived: 52 weeks x 5 days less 11 federal holidays (5 U.S.C. 6103) is 249 work days a year, about 21 a month. https://www.law.cornell.edu/uscode/text/5/6103",
+    "note": "Commuters make two trips each work day; the household model's commute is one way."
+  },
+  "ownerFixedShare": {
+    "value": 1,
+    "source": "PLACEHOLDER - needs citation",
+    "note": "Owners pay a fixed monthly mortgage and insurance of this x their home's year-0 market rent (the household model's rentBase), plus Town property tax: CH-LUTI's median home value, scaled by that rent against the median, x CH-LUTI's tax rate. County tax is not modelled."
+  }
+}

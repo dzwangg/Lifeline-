@@ -7,6 +7,8 @@
   ],
   "functions": {
     "api/narration.js": { "includeFiles": "{demo-audio/**,data/cards.index.json,data/policies/**,tests/fixtures/stub-card.json}" },
-    "api/policies.js": { "includeFiles": "{data/zones.geojson,data/assumptions.json,data/baselines.json,data/cards.index.json,data/policies/**,tests/fixtures/stub-card.json}" }
+    "api/policies.js": { "includeFiles": "{data/zones.geojson,data/assumptions.json,data/baselines.json,data/cards.index.json,data/policies/**,tests/fixtures/stub-card.json}" },
+    "api/resident-bank.js": { "includeFiles": "{data/**,tests/fixtures/stub-card.json}" },
+    "api/resident.js": { "includeFiles": "{demo-audio/**,data/**,tests/fixtures/stub-card.json}" }
   }
 }

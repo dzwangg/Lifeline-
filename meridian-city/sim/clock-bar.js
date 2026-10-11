@@ -34,8 +34,8 @@ export function mountClockBar({ host = document.body, clock = simClock } = {}) {
   clock.subscribe(s => {
     const active = s.playing ? s.speed : 0;
     BUTTONS.forEach((b, i) => buttons[i].setAttribute('aria-pressed', String(b.speed === active)));
-    const text = simDate(s.years);
-    if (date.textContent !== text) { date.textContent = text; date.dateTime = `${START_YEAR + Math.floor(s.years)}-${String(Math.floor(s.years * 12) % 12 + 1).padStart(2, '0')}`; }
+    const years = s.before ? 0 : s.years, text = simDate(years); // "Show before" shows year 0, so its date
+    if (date.textContent !== text) { date.textContent = text; date.dateTime = `${START_YEAR + Math.floor(years)}-${String(Math.floor(years * 12) % 12 + 1).padStart(2, '0')}`; }
     speed.textContent = s.playing ? `${s.speed}×` : 'Paused';
     const msg = s.error ? 'Forecast failed · Play retries'
       : s.loading ? 'Loading forecast…'

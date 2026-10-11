@@ -5,7 +5,7 @@ import { runModels } from '../shared/combined.js';
 import { simulate } from '../shared/agents.js';
 import { POST as bankPOST, budget, ledgerEntries, loadData, savingsAt, seedBank, spendingAt, statementFor, taxes, writeLedger } from '../api/resident-bank.js';
 import { POST as talkPOST, VOICES, answerKey, clipFiles, facts, templateAnswer } from '../api/resident.js';
-import { jobs } from '../scripts/pregen-demo.js';
+import { assignModels, jobs } from '../scripts/pregen-demo.js';
 import { badNumbers, loadCards, validPolicies } from '../api/narration.js';
 import { zones, assumptions, baselines } from './data.js';
 
@@ -474,6 +474,20 @@ test('demo scenarios: valid cards and residents, and the pregen plan is a recap 
   assert.deepEqual(plan.map(j => j.kind).filter(k => k === 'recap').length, 3);
   assert.equal(plan.filter(j => j.kind === 'answer').length, 27);
   assert.equal(new Set(plan.map(j => j.json)).size, 30, 'every clip has its own file');
+});
+
+test('pregen:demo shares its Gemini calls across the routed models by daily quota, and refuses a plan that can\'t fit a day', () => {
+  const thirty = Array.from({ length: 30 }, () => ({}));
+  const count = models => Object.fromEntries([...new Set(models)].map(m => [m, models.filter(x => x === m).length]));
+  // the defaults: narration and chat on Flash-Lite (250 clips a day), cards on Flash (10)
+  const byDefault = count(assignModels(thirty, {}));
+  assert.deepEqual(Object.keys(byDefault).sort(), ['gemini-3-flash-preview', 'gemini-3.5-flash-lite']);
+  assert.ok(byDefault['gemini-3-flash-preview'] >= 1 && byDefault['gemini-3-flash-preview'] <= 2, 'Flash takes its share, in proportion');
+  // three Flash models at 20 requests a day each: 10 clips apiece covers exactly 30
+  const flash = { GEMINI_MODEL_NARRATION: 'f1', GEMINI_MODEL_CHAT: 'f2', GEMINI_MODEL_CARDS: 'f3' };
+  assert.deepEqual(count(assignModels(thirty, flash)), { f1: 10, f2: 10, f3: 10 });
+  // one Flash model can't: stopped before any call
+  assert.throws(() => assignModels(thirty, { GEMINI_MODEL: 'gemini-3-flash-preview' }), /30 clips need up to 60 Gemini calls/);
 });
 
 // Last: a daily-quota 429 pauses that model for this process (narration's gemini()), which would skip it in any test after.

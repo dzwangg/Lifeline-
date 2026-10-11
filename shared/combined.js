@@ -128,7 +128,9 @@ export function runModels(cards, params, zones, assumptions, baselines, { years 
         priceToIncome: round2(L.homeValue / (TOWN.medianHouseholdIncome * L.incomeIndex)),
         // what a household lives on and what the Town takes, the two the health score reads as income and tax
         realIncome: Math.round(h.medianIncome / L.priceIndex),
-        taxBurden: round4(L.homeValue * L.taxRate / 1e4 / h.medianIncome),
+        // the whole bill a homeowner gets, not just the Town's third of it: the published US range this is scored
+        // against is for the combined bill, and the player's rate change has to be read against the same total
+        taxBurden: round4(L.homeValue * (L.taxRate + assumptions.lutiOtherPropertyTaxCents.value) / 1e4 / h.medianOwnerIncome),
         affordableHomes: Math.round(L.affordableHomes), carShare: round4(L.carShare), jobAccess: round4(L.accessIndex), commuteCO2: Math.round(L.commuteCO2),
       },
     };

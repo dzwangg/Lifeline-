@@ -92,11 +92,12 @@ test('building homes lifts the economy; releasing the edge of town trades the wo
 test('a tax cut costs the Town and eases the bill; a tax rise does the reverse', () => {
   const cut = compareRuns(run(['property-tax-adjustment'], { 'property-tax-adjustment': { cents_per_100: -4 } }).timeline, none.timeline);
   assert.ok(cut.indicators.netFiscal < -5, `the Town's money takes the hit: ${cut.indicators.netFiscal}`);
-  assert.ok(cut.indicators.taxBurden > 2, `households pay a smaller share: ${cut.indicators.taxBurden}`);
+  // a few points at most: the Town sets 50 of the 132.84 cents on a bill, and the anchors span the whole US spread
+  assert.ok(cut.indicators.taxBurden > 0.3, `households pay a smaller share of their income: ${cut.indicators.taxBurden}`);
   assert.ok(cut.economic < 0, 'so the economy half falls');
 
   const rise = compareRuns(run(['property-tax-adjustment'], { 'property-tax-adjustment': { cents_per_100: 4 } }).timeline, none.timeline);
-  assert.ok(rise.indicators.netFiscal > 5 && rise.indicators.taxBurden < -2, 'and a rise is the mirror of it');
+  assert.ok(rise.indicators.netFiscal > 5 && rise.indicators.taxBurden < -0.3, 'and a rise is the mirror of it');
 });
 
 test('buses and bike lanes move getting around, and the money to pay for them shows up', () => {
@@ -113,10 +114,11 @@ test('year 0 is not scored: nothing has grown yet and both runs are the same tow
 });
 
 test('a growth anchor is a decade\u2019s worth, compounded to the year being scored', () => {
-  const jobs = SCORED.find(i => i.key === 'jobs');
-  assert.ok(Math.abs(anchorsAt(jobs, 10).target - 1.15) < 1e-9, 'at ten years it is the anchor as written');
-  assert.ok(Math.abs(anchorsAt(jobs, 5).target - 1.15 ** 0.5) < 1e-9, 'at five, half of it compounded');
-  assert.equal(anchorsAt(SCORED.find(i => i.key === 'rentBurden'), 5).target, 0.35, 'a level anchor does not move');
+  const jobs = SCORED.find(i => i.key === 'jobs'), full = jobs.score.target;
+  assert.ok(Math.abs(anchorsAt(jobs, 10).target - full) < 1e-9, 'at ten years it is the anchor as written');
+  assert.ok(Math.abs(anchorsAt(jobs, 5).target - full ** 0.5) < 1e-9, 'at five, half of it compounded');
+  const rent = SCORED.find(i => i.key === 'rentBurden');
+  assert.equal(anchorsAt(rent, 5).target, rent.score.target, 'a level anchor does not move');
   // without compounding, the baseline would climb year on year just because time passed
   const early = scoreRun(none.timeline, 2).overall, late = scoreRun(none.timeline, 10).overall;
   assert.ok(Math.abs(late - early) < 8, `the no-policy town scores about the same all through: ${early} then ${late}`);

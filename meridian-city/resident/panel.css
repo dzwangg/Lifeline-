@@ -1,6 +1,6 @@
 /* Meet the residents (panel.js): the city's aero-pixel glass (world/retro-ui.css tokens), one window over the map.
    The residents are glossy bubbles ringed in their map dot's colour; talking to one is aero speech bubbles. */
-.mr-launch { position: fixed; left: 16px; top: calc(68px + env(safe-area-inset-top, 0px)); z-index: 40; padding: 7px 14px !important; font-size: 14px !important; cursor: pointer; }
+.mr-launch { position: fixed; left: 16px; top: calc(80px + env(safe-area-inset-top, 0px)); z-index: 40; padding: 7px 14px !important; font-size: 14px !important; cursor: pointer; }
 .mr-launch:focus-visible { outline: 3px solid var(--ae-gold); outline-offset: 3px; }
 body.city-loading .mr-launch { visibility: hidden; }
 

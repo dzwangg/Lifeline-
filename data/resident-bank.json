@@ -1,80 +1,308 @@
 {
   "merchants": {
-    "commute": "6be9e822-c28e-4a45-93c1-15b5cef8de0e",
-    "basket": "1967b249-7b08-41f2-b33f-28a702a4c33c"
+    "commute": "4a7fb379-86ba-4cff-b6d4-6f6702ef1d9e",
+    "basket": "ce2908f3-1b55-41f8-b01f-3a33178328a0"
   },
   "residents": {
     "uma": {
-      "customer": "fc0b615d-b8fc-4861-b400-a2f4ba9ca69e",
-      "checking": "a6325955-f81b-4bce-a3d5-187471850220",
-      "savings": "322f2dca-5243-4ae5-aa27-5e295d00dc40",
-      "loan": "b166a889-60de-4ff3-a157-4a2396cef6ec"
+      "customer": "c02f5919-ea74-4c6a-8c60-3297a660eff2",
+      "checking": "4b56bf81-5d71-498f-8b86-1da55d1a8524",
+      "loan": "fc442146-b492-4c85-a926-34a9a0610558",
+      "savings": "b14625b0-b122-406e-b931-665b290f598f"
     },
     "keisha": {
-      "customer": "3ce17333-fcce-4f9f-bacf-a9b6ff0c93fb",
-      "checking": "fa2f1a21-d3d7-4462-a970-6064ab488703",
-      "savings": "be20205f-0590-4867-ac17-51348de9e723",
-      "loan": "e98e7055-5f4f-46c7-bbca-99aac527f6fb"
-    },
-    "hao": {
-      "customer": "4c7e9ff4-022f-423c-a911-256b0ff4b63b",
-      "checking": "27cfeda7-211b-4316-a016-d5756ee9c329",
-      "savings": "fc826d68-e0c3-46d7-a9ae-784ebfe003f2",
-      "loan": "2d856d0a-846c-4067-a8e1-70f4754e4811"
-    },
-    "quinn": {
-      "customer": "cf75af6d-2049-4be1-b2d2-c9cece67a3fb",
-      "checking": "d42c8752-7e73-4908-a033-ce366d6bacee",
-      "savings": "26a19af0-3caa-421c-b76d-f8688574fa5a",
-      "loan": "3134253e-b854-4837-99d1-94186bbf822b"
-    },
-    "diego": {
-      "customer": "1d8a767c-f5a5-444d-9ff7-477d9a116c3d",
-      "checking": "383afab6-dd63-4959-9f82-ff9b5cbc458f",
-      "savings": "68b32402-a258-4155-b93f-040a19dd80fe",
-      "loan": "aa04f8e1-19c9-402d-951f-ea41bfc19eb7"
-    },
-    "femi": {
-      "customer": "bf6743c0-4f4d-4d81-abe3-3b3d944d6f02",
-      "checking": "ff0dcdf3-8312-4cd6-96ba-aa4983b8bb9b",
-      "savings": "22162479-86c2-4b28-880a-932a6078f491",
-      "loan": "33797ee6-a9f1-4d15-994c-46f089724289"
-    },
-    "victor": {
-      "customer": "0a2146f7-d505-47ac-8178-9dddb5c59036",
-      "checking": "b5fb0c85-21be-471e-8f09-63d58635a51c",
-      "savings": "432e25ce-69c7-48c5-a75b-8867d45eb307",
-      "loan": "bac1ebbe-1633-4fba-b1d5-03385c5b4952"
-    },
-    "jamal": {
-      "customer": "a7c59ed0-dae9-4579-b370-5be2a82f6960",
-      "checking": "a8ad1318-3342-4559-b414-7a614d7df43a",
-      "savings": "8e863729-bf39-412e-9d6e-6e00dc3ef0a9",
-      "loan": "9a0cc304-ed6f-4296-b164-c4abce6caf68"
-    },
-    "bryce": {
-      "customer": "cb6a4714-2c77-4188-9d59-4e36be9aa696",
-      "checking": "efaddc8b-0022-4ab2-a7c8-d2c5ac11aec7",
-      "savings": "cd9364e3-10dc-467f-b030-4fdb35ea93a9",
-      "loan": "3347e9c1-ffda-4b86-8432-c9966895ede4"
-    },
-    "lena": {
-      "customer": "cdf0f7ae-2019-4863-b77b-958b20c13d11",
-      "checking": "39960b6c-aa01-420d-b257-5821a85965a3",
-      "savings": "0e4681ef-b1e5-45be-9674-24b0eeb5ba20",
-      "loan": "adb09b58-c04c-438a-abf1-f3c258af2462"
-    },
-    "maya": {
-      "customer": "2f515fcb-9eef-4ba1-a36d-d2f06aa26e76",
-      "checking": "1c242209-6998-41aa-b658-d0df49f142f1",
-      "savings": "5abf1765-9d46-4148-b941-f56a4c6801c4",
-      "loan": "e2e235be-533b-471f-aebc-96c6dbd11950"
+      "customer": "18c8b890-4fc9-4f02-90b3-71fb46f729b9",
+      "loan": "3b9da63e-f6a5-490d-8a7b-26007fbb8bcf",
+      "savings": "2258408b-a741-454c-908f-10b90f00cf5b",
+      "checking": "3b477ec2-3006-4f55-a9fd-ccf63adc7b28"
     },
     "ben": {
-      "customer": "77cba63e-079a-42c8-a322-9e39d390f2dd",
-      "checking": "5c41b941-d9b1-4cec-91fa-36f3f1fa5434",
-      "savings": "3ba6b632-c7c4-4243-824f-c8f2da0469b3",
-      "loan": "95b3d7ee-6d62-420a-8fc8-e56478f13e45"
+      "customer": "060011ce-2abb-4d09-928f-9e1a0cd91c79",
+      "savings": "18c84695-020d-4e24-95fe-960eaa7280db",
+      "loan": "2aa780dc-626a-4d03-b4c6-04633bcb0de5",
+      "checking": "73f59187-2f7f-481a-9573-6038536e6c3f"
+    },
+    "hao": {
+      "customer": "41096249-6c95-4a77-93d5-8c005abe04d9",
+      "checking": "538c9d14-1f7c-4ee2-a8b1-440eeea57df9",
+      "savings": "1fc60636-225b-4d9d-b829-2303fb4903ba",
+      "loan": "434e60c5-53db-4e83-8452-0817885740da"
+    },
+    "quinn": {
+      "customer": "512423e7-379a-4966-bf0f-04aec7f513fc",
+      "loan": "3e1e8216-a566-4779-812e-65ba132562ac",
+      "checking": "03561c12-bd3a-4ee0-9237-009e046f5214",
+      "savings": "8c9dbbd8-965d-47e7-b7e4-666497e473f3"
+    },
+    "diego": {
+      "customer": "6096e2ce-c874-4513-9158-aae3e042fff3",
+      "savings": "3ed465b8-97ff-4d0a-b0fb-904936d5dedd",
+      "loan": "5dd640d0-31ff-4aab-b0ef-77b5558a15e1",
+      "checking": "b19e4ce1-273e-43ce-b04f-df6a30d86eaf"
+    },
+    "femi": {
+      "customer": "52b30cb3-6fe5-4ea2-a188-840633e7578d",
+      "loan": "fcbb2bd7-0566-46d1-8811-136b34973d7f",
+      "checking": "c6cb57d1-6ecf-4391-bc2d-e1701fe497fa",
+      "savings": "042fedb8-246c-441c-b11b-693f8286dc39"
+    },
+    "victor": {
+      "customer": "d56cca31-7ff3-42ff-b343-88d98c632113",
+      "checking": "509fccad-ffcd-4829-9a34-d0a5a2439fd1",
+      "loan": "d9e77fc3-50d6-458c-a708-b352729e0db8",
+      "savings": "f5e6f87f-5727-4a39-8e39-ac213fc30c3d"
+    },
+    "jamal": {
+      "customer": "e2b27074-4a2b-485c-9fb3-371bfdf836d0",
+      "checking": "f4edfb49-4724-4b94-93fa-a7175c7489b9",
+      "loan": "71332ac6-09e6-4162-bc4d-898044a32061",
+      "savings": "ddd0e1f3-7e9e-46b4-b727-a9f26dea5858"
+    },
+    "bryce": {
+      "customer": "710a3861-2898-47a5-8a80-7d6c7a26b10d",
+      "loan": "35d95ffa-fe6f-475e-a2ae-a8a4c0b4d082",
+      "checking": "48481713-0328-4123-a7b8-8eafc26d404d",
+      "savings": "671b37c6-366c-405f-8f3e-20a091124508"
+    },
+    "lena": {
+      "customer": "c20b3355-7d1b-4941-a5de-02e586aa8be4",
+      "savings": "5e17b11c-a354-4d12-99d0-32764faa71f7",
+      "checking": "b01a29d1-4df8-4555-ba7c-0fdb365038a4",
+      "loan": "7e15aaa4-c960-4cef-8740-c4a283afd30d"
+    },
+    "maya": {
+      "customer": "be63263c-5d6e-4544-b632-eec5efc0389e",
+      "checking": "803c87a5-a8fd-44f8-b1ad-a5210c078f59",
+      "savings": "77310b89-8b5d-426b-b0fe-2cc2a3dde06a",
+      "loan": "aa0e0dde-134a-4daa-ab3c-5d5ea7086fd9"
+    },
+    "aditi": {
+      "customer": "8138633c-763c-49ed-8b2d-cc01af7c1c42",
+      "checking": "a45f7be3-d9c2-4f53-83f6-316dd8098c61",
+      "loan": "a4939e0e-c362-41be-81e8-31c9f06864b4",
+      "savings": "937d53bd-6f5b-4159-948f-168e9d8a073f"
+    },
+    "pablo": {
+      "customer": "9d1f25e9-71b4-4a97-8d31-edb1976ed202",
+      "loan": "b7ab707f-5ab7-483d-a262-e3e2618467e3",
+      "checking": "517dd4e1-6a79-4096-9701-e46f884b6424",
+      "savings": "19b15d85-f24b-4324-9cb1-e69c2641e00c"
+    },
+    "rhea": {
+      "customer": "1680cdac-273a-4f71-b59a-d20b834f7853",
+      "checking": "6212b130-5ca1-465e-b88e-b71a8b913fde",
+      "loan": "b4f0304b-692e-4b7d-852e-4fbb91abeacd",
+      "savings": "53a889e4-093a-4acf-bce5-8eec25608bdf"
+    },
+    "sam": {
+      "customer": "cd304e27-30c8-46c9-b005-ed7da059904f",
+      "loan": "cd594b18-00dc-43dc-8435-0f156f842380",
+      "checking": "680b756c-9856-41f3-ade1-e3ef36c89393",
+      "savings": "b7021ab8-67f7-4d17-9689-51494408c1e1"
+    },
+    "nia": {
+      "customer": "a071ad3f-ab7d-4330-8d5d-53b63537a8ab",
+      "savings": "b8e9451c-e34b-4a59-ab4d-a671b431a9e9",
+      "loan": "a81b652d-01f2-449e-9a02-07ef9c866048",
+      "checking": "511171b4-1508-408d-ad40-e71e3cf2656c"
+    },
+    "tara": {
+      "customer": "dee239ba-a851-42f6-90bd-375ee72a9fe2",
+      "checking": "9943897f-abbd-4cab-b5cc-aef4a779d3e0",
+      "loan": "1d4792a0-3256-4eea-89a5-30cb22d1bc72",
+      "savings": "1f23e8e7-9a93-4367-8f01-a8b0661ae5fa"
+    },
+    "hugo": {
+      "customer": "f0b5e873-a7f9-4d7d-8c01-21698cf7404d",
+      "checking": "0028e616-9b1d-4230-9435-6bdacb55b9a4",
+      "loan": "efc3e001-b367-4841-8c49-9a29e2d0bcd1",
+      "savings": "d7e1dd76-c999-4177-902f-331538f76709"
+    },
+    "vik": {
+      "customer": "b5e56b84-2fda-46c2-8382-3ff686c5ab66",
+      "checking": "6ee6ec52-ab38-4b51-baaf-1aa27fb8b1a5",
+      "loan": "1b02c594-b36a-441f-97c5-5e3b4d5b5212",
+      "savings": "dae31710-e81c-4b3b-a053-ce4db037486d"
+    },
+    "xavier": {
+      "customer": "97a73a36-48ce-441e-9cac-a8fce8c267f1",
+      "checking": "70e729b7-1ff7-49ec-9885-50ca31b1099a",
+      "loan": "5f0afb4c-cd3f-40cb-acfb-121855dae3a7",
+      "savings": "65b080ac-c8e3-4d95-a869-baea2e8d4e0d"
+    },
+    "kai": {
+      "customer": "6ee79236-974e-4403-ba41-53e34e8a66f8",
+      "checking": "243711cd-d736-4ffc-a119-601151b24583",
+      "savings": "24690099-7bbe-4c08-8b8d-4251372ffe6c",
+      "loan": "044c0a06-33b2-478f-b6a5-beb1516526dc"
+    },
+    "mateo": {
+      "customer": "5aa0e4fe-6d3c-4a72-9ba7-1fef2eba83ff",
+      "checking": "ac5fdb28-83ef-4fb5-8f81-c4204459ffd4",
+      "savings": "85037dbf-31e7-4c8f-a9dc-a451cad27489",
+      "loan": "79878a52-bf97-494d-bd0c-da8ca70896b8"
+    },
+    "soren": {
+      "customer": "e9fa364c-8eec-4f51-80dd-2412f4b273c4",
+      "loan": "4bed6d88-7aaa-4957-b2d5-fa6af9ca6124",
+      "savings": "76b0fcea-2d46-49db-8e56-d668ae655201",
+      "checking": "741665cb-5523-4537-b908-7441ddac3910"
+    },
+    "carmen": {
+      "customer": "f75cc7e5-47df-4468-89dd-e92204b69e58",
+      "savings": "dcd851e6-3d35-412d-b08f-805b9f1cc0b0",
+      "checking": "4d9c9dbc-8418-40c2-8b03-eea6ab7abac4",
+      "loan": "cce44d1b-bd60-4fcb-8599-c4198c811f08"
+    },
+    "isla": {
+      "customer": "8a2c3329-d93e-4915-87fb-801e286a26cb",
+      "loan": "81dff2e7-5123-4f20-ad1f-b8710f087a24",
+      "savings": "00cbb220-1bdb-4ea1-a632-3ea7a613fd2d",
+      "checking": "89d7a172-4ed8-4e42-b4e5-7d9f4c8bcf86"
+    },
+    "ava": {
+      "customer": "8b4119fa-1cfd-4e9f-bc89-1ec0e30a3a17",
+      "checking": "0e88cf5c-f72d-4c00-9cc7-ad5c630423ff",
+      "loan": "e22e1d1f-439f-4d85-a9d6-4a54bc4f7113",
+      "savings": "6e0092dc-a24c-4371-afe4-1e8b34c14cbe"
+    },
+    "gia": {
+      "customer": "e58a2283-0fe4-4873-a2e0-95de7c88deee",
+      "savings": "684de41d-f6e2-403e-9aa9-023035f2c5d6",
+      "checking": "db653544-c18d-4d5f-98fc-6dde9d7ea00d",
+      "loan": "74e8ff8a-5711-425e-a834-7359f4627eba"
+    },
+    "chloe": {
+      "customer": "4191a6e5-7908-409c-98e1-2180a2c63941",
+      "loan": "adf754c2-f618-4223-85a0-88a7876c5719",
+      "checking": "649f388c-a8cd-4aec-bb7f-b78be6291576",
+      "savings": "2989c536-cc3d-4450-8469-2a767f4a14ec"
+    },
+    "olu": {
+      "customer": "83303bb9-1bf2-42f4-83f8-29e744296130",
+      "loan": "942a7a2d-f85b-4e18-b9dd-cdccf9243b93",
+      "checking": "c359a4c3-ae9f-4172-94cc-c061d1a9985e",
+      "savings": "7e1ac2ac-bf99-44d2-ae43-f0d13c46e19d"
+    },
+    "grace": {
+      "customer": "cc106f9e-c15b-4d24-8bb7-b0890ff81bd5",
+      "loan": "acbc283e-7e24-4741-8d5d-3a5f7f5eb3df",
+      "savings": "984e0041-73fc-4b1e-8593-b842740d51ef",
+      "checking": "c1c8fd01-f6d9-42e4-8a6f-f816a396434e"
+    },
+    "dev": {
+      "customer": "344f9208-a308-43a4-ae22-e78737c7c3c2",
+      "savings": "24e44fee-7c20-4715-804a-cd0ff8815d3a",
+      "checking": "e173822e-b630-4820-8d4c-29f1306310c2",
+      "loan": "aa9fbf98-ddd8-4903-ada8-f981ba7c6885"
+    },
+    "noah": {
+      "customer": "517d5904-d710-4cb6-ad70-aa757f6e226c",
+      "checking": "6d55d9f8-dea0-4063-a1b2-da7f754a5819",
+      "savings": "b8db904b-d933-4711-bb58-9260d3177eb3",
+      "loan": "30b9b6a4-6c50-4af4-8a1a-f156c10889cb"
+    },
+    "yara": {
+      "customer": "005ba921-6fe9-4e1a-9931-a90142268134",
+      "savings": "ba422d23-28d4-41c9-b9e9-70faa91a0e02",
+      "checking": "d1e55f7a-2005-45c1-9fea-269e94be29e1",
+      "loan": "64882ac5-c439-4c3b-aa08-bd7f34b6ac1f"
+    },
+    "yusuf": {
+      "customer": "039c771f-f826-420c-8524-b1e743fa4929",
+      "savings": "c945cea2-7384-4ad6-90f0-67b25b764f1d",
+      "loan": "a555f37f-4325-40a0-a2b2-f763c0dccb35",
+      "checking": "9eb5a5fe-6888-44db-8386-f709ff222962"
+    },
+    "ines": {
+      "customer": "205359ce-b5d7-45a5-a79f-80d8a6afa123",
+      "checking": "8589df78-42d4-4870-8d0b-2f34687b6469",
+      "savings": "cc89c0cb-388c-46bf-8f92-0e7e453d9593",
+      "loan": "38763376-b35c-48b8-96b5-47b3fdaa8df2"
+    },
+    "felix": {
+      "customer": "7daa5d6a-b851-48d3-80fa-e7d8e0f56283",
+      "checking": "ab997a1e-6b23-45ce-bcf6-3350e1eccf70",
+      "savings": "a89ce38c-5117-4984-af63-d086d6f8ab62",
+      "loan": "a7808e9d-b442-46f2-ac54-d80c32d559c1"
+    },
+    "omar": {
+      "customer": "2e8f4aed-e281-445d-b8ed-87299740dab6",
+      "savings": "56858e95-8bae-4895-99ec-4ebda2191d25",
+      "checking": "0e5faef3-2b54-4b86-987b-b8140348bb13",
+      "loan": "192a21b4-5a49-414c-befa-50323b4b855e"
+    },
+    "ulla": {
+      "customer": "8b2c92c6-e0bf-4aaa-b4b1-ee008d1e4e19",
+      "savings": "bba03950-b1e9-4f1c-8ccd-7f6914aa3019",
+      "loan": "eddd0706-8d6e-4584-a6ca-eb4a5221decc",
+      "checking": "6cdb2912-d4a0-45b1-bd22-809dce31eb4f"
+    },
+    "elena": {
+      "customer": "3ce75217-2b0a-465a-960a-132dc88ef391",
+      "savings": "0f9151d3-388e-40c2-a4bc-792d9dbe02e8",
+      "checking": "a7ff7951-5afc-49a6-937b-94e1ea5a94b1",
+      "loan": "87e26413-540d-45ad-851c-420d3328209c"
+    },
+    "zara": {
+      "customer": "cb2573c8-faf5-41e0-bc3b-b6b88d13e212",
+      "savings": "52132fc0-714a-4d3b-895b-0e9d73aacc5b",
+      "checking": "54bf37da-2f76-4182-bd83-7218d82821af",
+      "loan": "b7e9baf1-344d-41b7-9e60-c201564d634e"
+    },
+    "tess": {
+      "customer": "35d31c75-42af-4cfa-a89a-2b6e43e0572c",
+      "loan": "d132ae90-d193-45a2-8dfc-228fcf303a6f",
+      "checking": "102eaef9-38c8-48ca-9824-e86b24842ecb",
+      "savings": "eacffd9f-7b47-4456-bab2-b94e007da14f"
+    },
+    "will": {
+      "customer": "d9816140-5871-47e2-9508-cc3c831cad9a",
+      "checking": "fed0054a-f2ca-46e7-ace0-1b7430850618",
+      "loan": "eb3170a8-9cf6-4413-add2-621018e80499",
+      "savings": "0592659d-6652-4be0-9bde-9f0336883264"
+    },
+    "zoe": {
+      "customer": "e1b67f17-288e-4282-9d5c-697f7d13ee06",
+      "loan": "7c6f2837-8c39-42e0-973a-5531bfc23fbb",
+      "savings": "eba0ad88-e5a5-497a-a9a0-9fb48795786c",
+      "checking": "73000898-dcef-4b76-9db2-4ec3eda8bfeb"
+    },
+    "jonah": {
+      "customer": "04e23602-8747-4dc0-88ab-9487b4c2b40b",
+      "loan": "4f59bc5c-6a2f-4e29-9664-04d7ebbeedfa",
+      "checking": "7c2c9b1f-df68-4238-8920-87f6a9f5c483",
+      "savings": "2af72c91-3614-4145-8fbc-9794ffe70b41"
+    },
+    "wren": {
+      "customer": "7696498c-0cdc-4d1a-ab09-51ef4a049fe6",
+      "checking": "3ed5bd3a-290b-4762-8248-2619f638461c",
+      "savings": "b1ed297e-edc4-417f-9d43-d7b393c25beb",
+      "loan": "26e09da5-5c70-4608-9283-471a5f4f05b0"
+    },
+    "ximena": {
+      "customer": "adc380dd-e100-4c99-905b-a437b76b9aa3",
+      "savings": "6f2c8ace-60b2-4582-96d0-9ea48f84ccfb",
+      "checking": "58a42b24-d6bf-4911-84e5-9f554544388d",
+      "loan": "68e2e211-9ebc-42da-9509-01a92dcd33ad"
+    },
+    "jamal-v": {
+      "customer": "e9b59d3f-05a6-4134-bf3f-6e8d3a5dca06",
+      "savings": "1220641e-6869-4605-842b-bf84e9abd275",
+      "checking": "bf94682a-3559-4d7a-9ded-7f7a0f87aefd",
+      "loan": "d92ffaf2-f320-4fed-a6bc-4009ac82bab1"
+    },
+    "chloe-d": {
+      "customer": "d21735a0-12eb-4249-a652-3a3438d6034c",
+      "savings": "5ee6efbe-6f6c-4b04-ac0a-4ebca19093df",
+      "loan": "ac40fbd5-d7e1-49c0-9e7f-98b4d2d96b23",
+      "checking": "5aa25876-6f1c-4e1c-823c-984302e67f45"
+    },
+    "yusuf-d": {
+      "customer": "da56e526-687b-4a7e-a137-02c52d5b6741",
+      "checking": "7c9f2c8a-8ad9-4641-999b-13f5b47b1d5e",
+      "loan": "daf4b637-0c2b-4cd7-9f21-94cec73e151d",
+      "savings": "42aef57e-22a8-4fd9-92b4-1532f24b3c46"
     }
   }
 }

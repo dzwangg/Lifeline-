@@ -1,0 +1,40 @@
+# Publishes the static site to GitHub Pages on every push to main.
+# One-time setup: Settings → Pages → Build and deployment → Source: GitHub Actions.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble site
+        run: |
+          mkdir -p _site/tests
+          # The page imports shared/ and fetches data/ and tests/fixtures/ (the stub card, the sample result) by
+          # relative path from meridian-city/, so they ship alongside it.
+          cp -r meridian-city shared data index.html _site/
+          cp -r tests/fixtures _site/tests/
+          rm -f _site/meridian-city/fetch_osm.py
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -15,20 +15,41 @@ or each other.
 | --- | --- |
 | `palette.js` | Every colour, wall and roof material, building family, zoom level, light and level-of-detail threshold. Re-skinning starts here. |
 | `view.js` | The camera, controls and pixel pipeline (below). |
-| `buildings.js` | Turns each footprint into a styled building: family, walls, roof, doors, awnings, balconies, landmarks. Variation is chosen by a hash of the footprint position, so it is stable across loads. |
+| `buildings.js` | Turns each footprint into a styled building: family, walls, roof, doors, awnings, balconies, landmarks. Variation is chosen by a hash of the footprint position, so it is stable across loads. `buildings.style(spec, wallBatch, detailBatch)` styles planned buildings with the same code (see [Planned development](#planned-development)). |
 | `streets.js`, `roadnet.js` | Road surfaces, sidewalks, markings, crossings, parking, and the lane and walkway graphs. |
 | `land.js` | Parks, woods, water, and rule-based planting that checks the occupancy grid. |
 | `traffic.js`, `street-sim.js`, `people-art.js` | Cars and walkers on the street graph, with signals. The people atlas is baked into `world/baked/` (`npm run bake` after changing `people-art.js` or the palette; a test fails while it is stale). |
 | `sprites.js`, `sprite-art.js` | Instanced billboard sprites and the hand-painted sprite atlas. |
 | `textures.js` | Pixel textures, tile atlases and the building detail atlas. |
 | `select.js` | Click a building to outline it and open its info card. |
-| `aero.js` | Hills, wind turbines and the drifting bubble overlay. |
+| `outskirts.js` | Everything past the map: the parkway and the ends of clipped streets, terrain and haze, woods, clean-energy sites, hamlets, transit stops, footbridges and wind turbines (see [The outskirts](#the-outskirts)). |
+| `aero.js` | The drifting bubble overlay. |
 | `geometry.js` | Batched meshes, ring helpers (`inside`, `bounds`, `inset`, …) and the occupancy `Grid`. |
 
-**Pixel pipeline.** The scene renders into an offscreen target at `1 / PIXEL_SCALE` of the screen resolution
-(`PIXEL_SCALE = 2`). A full-screen pass then draws a dark outline wherever depth jumps, applies a colour grade, haze and
-sun glow, and scales up with nearest-neighbour sampling. The render camera snaps to whole render pixels, and the
-leftover fraction is added back in the upscale, so panning is smooth and textures don't shimmer.
+**Pixel pipeline.** The scene renders into an offscreen target, then a full-screen pass draws a dark outline wherever
+depth jumps, applies a colour grade, haze and sun glow, and scales up with nearest-neighbour sampling. The render camera
+snaps to whole render pixels, and the leftover fraction is added back in the upscale, so panning is smooth and textures
+don't shimmer. The target's grain follows the zoom (`view.grain`, canvas pixels per render pixel). From `ppm = 5` in,
+one render pixel is `PIXEL_SCALE = 2` CSS pixels, the chunky pixel-art look. Further out, texture pixels are smaller
+than that grain, so the target steps up by whole canvas pixels until it matches the canvas. Distant buildings, roads and
+canopies then keep their shape on standard and high-density screens. The canvas follows the device pixel ratio, capped by
+`RENDER` in `palette.js` (ratio 2 and about 5.3 million pixels), and resizes with its container. Ink outlines reach about
+one CSS pixel at any grain. Screen haze and sun glow ease down to `AERO.farAtmosphere` of their strength when zoomed out.
+The shadow map is redrawn every frame only close in (`RENDER.shadowLivePpm`); further out it is redrawn when the view moves,
+and otherwise a few times a second.
+
+**Textures.** Magnified, texture pixels stay crisp (nearest filtering). Minified, they use mipmaps blended between
+levels, plus anisotropic filtering for the slanted ground and roofs, so distant surfaces settle into their average colour
+instead of shimmering. Every atlas pads its regions, so mipmaps can't bleed: wall and roof tiles sit in an 8-pixel
+gutter of their own wrapped pattern, detail regions in a 3-pixel rim of their edge colour, and sprites 5 clear pixels
+apart. The tiling material caps its filter footprint at the gutter and blends toward each tile's average beyond it.
+Sprites lift their cut-out alpha with the mip level, so small trees keep their silhouettes.
+
+**Batching.** After the build, `mergeStatic` (in `geometry.js`) merges small static meshes that share a material,
+render state and 700 m square, which saves about 590 draw calls of outskirts scenery. It skips anything instanced,
+pickable, moved by the frame loop, or switched by level of detail. Landmark art (Old Well, Bell Tower, domes) has its own
+batch, so it stays visible after the far-zoom detail cut. Walkers draw as their smallest directional sprite down to
+1.2 px/m and cars as their models down to 0.3 px/m.
 
 **Camera.** An orthographic camera at a fixed 35° elevation, looking at `view.target` from one of four 90° azimuths
 (Q/E or the toolbar). Zoom moves between the fixed levels in `ZOOMS` (rendered pixels per metre), so texture pixels stay
@@ -72,7 +93,8 @@ const world = await buildWorld({ container, osm: window.CHAPEL_HILL, names: wind
 | `sprites`, `art` | The sprite system and its atlas (see [Adding sprites](#adding-sprites)). |
 | `lod(object, { minZoom, maxZoom })` | Shows `object` only between two zoom levels, in pixels per metre. |
 | `zoneParts` | The art the sim's zone layer draws with. |
-| `stats` | `{ buildings, tallest, trees }`, plus `vehicles`, `people` and `signals` once street life is built. |
+| `stats` | `{ buildings, tallest, trees, outskirts }`, plus `vehicles`, `people` and `signals` once street life is built. `outskirts` counts the scenery past the map. |
+| `outskirts` | The scenery past the map: `plan` (its roads, sites, stops, bridges), `heightAt(x, z)` (ground height in metres) and `turbines`. |
 | `update(dt, simDt)` | Advance and draw one frame. |
 
 ### Scene and camera, compared with the old renderer
@@ -118,12 +140,13 @@ ground (`y = 0`), or `null`. For objects rather than the ground, use
 **Scale.** At zoom level `view.level`, one metre spans `view.ppm` rendered pixels, which is `view.ppm * PIXEL_SCALE`
 CSS pixels across the screen. Ground distances appear shortened vertically by the 35° view. Textures and sprites are
 painted at `TEXEL = 0.2` m per texture pixel, so at `ppm = 5` (the default zoom level, index 5) one texture pixel is one
-rendered pixel.
+rendered pixel. `ppm` keeps that meaning at every grain. The target itself has `view.renderPpm` pixels per metre, which
+is larger when the grain is finer than `PIXEL_SCALE`.
 
 ### Tiles: the occupancy grid
 
 The world has no tile map for gameplay. "Tiles" are the cells of `world.grid`, a 1 m grid covering
-`|x|, |z| ≤ osm.ext + 250`.
+`|x|, |z| ≤ osm.ext + 700`: the map plus the outskirts' parkway belt.
 
 ```js
 const { grid } = world;                               // grid.ext, grid.cell (1), grid.n (cells per side)
@@ -176,6 +199,63 @@ picking (`traffic.js`) gets in first with a capture-phase `pointerup` on `window
 walker card. The household dots (`sim/agent-layer.js`) listen before that and win over both. Do the same for your layer: `addEventListener('pointerup', handler, true)`, and call
 `e.preventDefault()` on a hit. Don't stop propagation: the pan control needs the release, or it keeps dragging.
 
+## The outskirts
+
+`outskirts.js` turns the map's square edge into a finished landscape. None of it touches the mapped city or the
+simulation: it is scenery, and the wind turbines and solar fields are not counted in any metric. It is built in two
+passes inside `buildWorld()`.
+
+**`planOutskirts()`**, after the city's streets, lays out roads and places as data:
+- a **parkway** (a secondary road) loops round the city about 230 m past the map edge. It follows a rounded square
+  (`squareDist`, a superellipse matching the map), with a slow wander, and bends out round any mapped street or building;
+- **clipped streets**, the ones the OSM bake cut off at its bounding box, curve out and join the parkway at proper
+  junctions. Trunk, primary and secondary roads instead carry on across it as **highways**, easing outward through the hills;
+- **clipped footpaths** reach the parkway's sidewalk; up to four cross it on arched **footbridges** to the
+  **greenway**, a cycleway that loops round outside the parkway, easing in and out round anything in its way;
+- an end that can't connect without hitting something gets a **turning circle** (streets) or a paved landing with a
+  bench (paths), so no road ever stops in the grass;
+- **districts** off the parkway (`SITE_PLAN`), each site reached by its own service road:
+  - an energy district: an energy hub (batteries, hydrogen tanks, a domed control hall) and a solar field;
+  - research parks: a **campus** of rounded pearl wings with glass bands and planted roofs, round a courtyard with a
+    glass-domed atrium and a reflecting pool;
+  - village farms: **hamlets** of houses round a cul-de-sac, each with a fountain plaza, next to greenhouse farms.
+
+  Campuses, farms and hamlet plazas each have a walk out to the greenway.
+- **ponds and streams**: up to five ponds in the meadows past the greenway, beside the campuses first. Each is fed by a
+  stream that meanders down from the hills and stops short of any road or site. Park trails loop each pond and follow
+  its stream up to a viewpoint near the spring, crossing the water on small arched **footbridges**, and a trail links
+  each loop to a trailhead on the greenway;
+- **landscaped transit stops** on the parkway near highway and hamlet junctions, with curved translucent canopies.
+
+Its roads, parking lots and houses go through `buildStreets` and `buildBuildings`, a second time, as a separate set.
+They are not in `world.streets`, `world.buildings` or the street sim, so cars and walkers stay in the city, and the
+houses can't be selected.
+
+**`buildOutskirts()`**, after the land cover, builds the rest:
+- **terrain**: one ground mesh out to ±9.8 km, fine near the city and coarser further out. It is flat under the city,
+  the parkway belt, every planned road, every site and pond, and along the stream valleys. Beyond that it rolls, then
+  rises into layered ridges. `world.outskirts.heightAt(x, z)` is the height of the drawn mesh itself, interpolated over
+  its own triangles, and everything stands on it, so nothing floats or sinks where the far cells are coarse. Vertex colours shade the ground from the city's
+  lawn to shaded forest floor and sunlit meadow, and a per-vertex haze fades the far hills toward the sky.
+- **woods**: `forest()` is a smooth noise field, and `woodsThreshold()` decides how wooded each distance out is:
+  a few groves near the city, more past the parkway, a dense tree belt in the first hills, open ridges beyond.
+  There are single tree sprites out to 720 m, `grove` sprites (a stand of trees in one sprite) out to about 3.4 km,
+  and at far and middle zooms a canopy sheet draped over the woods. The sheet's edge is cut by an alpha test, so
+  woods read as solid, outlined masses.
+- **structures** in pearl white and aqua glass, using the city's pixel textures, outline pass and shadows. Discreet
+  blue lighting (unlit `glow` strips, glowing pylon caps and path `bollard` sprites) marks campuses, stops and plazas;
+- **water**: ponds, streams, fountains and pools share one material, whose ripple frames step on `simDt`;
+- **wind turbines** in small clusters on high ground, behind the energy hub and the solar fields and on a few far
+  ridges. Each cluster takes the highest of a scatter of candidate spots at least 170 m apart, so they follow the land
+  rather than standing in rows. They turn on `simDt`, so they stop when the clock is paused and speed up with it, as the
+  water and the swaying foliage do. Below 0.6 px/m they are hidden, since they would draw as ink lines;
+- **tree-lined verges**: a row of trees along each side of the parkway, plus reeds, lily pads, ferns and rocks at the
+  water's edge.
+
+Placement is a function of position (`palette.hash`) and fixed seeds, so the outskirts are the same on every load.
+Inside the grid, planting follows the same occupancy rules as the city's. Beyond it, a road-clearance field keeps it
+off the roads. Sprite layers take a `haze` option (0 to 1) that fades distant layers toward the horizon.
+
 ## The clock
 
 `meridian-city/sim/clock.js` is the single source of simulated time. `sim/scenario.js` creates the shared instance and
@@ -215,16 +295,18 @@ simDt))`. Anything else that should freeze with the sim should use `simDt` the s
 doesn't: it runs on `dt`, so the street's day goes on while a year is paused for inspection.
 
 **The clock bar** (`sim/clock-bar.js`, `mountClockBar()`) is a thin view over this. It subscribes and shows `simDate`,
-the speed and a status line (loading, failed, end of forecast), and faintly beside them the street's time of day once
-street life has loaded (`bar.setHour(traffic.hour)`). Its buttons call `pause()` and
+the speed and a status line (loading, failed, end of forecast, and how many new homes didn't fit), and faintly beside them
+the street's time of day once street life has loaded (`bar.setHour(traffic.hour)`). Its buttons call `pause()` and
 `play(1|2|4)`. Space calls `toggle()`, and 1, 2 and 4 call `play(n)`, except while typing or with a dialog open.
 `sim-plate.js` uses the same clock for its year slider (`seek`), "show before" checkbox (`setBefore`) and metrics
 (the shown year's, compared with the same year with no new policy, `shown.data.run.noPolicy`). The household layer
 (`sim/agent-layer.js`) draws `shown.data.run.households` for the shown year. The zone layer reads `shown`, `frac` and `before` to build
-each conversion over 0.9 of the year it happens in (about 2.7 s at 1x): trees are felled one by one and leave stumps,
-the ground is cleared to soil, scaffolds go up, and the buildings rise inside them. The steps' timing is in the
-constants at the top of `sim/zone-layer.js`. Parcels a forecast converts in a later year get a white outline until their
-year comes; converted ones get the gold one.
+each conversion over 0.9 of the year it happens in (about 2.7 s at 1x), as a planned neighbourhood (see
+[Planned development](#planned-development)): only the trees in footprints, front yards, paths and new streets are felled,
+new streets are graded and then paved out from their junction, front paths and soil pads go down, scaffolds go up, the
+buildings rise one after another, and lawns and planting come last. The steps' timing is in the constants at the top
+of `sim/zone-layer.js`. Parcels a forecast converts in a later year get a white outline until their year comes;
+converted ones get the gold one.
 
 **Guided views** (`sim/focus.js`): `scenario.focus` is `null`, `'road'` (15-501 and its corridor parcels) or
 `'changes'` (the parcels converting next). The camera flies there and back with `view.lookAt`, `zoomTo` and `rotate`.
@@ -242,6 +324,32 @@ Predictions come from `predict(version, step)` in `scenario.js`, which currently
 forecast backend could answer the same call. Add `?latency=ms` to the page URL to simulate a slow backend and watch the
 clock hold.
 
+## Planned development
+
+`meridian-city/growth/` turns the sim's parcel conversions into neighbourhoods that extend the streets around them,
+drawn by the city's own building code. Screenshots are in `docs/neighbourhood-growth/`, and the design is in
+`docs/superpowers/specs/2026-10-10-neighbourhood-growth-design.md`.
+
+| Module | Job |
+| --- | --- |
+| `units.js` | The demand mapping. A parcel asks for `(unitsPerAcre[to] − unitsPerAcre[from]) × acres` homes, as in `shared/sim.js`, rounded to whole homes per site (a wood, or one parking lot) by largest remainder. `summarize()` totals homes requested, placed (occupied), built capacity and unmet. |
+| `catalog.js` | The building types: detached houses and duplexes (`low_res`), townhouse rows and small apartments (`mid_res`), and apartments over shops (`mixed_use`). Each has sizes, floors, homes per building and the gentlest-first mixes the planner tries. |
+| `context.js` | A site's surroundings: the roads, footpaths and junctions near it, the neighbours' house setback, families and materials, and the palette new buildings draw from (three walls and three roofs, weighted toward the street's own materials and the Aero accents). |
+| `site-streets.js` | Local streets for land more than about 35 m from any street. Each leaves a road (never a trunk road) square to the site's grain, at least 25 m from any junction, or branches square off an earlier new street. Parallel streets are at least 56 m apart, and every street ends in a turning circle. A street is built whole the first time a plan uses it. |
+| `plan.js` | `planBlock()` plans the parcels of a site that convert to the same state in the same year. Lots are marched along each street that can serve them, and each footprint is squared to the street at its own lot (so curved roads fan). Buildings sit at the neighbours' setback, or deeper where the parcel starts further back, with a front path from every door. Types densify only as far as the homes need. No two neighbours share a complete design. What doesn't fit is `unmet`, with a `reason`. `clears(plan, x, z)` says which trees fall. |
+| `art.js`, `world-growth.js` | Meshes and orchestration. Buildings come from `buildings.style()`, two merged meshes per block, rising one after another through a per-vertex start time. Lawns, pads, paths and streets use the ground textures; scaffolds and planting are sprites. Plans and meshes are cached per forecast; the shown year's are planned at once, the rest in the background. |
+
+Everything in `growth/` except `art.js` and `world-growth.js` is pure (no THREE, no DOM) and is tested in
+`tests/growth.test.js`. Plans read the base map's occupancy grid and never write to it; their choices are hashes of the
+site, street, side and lot, so a forecast always shows the same layout. The ledger is `city.growth.ledger(states)`, and
+`growthReport` in `sim/scenario.js` carries the shown year's totals. Clicking a new building shows its homes and its
+block's homes requested and placed.
+
+Finished streets and front paths join the walkers' network through `walk.extend(paths, gate)` (`roadnet.js`). Routing
+and wandering skip an edge whose gate is closed, and `sim.addDoors()` makes new homes destinations, so walkers only use a
+street in the years it is built. Cars don't drive new streets. The map has no elevation data, so the planner can't fit
+buildings to slopes; it does keep clear of water, buildings, roads, footpaths, parking lots and protected parcels.
+
 ## What the old renderer had that this doesn't
 
 - **Free 3D camera.** Perspective projection with orbit, tilt down to near street level, and smooth continuous zoom
@@ -253,7 +361,7 @@ clock hold.
   reflections, and normal-mapped water reflecting the sky. Now there is one sun and a sky fill with flat pixel shading,
   a little gloss, stepped water ripples and a final colour grade.
 - **Soft shadows and fog.** Soft-edged shadow filtering and distance fog. Shadows are hard-edged now (intentionally,
-  for pixel art), and distance is suggested by a screen-space haze.
+  for pixel art), and distance is suggested by a screen-space haze, plus the outskirts' per-vertex haze on far hills.
 - **Full-resolution detail.** The old canvas rendered at device resolution with anisotropic filtering. The world draws
   at half resolution, so anything under about 2 screen pixels, such as hairline overlays, thin roads at far zoom or
   small 3D text, disappears or turns blocky.

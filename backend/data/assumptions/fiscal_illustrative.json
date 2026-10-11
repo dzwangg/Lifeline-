@@ -1,0 +1,7 @@
+{
+  "_status": "ILLUSTRATIVE PLACEHOLDERS. Not Chapel Hill data. Audited statements (S42) returned HTTP 403 and the structured Budget_and_Actuals layer (S44) is column-shifted with no fiscal year. Replace these values with audited FY2026 actuals before reading any fiscal level. Policy-minus-baseline deltas do not depend on them except where reserves cap spending.",
+  "sales_tax_distribution": {"value": 15000000, "unit": "$ per FY", "status": "illustrative"},
+  "other_comparable_receipts": {"value": 25000000, "unit": "$ per FY", "status": "illustrative"},
+  "fund_balance_pct_of_expenditure": {"value": 25, "unit": "%", "status": "illustrative"},
+  "baseline_expenditure_rule": {"value": "balanced FY2026 reference: comparable expenditure = comparable receipts", "status": "illustrative"}
+}

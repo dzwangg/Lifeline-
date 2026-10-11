@@ -1,6 +1,7 @@
 // Geometry helpers shared by every layer: merged-mesh batches, footprint rings, and the occupancy grid
 // that keeps decorations off roads, buildings and entrances.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
+import { bounds } from './rings.js';
 
 // A growable merged mesh. Every triangle remembers its owner (a building index, or -1), so one
 // raycast hit on a merged mesh can be traced back to the building it belongs to.
@@ -71,98 +72,8 @@ export class Batches {
   at(key) { const b = this.get(key); b.current = this._owner ?? -1; return b; }
 }
 
-// ---------- rings: flat [x, z, x, z, ...] loops ----------
-// fetch_osm.py winds outer rings so (-dz, dx) points out of every wall, holes the other way.
-export function edges(r, f) {
-  for (let i = 0; i < r.length; i += 2) {
-    const ax = r[i], az = r[i + 1], bx = r[(i + 2) % r.length], bz = r[(i + 3) % r.length];
-    f(ax, az, bx, bz, Math.hypot(bx - ax, bz - az), i / 2);
-  }
-}
-export function inside(r, x, z) {
-  let c = false;
-  for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2)
-    if ((r[i + 1] > z) !== (r[j + 1] > z) && x < (r[j] - r[i]) * (z - r[i + 1]) / (r[j + 1] - r[i + 1]) + r[i]) c = !c;
-  return c;
-}
-export function bounds(r) {
-  let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
-  for (let i = 0; i < r.length; i += 2) { x0 = Math.min(x0, r[i]); x1 = Math.max(x1, r[i]); z0 = Math.min(z0, r[i + 1]); z1 = Math.max(z1, r[i + 1]); }
-  return [x0, z0, x1, z1];
-}
-export const signedArea = r => { let s = 0; edges(r, (ax, az, bx, bz) => { s += ax * bz - bx * az; }); return s / 2; };
-export const area = r => Math.abs(signedArea(r));
-export function centroid(r) {
-  let x = 0, z = 0;
-  for (let i = 0; i < r.length; i += 2) { x += r[i]; z += r[i + 1]; }
-  return [x / (r.length / 2), z / (r.length / 2)];
-}
-
-// Drops near-duplicate and collinear vertices, so roofs and facades get clean corners.
-export function simplify(r, tol = .25) {
-  let out = r.slice();
-  for (let changed = true; changed && out.length > 6;) {
-    changed = false;
-    const n = out.length / 2;
-    for (let i = 0; i < n; i++) {
-      const p = (i + n - 1) % n, q = (i + 1) % n;
-      const ax = out[2 * p], az = out[2 * p + 1], bx = out[2 * i], bz = out[2 * i + 1], cx = out[2 * q], cz = out[2 * q + 1];
-      const l = Math.hypot(cx - ax, cz - az) || 1, d = Math.abs((cx - ax) * (az - bz) - (ax - bx) * (cz - az)) / l;
-      if (d < tol || Math.hypot(bx - ax, bz - az) < tol) { out.splice(2 * i, 2); changed = true; break; }
-    }
-  }
-  return out;
-}
-
-// Offsets a ring inward by d (outward if d < 0) with mitred corners. Returns null when the shape
-// would fold over itself, so callers can fall back to a smaller inset or a flat roof.
-export function inset(r, d) {
-  const n = r.length / 2, lines = [];
-  for (let i = 0; i < n; i++) {
-    const ax = r[2 * i], az = r[2 * i + 1], bx = r[2 * ((i + 1) % n)], bz = r[2 * ((i + 1) % n) + 1];
-    const l = Math.hypot(bx - ax, bz - az);
-    if (l < 1e-6) return null;
-    const nx = (bz - az) / l, nz = -(bx - ax) / l; // inward normal for an outer ring
-    lines.push([ax + nx * d, az + nz * d, (bx - ax) / l, (bz - az) / l]);
-  }
-  const out = [];
-  for (let i = 0; i < n; i++) {
-    const [px, pz, ux, uz] = lines[(i + n - 1) % n], [qx, qz, vx, vz] = lines[i];
-    const den = ux * vz - uz * vx;
-    if (Math.abs(den) < 1e-4) { out.push(qx, qz); continue; } // straight through
-    const t = ((qx - px) * vz - (qz - pz) * vx) / den;
-    out.push(px + ux * t, pz + uz * t);
-  }
-  // Every edge must keep its direction and the ring its winding; a long mitre spike also means collapse.
-  for (let i = 0; i < n; i++) {
-    const j = (i + 1) % n, ex = out[2 * j] - out[2 * i], ez = out[2 * j + 1] - out[2 * i + 1];
-    if (ex * lines[i][2] + ez * lines[i][3] <= .05) return null;
-    if (Math.hypot(out[2 * i] - r[2 * i], out[2 * i + 1] - r[2 * i + 1]) > Math.abs(d) * 4 + .01) return null;
-  }
-  if (Math.sign(signedArea(out)) !== Math.sign(signedArea(r))) return null;
-  return out;
-}
-
-// Minimum-area oriented rectangle: centre, half-sizes and the long-axis direction.
-export function obb(r) {
-  let best = null;
-  edges(r, (ax, az, bx, bz, l) => {
-    if (l < .5) return;
-    const ux = (bx - ax) / l, uz = (bz - az) / l;
-    let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
-    for (let i = 0; i < r.length; i += 2) {
-      const a = r[i] * ux + r[i + 1] * uz, b = -r[i] * uz + r[i + 1] * ux;
-      a0 = Math.min(a0, a); a1 = Math.max(a1, a); b0 = Math.min(b0, b); b1 = Math.max(b1, b);
-    }
-    const A = (a1 - a0) * (b1 - b0);
-    if (!best || A < best.A) best = { A, ux, uz, a0, a1, b0, b1 };
-  });
-  if (!best) return null;
-  let { ux, uz, a0, a1, b0, b1 } = best;
-  if (b1 - b0 > a1 - a0) { [ux, uz] = [-uz, ux]; [a0, a1, b0, b1] = [b0, b1, -a1, -a0]; } // long axis first
-  const ca = (a0 + a1) / 2, cb = (b0 + b1) / 2;
-  return { cx: ca * ux - cb * uz, cz: ca * uz + cb * ux, hl: (a1 - a0) / 2, hw: (b1 - b0) / 2, ux, uz, area: best.A };
-}
+// Ring helpers live in rings.js (no THREE, so node tests can use them); re-exported here for the world's modules.
+export { edges, inside, bounds, signedArea, area, centroid, simplify, inset, obb } from './rings.js';
 
 // Triangulates a polygon with holes (flat [x, z] rings) into [x, z] triples.
 export function triangulate(rings) {
@@ -225,3 +136,55 @@ export class Grid {
 }
 
 export const chunkKey = (x, z, size) => `${Math.floor(x / size)},${Math.floor(z / size)}`;
+
+// Folds small static meshes into one mesh per material, render state and area, so scenery built from many little
+// parts (bridge struts, hub fixtures, parking pads) costs a few draw calls instead of hundreds when zoomed out.
+// Leaves alone: instanced meshes, multi-material meshes, anything under a `keep` object (animated or switched by level
+// of detail), meshes with userData (picking owners, detail flags), and meshes wider than maxRadius metres (already
+// chunked, so culling stays useful). area: the side, in metres, of the squares that bound each merged mesh.
+export function mergeStatic(root, { keep = new Set(), maxRadius = 120, area = 700 } = {}) {
+  root.updateMatrixWorld(true);
+  const buckets = new Map(), pos = new THREE.Vector3(), scale = new THREE.Vector3();
+  root.traverse(o => {
+    if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || Array.isArray(o.material) || !o.visible) return;
+    if (Object.keys(o.userData).length || o.geometry.morphAttributes.position) return; // (geometry groups only matter with a material array)
+    for (let p = o; p; p = p.parent) if (keep.has(p) || (p !== o && !p.visible)) return;
+    const g = o.geometry;
+    if (!g.boundingSphere) g.computeBoundingSphere();
+    o.matrixWorld.decompose(pos, new THREE.Quaternion(), scale);
+    if (g.boundingSphere.radius * Math.max(scale.x, scale.y, scale.z) > maxRadius) return;
+    pos.copy(g.boundingSphere.center).applyMatrix4(o.matrixWorld);
+    const attrs = Object.entries(g.attributes).map(([k, a]) => `${k}${a.itemSize}${a.normalized ? 'n' : ''}`).sort().join(',');
+    const key = [o.material.uuid, attrs, !!g.index, o.castShadow, o.receiveShadow, o.renderOrder, o.layers.mask, o.frustumCulled, chunkKey(pos.x, pos.z, area)].join('|');
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(o);
+  });
+  let merged = 0;
+  for (const list of buckets.values()) {
+    if (list.length < 2) continue;
+    const a = list[0], names = Object.keys(a.geometry.attributes), out = {}, idx = [];
+    for (const n of names) out[n] = [];
+    let base = 0;
+    for (const o of list) {
+      const g = o.geometry.clone().applyMatrix4(o.matrixWorld); // normals follow through the normal matrix
+      for (const n of names) out[n].push(g.attributes[n].array);
+      if (g.index) for (const i of g.index.array) idx.push(i + base);
+      base += g.attributes.position.count;
+    }
+    const geo = new THREE.BufferGeometry();
+    for (const n of names) {
+      const src = a.geometry.attributes[n], arr = new src.array.constructor(out[n].reduce((s, x) => s + x.length, 0));
+      let at = 0; for (const x of out[n]) { arr.set(x, at); at += x.length; }
+      geo.setAttribute(n, new THREE.BufferAttribute(arr, src.itemSize, src.normalized));
+    }
+    if (idx.length) geo.setIndex(idx);
+    geo.computeBoundingSphere();
+    const m = new THREE.Mesh(geo, a.material);
+    Object.assign(m, { castShadow: a.castShadow, receiveShadow: a.receiveShadow, renderOrder: a.renderOrder, frustumCulled: a.frustumCulled, name: `merged ${a.name || a.parent?.name || ''}`.trim() });
+    m.layers.mask = a.layers.mask;
+    for (const o of list) o.removeFromParent();
+    root.add(m);
+    merged += list.length - 1;
+  }
+  return merged; // draw calls saved
+}

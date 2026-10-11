@@ -1,0 +1,290 @@
+{
+  "housing_grants": {
+    "rows": 245,
+    "approved_dollars_total": 30089665.0,
+    "disbursed_dollars_total": 3689799.0,
+    "approved_by_fiscal_year": [
+      {
+        "fy_approved": 2007,
+        "rows": 1,
+        "approved_dollars": 0
+      },
+      {
+        "fy_approved": 2008,
+        "rows": 1,
+        "approved_dollars": 0
+      },
+      {
+        "fy_approved": 2009,
+        "rows": 1,
+        "approved_dollars": 0
+      },
+      {
+        "fy_approved": 2010,
+        "rows": 1,
+        "approved_dollars": 0
+      },
+      {
+        "fy_approved": 2011,
+        "rows": 1,
+        "approved_dollars": 0
+      },
+      {
+        "fy_approved": 2012,
+        "rows": 23,
+        "approved_dollars": 672555
+      },
+      {
+        "fy_approved": 2013,
+        "rows": 13,
+        "approved_dollars": 227491
+      },
+      {
+        "fy_approved": 2014,
+        "rows": 8,
+        "approved_dollars": 287711
+      },
+      {
+        "fy_approved": 2015,
+        "rows": 21,
+        "approved_dollars": 484845
+      },
+      {
+        "fy_approved": 2016,
+        "rows": 23,
+        "approved_dollars": 1137036
+      },
+      {
+        "fy_approved": 2017,
+        "rows": 23,
+        "approved_dollars": 885234
+      },
+      {
+        "fy_approved": 2018,
+        "rows": 25,
+        "approved_dollars": 1678540
+      },
+      {
+        "fy_approved": 2019,
+        "rows": 34,
+        "approved_dollars": 1144080
+      },
+      {
+        "fy_approved": 2020,
+        "rows": 27,
+        "approved_dollars": 5922820
+      },
+      {
+        "fy_approved": 2021,
+        "rows": 8,
+        "approved_dollars": 2173548
+      },
+      {
+        "fy_approved": 2022,
+        "rows": 10,
+        "approved_dollars": 3132683
+      },
+      {
+        "fy_approved": 2023,
+        "rows": 13,
+        "approved_dollars": 9868530
+      },
+      {
+        "fy_approved": 2024,
+        "rows": 12,
+        "approved_dollars": 2474592
+      }
+    ],
+    "development_completion_lag_years": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      2,
+      3,
+      3,
+      4,
+      5
+    ],
+    "rows_with_completion_year": 152,
+    "quality": [
+      "Unit fields disagree (e.g. *Approved vs *ToDate vs *Completed2); row grain and cumulative semantics unverified.",
+      "TotalFundingDisbursed sums to far less than Total approved; disbursement coverage is incomplete, not zero spending.",
+      "93 of 245 rows lack a completion year (unknown, not incomplete)."
+    ]
+  },
+  "restricted_inventory": {
+    "as_of": "FY2025 inventory (S16)",
+    "restricted_units_chapel_hill": 1138,
+    "by_type": {
+      "Public Housing": 269,
+      "LIHTC 9%": 260,
+      "Inclusionary": 222,
+      "New Development": 129,
+      "Section 236": 79,
+      "Section 202": 65,
+      "Purchase/Rehab": 57,
+      "Other": 23,
+      "Transitional Housing": 17,
+      "Northside Initiatives": 10,
+      "Master Leasing": 7
+    },
+    "by_tenure": {
+      "Rental": 797,
+      "Ownership": 341
+    },
+    "expiry_year_counts": {
+      "2022": 4,
+      "2023": 10,
+      "2024": 55,
+      "2038": 22,
+      "2047": 80,
+      "2049": 69
+    },
+    "expiry_unknown_units": 898,
+    "quality": [
+      "One row per unit is assumed from the schema (PIN/address/bedrooms); verify before using as a stock count.",
+      "Most units have no Affordability_End_Date; unknown expiry is not 'never expires'."
+    ]
+  },
+  "taxable_base": {
+    "status": "unaudited current parcel snapshot; not an assessment history",
+    "orange_side_taxable": 12009499249.0,
+    "orange_side_exempt_value": 5154875411.0,
+    "orange_parcels": 15959,
+    "durham_side_taxable": 867068855.8,
+    "durham_parcels": 1329,
+    "durham_snapshot_dates": [
+      "2024-01-02",
+      "2024-06-13",
+      "2024-11-01",
+      "2024-11-11",
+      "2024-11-12"
+    ],
+    "town_taxable_assessed_value": 12876568104.8,
+    "quality": [
+      "Orange view repeats parcels through a building join: 60463 rows, 59655 unique PINs; deduplicated by PIN.",
+      "Orange rate code '22' is INFERRED to be the Chapel Hill town district (largest district; contains the UNC campus PIN). Verify against Orange County's rate-code table (S46).",
+      "Orange exemptions approximated by land-use codes starting 'EX'; elderly/veteran exclusions and deferrals are not in this view.",
+      "Values may mix pre- and post-2025 revaluation vintages; personal property and vehicles are excluded."
+    ]
+  },
+  "downtown_events": {
+    "rows": 263,
+    "openings_by_year": {
+      "1922": 1,
+      "1923": 1,
+      "1937": 1,
+      "1942": 1,
+      "1945": 1,
+      "1946": 1,
+      "1948": 1,
+      "1949": 1,
+      "1950": 1,
+      "1953": 1,
+      "1955": 1,
+      "1956": 1,
+      "1958": 1,
+      "1966": 2,
+      "1967": 1,
+      "1968": 1,
+      "1972": 2,
+      "1974": 3,
+      "1976": 3,
+      "1977": 1,
+      "1978": 2,
+      "1979": 2,
+      "1981": 1,
+      "1982": 3,
+      "1983": 4,
+      "1984": 1,
+      "1985": 3,
+      "1986": 3,
+      "1987": 2,
+      "1988": 1,
+      "1989": 1,
+      "1990": 3,
+      "1992": 6,
+      "1993": 3,
+      "1994": 3,
+      "1995": 7,
+      "1997": 2,
+      "1998": 2,
+      "1999": 3,
+      "2000": 16,
+      "2001": 5,
+      "2002": 4,
+      "2003": 5,
+      "2004": 6,
+      "2005": 10,
+      "2006": 4,
+      "2007": 4,
+      "2008": 7,
+      "2009": 8,
+      "2010": 12,
+      "2011": 13,
+      "2012": 10,
+      "2013": 24,
+      "2014": 20,
+      "2015": 19,
+      "2016": 12
+    },
+    "closures_by_year": {
+      "2006": 1,
+      "2007": 1,
+      "2008": 3,
+      "2009": 1,
+      "2010": 2,
+      "2011": 5,
+      "2012": 5,
+      "2013": 5,
+      "2014": 13,
+      "2015": 19,
+      "2016": 16,
+      "2017": 1
+    },
+    "quality": [
+      "Downtown only; last edit June 30, 2020; survivorship and censoring bias. Not a townwide registry and not used as a training label."
+    ]
+  },
+  "budget_actuals_S44": {
+    "usable": false,
+    "quality": [
+      "Values are shifted one column right (Category holds Original_Budget, Original_Budget holds Revised_Budget, Revised_Budget holds YTD_Actual); Fiscal_Year, Account_Type and YTD_Actual are empty for all 1,061 rows.",
+      "Fiscal year cannot be attributed and actuals are year-to-date, so the layer is not used for calibration."
+    ]
+  },
+  "permits_S10": {
+    "usable": false,
+    "quality": [
+      "Columns are shifted (dates in Type_of_Work, owners in PIN); not used."
+    ]
+  },
+  "audits_S42": {
+    "usable": false,
+    "quality": [
+      "Direct retrieval returned HTTP 403 from this environment."
+    ]
+  }
+}

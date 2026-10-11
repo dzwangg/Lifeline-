@@ -71,6 +71,16 @@ export const highlight = {
   set(on) { highlightOn = !!on; highlightListeners.forEach(fn => fn(highlightOn)); },
 };
 
+// What the map builds for the shown year (the zone layer's ledger, growth/units.js summarize): homes the forecast asks
+// of its converted parcels, homes placed, and homes that didn't fit (unmet). null until the zone layer has planned.
+let growthNow = null;
+const growthListeners = new Set();
+export const growthReport = {
+  get: () => growthNow,
+  subscribe(fn) { growthListeners.add(fn); fn(growthNow); return () => growthListeners.delete(fn); },
+  set(report) { growthNow = report; growthListeners.forEach(fn => fn(growthNow)); },
+};
+
 // Predictions: one step's { zoneStates, metrics } for a scenario version. The whole timeline is computed in the
 // browser, in a worker (sim-worker.js; debounced, as a dragged slider fires many inputs); a forecast backend would
 // answer the same call.

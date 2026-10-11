@@ -217,3 +217,20 @@ for (const [how, stop] of [['pausing', c => c.pause()], ['showing year 0', c => 
     assert.deepEqual(s.shown.data, r.runs[1].timeline[2]);
   });
 }
+
+test('pausing during the last year\'s construction and pressing Play finishes it; Play after it has played out starts over', async () => {
+  const r = rig();
+  await r.settle();
+  r.clock.play(4);
+  for (let i = 0; i < 10000 && !(r.clock.get().step === YEARS && r.clock.get().frac > 0.2); i++) { await r.settle(); r.clock.tick(1 / 60); }
+  r.clock.pause();
+  const paused = r.clock.get();
+  assert.equal(paused.step, YEARS);
+  assert.ok(paused.frac < 1);
+  r.clock.play(4);
+  assert.deepEqual([r.clock.get().step, r.clock.get().frac], [YEARS, paused.frac], 'carries on with year 10, not year 0');
+  for (let i = 0; i < 10000 && r.clock.get().playing; i++) { await r.settle(); r.clock.tick(1 / 60); }
+  assert.equal(r.clock.get().frac, 1);
+  r.clock.play(4);
+  assert.equal(r.clock.get().step, 0, 'played out, so Play replays');
+});

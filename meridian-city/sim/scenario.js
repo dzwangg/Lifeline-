@@ -46,7 +46,8 @@ export const panelPolicies = cards => [
 // (focus.js): null, 'road' or 'changes', and the parcels a 'changes' view frames (null: all the forecast converts);
 // wipe, the before/after split screen is on;
 // luti, CH-LUTI's 200-run ranges and "why" traces (shared/luti/run.js runScenario).
-let state = { cards: [], params: {}, version: 0, result: null, resident: null, focus: null, focusZones: null, wipe: false, luti: null };
+// drivers: scenario what-ifs (shared/luti/drivers.js), set by a prompt; an input like cards and params.
+let state = { cards: [], params: {}, drivers: {}, version: 0, result: null, resident: null, focus: null, focusZones: null, wipe: false, luti: null };
 const listeners = new Set();
 export const scenario = {
   get: () => state,
@@ -54,7 +55,7 @@ export const scenario = {
   set(patch) {
     // View state (a picked resident, the camera) keeps the forecast, and so does re-sending the same cards.
     const ids = cards => cards.map(c => c.id).join();
-    const input = ('cards' in patch && ids(patch.cards) !== ids(state.cards)) || 'params' in patch;
+    const input = ('cards' in patch && ids(patch.cards) !== ids(state.cards)) || 'params' in patch || 'drivers' in patch;
     state = { ...state, ...patch, version: state.version + (input ? 1 : 0) };
     listeners.forEach(fn => fn(state));
     if (input) rerun();
@@ -100,7 +101,7 @@ function rerun() {
 }
 async function send(version) { // the worker job for the current inputs
   const [zones, assumptions, baselines] = await dataReady;
-  if (version === state.version) runSim({ version, cards: state.cards, params: state.params, zones, assumptions, baselines });
+  if (version === state.version) runSim({ version, cards: state.cards, params: state.params, drivers: state.drivers, zones, assumptions, baselines });
 }
 // One run at a time in the worker; while it is busy only the newest request waits, and older answers are dropped.
 const simWorker = new Worker(new URL('./sim-worker.js', import.meta.url), { type: 'module' });

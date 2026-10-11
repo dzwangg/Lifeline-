@@ -596,20 +596,26 @@
         "parking-180": "parking"
       },
       "metrics": {
-        "housingUnits": 23713,
-        "medianRent": 1483,
+        "housingUnits": 23581,
+        "medianRent": 1613,
         "treeCoverPct": 46.9,
-        "avgCommuteMin": 19.6,
-        "taxRevenue": 68352723,
-        "households": 23700,
+        "avgCommuteMin": 19.5,
+        "taxRevenue": 72358299,
+        "households": 21189,
         "pricedOut": 0,
+        "rentBurden": 0.6049,
         "jobs": 54322,
         "businesses": 839,
         "storefrontVacancy": 0.24,
-        "homeValue": 576500,
-        "netFiscal": 92452723,
-        "transitRidership": 4305300,
-        "trafficIndex": 1
+        "homeValue": 613700,
+        "netFiscal": 95616299,
+        "transitRidership": 4371700,
+        "trafficIndex": 1,
+        "priceToIncome": 7.14,
+        "affordableHomes": 0,
+        "carShare": 0.7853,
+        "jobAccess": 1,
+        "commuteCO2": 93904
       }
     },
     {
@@ -1197,20 +1203,26 @@
         "parking-180": "parking"
       },
       "metrics": {
-        "housingUnits": 24103,
-        "medianRent": 1525,
+        "housingUnits": 23971,
+        "medianRent": 1659,
         "treeCoverPct": 46.46,
-        "avgCommuteMin": 19.6,
-        "taxRevenue": 69476835,
-        "households": 23909,
-        "pricedOut": 2,
+        "avgCommuteMin": 19.5,
+        "taxRevenue": 73554947,
+        "households": 21397,
+        "pricedOut": 1,
+        "rentBurden": 0.6053,
         "jobs": 54590,
         "businesses": 839,
         "storefrontVacancy": 0.2438,
-        "homeValue": 592638,
-        "netFiscal": 93864229,
-        "transitRidership": 4326462,
-        "trafficIndex": 1.0039
+        "homeValue": 630900,
+        "netFiscal": 97029507,
+        "transitRidership": 4393282,
+        "trafficIndex": 1.0039,
+        "priceToIncome": 7.19,
+        "affordableHomes": 0,
+        "carShare": 0.786,
+        "jobAccess": 0.9836,
+        "commuteCO2": 94208
       }
     },
     {
@@ -1798,20 +1810,26 @@
         "parking-180": "parking"
       },
       "metrics": {
-        "housingUnits": 24494,
-        "medianRent": 1567,
+        "housingUnits": 24362,
+        "medianRent": 1704,
         "treeCoverPct": 46.02,
-        "avgCommuteMin": 19.6,
-        "taxRevenue": 70603022,
-        "households": 24319,
+        "avgCommuteMin": 19.5,
+        "taxRevenue": 74753804,
+        "households": 21809,
         "pricedOut": 4,
+        "rentBurden": 0.6055,
         "jobs": 54996,
         "businesses": 842,
         "storefrontVacancy": 0.2455,
-        "homeValue": 608918,
-        "netFiscal": 95006364,
-        "transitRidership": 4374563,
-        "trafficIndex": 1.0123
+        "homeValue": 648248,
+        "netFiscal": 98118226,
+        "transitRidership": 4442268,
+        "trafficIndex": 1.0123,
+        "priceToIncome": 7.19,
+        "affordableHomes": 0,
+        "carShare": 0.7857,
+        "jobAccess": 0.9905,
+        "commuteCO2": 94903
       }
     },
     {
@@ -2399,20 +2417,26 @@
         "parking-180": "parking"
       },
       "metrics": {
-        "housingUnits": 24873,
-        "medianRent": 1613,
+        "housingUnits": 24741,
+        "medianRent": 1754,
         "treeCoverPct": 45.76,
-        "avgCommuteMin": 19.6,
-        "taxRevenue": 71696138,
-        "households": 24726,
-        "pricedOut": 11,
+        "avgCommuteMin": 19.5,
+        "taxRevenue": 75917535,
+        "households": 22213,
+        "pricedOut": 10,
+        "rentBurden": 0.6081,
         "jobs": 55438,
         "businesses": 847,
         "storefrontVacancy": 0.2448,
-        "homeValue": 627006,
-        "netFiscal": 96024556,
-        "transitRidership": 4427955,
-        "trafficIndex": 1.0217
+        "homeValue": 667495,
+        "netFiscal": 99071830,
+        "transitRidership": 4496614,
+        "trafficIndex": 1.0217,
+        "priceToIncome": 7.2,
+        "affordableHomes": 0,
+        "carShare": 0.7852,
+        "jobAccess": 0.998,
+        "commuteCO2": 95672
       }
     },
     {
@@ -3000,20 +3024,26 @@
         "parking-180": "parking"
       },
       "metrics": {
-        "housingUnits": 25286,
-        "medianRent": 1660,
+        "housingUnits": 25154,
+        "medianRent": 1806,
         "treeCoverPct": 45.18,
-        "avgCommuteMin": 19.6,
-        "taxRevenue": 72887918,
-        "households": 25086,
-        "pricedOut": 19,
-        "jobs": 55891,
+        "avgCommuteMin": 19.5,
+        "taxRevenue": 77186506,
+        "households": 22581,
+        "pricedOut": 17,
+        "rentBurden": 0.6095,
+        "jobs": 55892,
         "businesses": 853,
         "storefrontVacancy": 0.2428,
-        "homeValue": 645405,
-        "netFiscal": 97245594,
-        "transitRidership": 4476376,
-        "trafficIndex": 1.0312
+        "homeValue": 687079,
+        "netFiscal": 100239553,
+        "transitRidership": 4545940,
+        "trafficIndex": 1.0312,
+        "priceToIncome": 7.22,
+        "affordableHomes": 0,
+        "carShare": 0.7853,
+        "jobAccess": 1.0056,
+        "commuteCO2": 96472
       }
     },
     {
@@ -3601,20 +3631,26 @@
         "parking-180": "parking"
       },
       "metrics": {
-        "housingUnits": 25683,
-        "medianRent": 1709,
+        "housingUnits": 25551,
+        "medianRent": 1858,
         "treeCoverPct": 44.8,
-        "avgCommuteMin": 19.6,
-        "taxRevenue": 74030680,
-        "households": 25474,
-        "pricedOut": 34,
-        "jobs": 56361,
+        "avgCommuteMin": 19.5,
+        "taxRevenue": 78404335,
+        "households": 22966,
+        "pricedOut": 31,
+        "rentBurden": 0.6107,
+        "jobs": 56363,
         "businesses": 860,
-        "storefrontVacancy": 0.24,
-        "homeValue": 664312,
-        "netFiscal": 98365337,
-        "transitRidership": 4527360,
-        "trafficIndex": 1.0411
+        "storefrontVacancy": 0.2399,
+        "homeValue": 707208,
+        "netFiscal": 101297473,
+        "transitRidership": 4597878,
+        "trafficIndex": 1.0411,
+        "priceToIncome": 7.23,
+        "affordableHomes": 0,
+        "carShare": 0.7855,
+        "jobAccess": 1.0133,
+        "commuteCO2": 97299
       }
     },
     {
@@ -4202,20 +4238,26 @@
         "parking-180": "parking"
       },
       "metrics": {
-        "housingUnits": 26077,
-        "medianRent": 1759,
+        "housingUnits": 25946,
+        "medianRent": 1914,
         "treeCoverPct": 44.43,
-        "avgCommuteMin": 19.6,
-        "taxRevenue": 75165683,
-        "households": 25869,
-        "pricedOut": 48,
-        "jobs": 56848,
+        "avgCommuteMin": 19.5,
+        "taxRevenue": 79613847,
+        "households": 23362,
+        "pricedOut": 43,
+        "rentBurden": 0.6134,
+        "jobs": 56850,
         "businesses": 869,
         "storefrontVacancy": 0.2361,
-        "homeValue": 684190,
-        "netFiscal": 99444252,
-        "transitRidership": 4579868,
-        "trafficIndex": 1.0511
+        "homeValue": 728366,
+        "netFiscal": 102308932,
+        "transitRidership": 4651381,
+        "trafficIndex": 1.0512,
+        "priceToIncome": 7.25,
+        "affordableHomes": 0,
+        "carShare": 0.7853,
+        "jobAccess": 1.0212,
+        "commuteCO2": 98153
       }
     },
     {
@@ -4803,20 +4845,26 @@
         "parking-180": "parking"
       },
       "metrics": {
-        "housingUnits": 26470,
-        "medianRent": 1812,
+        "housingUnits": 26340,
+        "medianRent": 1971,
         "treeCoverPct": 44.05,
-        "avgCommuteMin": 19.6,
-        "taxRevenue": 76301057,
-        "households": 26249,
-        "pricedOut": 64,
-        "jobs": 57345,
+        "avgCommuteMin": 19.5,
+        "taxRevenue": 80823761,
+        "households": 23735,
+        "pricedOut": 58,
+        "rentBurden": 0.6165,
+        "jobs": 57347,
         "businesses": 878,
-        "storefrontVacancy": 0.2316,
-        "homeValue": 704751,
-        "netFiscal": 100543412,
-        "transitRidership": 4631285,
-        "trafficIndex": 1.0613
+        "storefrontVacancy": 0.2315,
+        "homeValue": 750251,
+        "netFiscal": 103339230,
+        "transitRidership": 4703795,
+        "trafficIndex": 1.0613,
+        "priceToIncome": 7.27,
+        "affordableHomes": 0,
+        "carShare": 0.7852,
+        "jobAccess": 1.0293,
+        "commuteCO2": 99024
       }
     },
     {
@@ -5404,20 +5452,26 @@
         "parking-180": "parking"
       },
       "metrics": {
-        "housingUnits": 26850,
-        "medianRent": 1867,
+        "housingUnits": 26720,
+        "medianRent": 2031,
         "treeCoverPct": 43.77,
-        "avgCommuteMin": 19.6,
-        "taxRevenue": 77395841,
-        "households": 26608,
-        "pricedOut": 92,
-        "jobs": 57852,
+        "avgCommuteMin": 19.5,
+        "taxRevenue": 81990448,
+        "households": 24099,
+        "pricedOut": 83,
+        "rentBurden": 0.6177,
+        "jobs": 57854,
         "businesses": 887,
-        "storefrontVacancy": 0.2265,
-        "homeValue": 726080,
-        "netFiscal": 101597802,
-        "transitRidership": 4682637,
-        "trafficIndex": 1.0716
+        "storefrontVacancy": 0.2264,
+        "homeValue": 772957,
+        "netFiscal": 104319624,
+        "transitRidership": 4756133,
+        "trafficIndex": 1.0717,
+        "priceToIncome": 7.28,
+        "affordableHomes": 0,
+        "carShare": 0.7852,
+        "jobAccess": 1.0375,
+        "commuteCO2": 99913
       }
     },
     {
@@ -6005,20 +6059,26 @@
         "parking-180": "parking"
       },
       "metrics": {
-        "housingUnits": 27255,
-        "medianRent": 1923,
+        "housingUnits": 27126,
+        "medianRent": 2092,
         "treeCoverPct": 43.42,
-        "avgCommuteMin": 19.7,
-        "taxRevenue": 78563693,
-        "households": 26980,
-        "pricedOut": 118,
-        "jobs": 58366,
+        "avgCommuteMin": 19.6,
+        "taxRevenue": 83236672,
+        "households": 24473,
+        "pricedOut": 107,
+        "rentBurden": 0.6196,
+        "jobs": 58369,
         "businesses": 898,
-        "storefrontVacancy": 0.2212,
-        "homeValue": 747948,
-        "netFiscal": 102721338,
-        "transitRidership": 4733849,
-        "trafficIndex": 1.082
+        "storefrontVacancy": 0.2211,
+        "homeValue": 796230,
+        "netFiscal": 105372971,
+        "transitRidership": 4808328,
+        "trafficIndex": 1.0821,
+        "priceToIncome": 7.3,
+        "affordableHomes": 0,
+        "carShare": 0.7851,
+        "jobAccess": 1.0458,
+        "commuteCO2": 100812
       }
     },
     {
@@ -6606,37 +6666,43 @@
         "parking-180": "parking"
       },
       "metrics": {
-        "housingUnits": 27678,
-        "medianRent": 1980,
+        "housingUnits": 27550,
+        "medianRent": 2154,
         "treeCoverPct": 42.95,
-        "avgCommuteMin": 19.7,
-        "taxRevenue": 79781434,
-        "households": 27375,
-        "pricedOut": 146,
-        "jobs": 58890,
+        "avgCommuteMin": 19.6,
+        "taxRevenue": 84535995,
+        "households": 24868,
+        "pricedOut": 133,
+        "rentBurden": 0.6214,
+        "jobs": 58894,
         "businesses": 908,
-        "storefrontVacancy": 0.2155,
-        "homeValue": 770182,
-        "netFiscal": 103831660,
-        "transitRidership": 4787355,
-        "trafficIndex": 1.0927
+        "storefrontVacancy": 0.2154,
+        "homeValue": 819889,
+        "netFiscal": 106408705,
+        "transitRidership": 4862908,
+        "trafficIndex": 1.0927,
+        "priceToIncome": 7.32,
+        "affordableHomes": 0,
+        "carShare": 0.7849,
+        "jobAccess": 1.0542,
+        "commuteCO2": 101730
       }
     }
   ],
   "deltas": [
     {
       "metric": "housingUnits",
-      "baseline": 27203,
-      "final": 27678,
+      "baseline": 27074,
+      "final": 27550,
       "comparedWith": "no new policy",
-      "changePct": 1.75
+      "changePct": 1.76
     },
     {
       "metric": "medianRent",
-      "baseline": 1990,
-      "final": 1980,
+      "baseline": 2164,
+      "final": 2154,
       "comparedWith": "no new policy",
-      "changePct": -0.5
+      "changePct": -0.46
     },
     {
       "metric": "treeCoverPct",
@@ -6648,36 +6714,44 @@
     },
     {
       "metric": "avgCommuteMin",
-      "baseline": 19.7,
-      "final": 19.7,
+      "baseline": 19.6,
+      "final": 19.6,
       "comparedWith": "no new policy",
       "changePct": 0
     },
     {
       "metric": "taxRevenue",
-      "baseline": 78411671,
-      "final": 79781434,
+      "baseline": 83078007,
+      "final": 84535995,
       "comparedWith": "no new policy",
       "changePct": 1.75
     },
     {
       "metric": "households",
-      "baseline": 26932,
-      "final": 27375,
+      "baseline": 24430,
+      "final": 24868,
       "comparedWith": "no new policy",
-      "changePct": 1.64
+      "changePct": 1.79
     },
     {
       "metric": "pricedOut",
-      "baseline": 158,
-      "final": 146,
+      "baseline": 145,
+      "final": 133,
       "comparedWith": "no new policy",
-      "changePct": -7.59
+      "changePct": -8.28
+    },
+    {
+      "metric": "rentBurden",
+      "baseline": 0.6227,
+      "final": 0.6214,
+      "comparedWith": "no new policy",
+      "changePct": -0.21,
+      "changePts": -0.13
     },
     {
       "metric": "jobs",
-      "baseline": 58766,
-      "final": 58890,
+      "baseline": 58769,
+      "final": 58894,
       "comparedWith": "no new policy",
       "changePct": 0.21
     },
@@ -6690,40 +6764,77 @@
     },
     {
       "metric": "storefrontVacancy",
-      "baseline": 0.2177,
-      "final": 0.2155,
+      "baseline": 0.2176,
+      "final": 0.2154,
       "comparedWith": "no new policy",
       "changePct": -1.01,
       "changePts": -0.22
     },
     {
       "metric": "homeValue",
-      "baseline": 773350,
-      "final": 770182,
+      "baseline": 823262,
+      "final": 819889,
       "comparedWith": "no new policy",
       "changePct": -0.41
     },
     {
       "metric": "netFiscal",
-      "baseline": 103370982,
-      "final": 103831660,
+      "baseline": 105915273,
+      "final": 106408705,
       "comparedWith": "no new policy",
-      "changePct": 0.45
+      "changePct": 0.47
     },
     {
       "metric": "transitRidership",
-      "baseline": 4745995,
-      "final": 4787355,
+      "baseline": 4820913,
+      "final": 4862908,
       "comparedWith": "no new policy",
       "changePct": 0.87
     },
     {
       "metric": "trafficIndex",
-      "baseline": 1.0878,
+      "baseline": 1.0879,
       "final": 1.0927,
       "comparedWith": "no new policy",
-      "changePct": 0.45,
-      "changePts": 0.49
+      "changePct": 0.44,
+      "changePts": 0.48
+    },
+    {
+      "metric": "priceToIncome",
+      "baseline": 7.35,
+      "final": 7.32,
+      "comparedWith": "no new policy",
+      "changePct": -0.41
+    },
+    {
+      "metric": "affordableHomes",
+      "baseline": 0,
+      "final": 0,
+      "comparedWith": "no new policy",
+      "changePct": 0
+    },
+    {
+      "metric": "carShare",
+      "baseline": 0.784,
+      "final": 0.7849,
+      "comparedWith": "no new policy",
+      "changePct": 0.11,
+      "changePts": 0.09
+    },
+    {
+      "metric": "jobAccess",
+      "baseline": 1.0539,
+      "final": 1.0542,
+      "comparedWith": "no new policy",
+      "changePct": 0.03,
+      "changePts": 0.03
+    },
+    {
+      "metric": "commuteCO2",
+      "baseline": 101469,
+      "final": 101730,
+      "comparedWith": "no new policy",
+      "changePct": 0.26
     }
   ],
   "tradeoffs": {
@@ -6737,28 +6848,28 @@
   "assumptions": [
     {
       "key": "medianGrossRent",
-      "value": 1483,
-      "source": "Median gross rent, ACS 2019-2023 5-year estimates, U.S. Census Bureau QuickFacts: Chapel Hill town, North Carolina"
+      "value": 1613,
+      "source": "Median gross rent, ACS 2020-2024 5-year estimates (table B25064), U.S. Census Bureau: Chapel Hill town, North Carolina. https://censusreporter.org/data/table/?table=B25064&geo_ids=16000US3711800"
     },
     {
       "key": "meanCommuteMin",
-      "value": 19.6,
-      "source": "Mean travel time to work (minutes), ACS 2019-2023 5-year estimates, U.S. Census Bureau QuickFacts: Chapel Hill town, North Carolina"
+      "value": 19.5,
+      "source": "Mean travel time to work = aggregate minutes (B08013) / workers who did not work from home (B08303), ACS 2020-2024 5-year, Chapel Hill town: 19.52 minutes. https://censusreporter.org/data/table/?table=B08013&geo_ids=16000US3711800"
     },
     {
       "key": "medianHomeValue",
-      "value": 576500,
-      "source": "Median value of owner-occupied housing units, ACS 2019-2023 5-year estimates, U.S. Census Bureau QuickFacts: Chapel Hill town, North Carolina"
+      "value": 613700,
+      "source": "Median value of owner-occupied housing units, ACS 2020-2024 5-year estimates (table B25077), Chapel Hill town, North Carolina. https://censusreporter.org/data/table/?table=B25077&geo_ids=16000US3711800"
     },
     {
       "key": "population",
-      "value": 61960,
-      "source": "2020 Decennial Census, Chapel Hill town, North Carolina"
+      "value": 63565,
+      "source": "U.S. Census Bureau, Vintage 2025 population estimates for cities and towns (SUB-EST2025), Chapel Hill town, NC, July 1, 2025 (Orange County part 60,643 + Durham County part 2,922). https://www2.census.gov/programs-surveys/popest/datasets/2020-2025/cities/totals/sub-est2025_37.csv"
     },
     {
       "key": "housingUnits",
-      "value": 23713,
-      "source": "U.S. Census Bureau, 2020 Census Redistricting Data (P.L. 94-171), Table H1 \"Occupancy Status\", Chapel Hill town, NC: 22,118 occupied and 1,595 vacant. https://data.census.gov/table/DECENNIALPL2020.H1?g=160XX00US3711800"
+      "value": 23581,
+      "source": "Housing units, ACS 2020-2024 5-year estimates (table B25001), Chapel Hill town, NC: 21,189 occupied and 2,392 vacant (B25002). https://censusreporter.org/data/table/?table=B25001&geo_ids=16000US3711800"
     },
     {
       "key": "treeCoverPct",
@@ -6783,7 +6894,7 @@
     {
       "key": "propertyTaxRate",
       "value": 0.005,
-      "source": "Town of Chapel Hill FY2025-26 property tax rate: 50.0 cents per $100 of assessed value."
+      "source": "Town of Chapel Hill FY2026-27 adopted budget: 50.0 cents per $100 of assessed value (General Fund 38.1, Debt Service 6.6, Transit 5.3), unchanged from FY2025-26. https://www.chapelhillnc.gov/files/assets/town/v/1/bmd/documents/budgets/26-27-budget-development/26-27-adopted-budget/04-projections.pdf"
     },
     {
       "key": "canopyMinPct.low_res",
@@ -6852,8 +6963,8 @@
     },
     {
       "key": "agentScale",
-      "value": 79,
-      "source": "Derived: 23,713 housing units (2020 Census, see housingUnits) / 300 simulated households."
+      "value": 70.63,
+      "source": "Derived: 21,189 households (occupied homes, ACS 2020-2024 5-year, B25002) / 300 simulated households."
     },
     {
       "key": "agentHouseholds.downtown",
@@ -6928,22 +7039,22 @@
     {
       "key": "agentStudentShare",
       "value": 0.4,
-      "source": "PLACEHOLDER - needs citation"
+      "source": "Our calculation from ACS 2020-2024 5-year, Chapel Hill town: 21,533 enrolled in college or graduate school (B14001) less 11,204 in group quarters, mostly residence halls (B26001), leaves about 10,300 students in households; at 2.13 people per renter household (B25010) that is about 4,800 households, or 43% of the 11,141 renter households (B25003)."
     },
     {
       "key": "agentIncomeMedian.student",
-      "value": 40000,
-      "source": "PLACEHOLDER - needs citation"
+      "value": 43200,
+      "source": "Owners: ACS 2020-2024 5-year, B25119 Median household income by tenure, Chapel Hill town: $180,885. Students and other renters: the prototype's values (40,000 and 64,000) scaled by 1.08 so that, at the ACS 2020-2024 median gross rent of $1,613 (B25064), 60.8% of renters pay 30% or more of income in rent, as in B25070. https://censusreporter.org/data/table/?table=B25119&geo_ids=16000US3711800"
     },
     {
       "key": "agentIncomeMedian.renter",
-      "value": 64000,
-      "source": "PLACEHOLDER - needs citation"
+      "value": 69100,
+      "source": "Owners: ACS 2020-2024 5-year, B25119 Median household income by tenure, Chapel Hill town: $180,885. Students and other renters: the prototype's values (40,000 and 64,000) scaled by 1.08 so that, at the ACS 2020-2024 median gross rent of $1,613 (B25064), 60.8% of renters pay 30% or more of income in rent, as in B25070. https://censusreporter.org/data/table/?table=B25119&geo_ids=16000US3711800"
     },
     {
       "key": "agentIncomeMedian.owner",
-      "value": 115000,
-      "source": "PLACEHOLDER - needs citation"
+      "value": 180900,
+      "source": "Owners: ACS 2020-2024 5-year, B25119 Median household income by tenure, Chapel Hill town: $180,885. Students and other renters: the prototype's values (40,000 and 64,000) scaled by 1.08 so that, at the ACS 2020-2024 median gross rent of $1,613 (B25064), 60.8% of renters pay 30% or more of income in rent, as in B25070. https://censusreporter.org/data/table/?table=B25119&geo_ids=16000US3711800"
     },
     {
       "key": "agentIncomeSpread.student",
@@ -7182,8 +7293,8 @@
     },
     {
       "key": "lutiCpi",
-      "value": 0.025,
-      "source": "PLACEHOLDER - needs citation"
+      "value": 0.023,
+      "source": "Federal Reserve Bank of Philadelphia, Survey of Professional Forecasters, Third Quarter 2026: headline CPI inflation over the next 10 years (2026-2035), 2.30% a year. https://www.philadelphiafed.org/surveys-and-data/real-time-data-research/spf-q3-2026"
     },
     {
       "key": "lutiRegionShare",
@@ -7287,28 +7398,28 @@
     },
     {
       "key": "lutiParkingMinimum.downtown",
-      "value": 1,
-      "source": "PLACEHOLDER - needs citation"
+      "value": 0,
+      "source": "Town of Chapel Hill: on January 21, 2026 the Town Council adopted Land Use Management Ordinance amendments that eliminate mandatory parking minimums across town. https://engage.chapelhillnc.gov/re-writing-our-rules-lumo-update/news_feed/town-council-adopts-lumo-amendments"
     },
     {
       "key": "lutiParkingMinimum.campus",
-      "value": 1.25,
-      "source": "PLACEHOLDER - needs citation"
+      "value": 0,
+      "source": "Town of Chapel Hill: on January 21, 2026 the Town Council adopted Land Use Management Ordinance amendments that eliminate mandatory parking minimums across town. https://engage.chapelhillnc.gov/re-writing-our-rules-lumo-update/news_feed/town-council-adopts-lumo-amendments"
     },
     {
       "key": "lutiParkingMinimum.north",
-      "value": 1.5,
-      "source": "PLACEHOLDER - needs citation"
+      "value": 0,
+      "source": "Town of Chapel Hill: on January 21, 2026 the Town Council adopted Land Use Management Ordinance amendments that eliminate mandatory parking minimums across town. https://engage.chapelhillnc.gov/re-writing-our-rules-lumo-update/news_feed/town-council-adopts-lumo-amendments"
     },
     {
       "key": "lutiParkingMinimum.east",
-      "value": 1.25,
-      "source": "PLACEHOLDER - needs citation"
+      "value": 0,
+      "source": "Town of Chapel Hill: on January 21, 2026 the Town Council adopted Land Use Management Ordinance amendments that eliminate mandatory parking minimums across town. https://engage.chapelhillnc.gov/re-writing-our-rules-lumo-update/news_feed/town-council-adopts-lumo-amendments"
     },
     {
       "key": "lutiParkingMinimum.south",
-      "value": 1.5,
-      "source": "PLACEHOLDER - needs citation"
+      "value": 0,
+      "source": "Town of Chapel Hill: on January 21, 2026 the Town Council adopted Land Use Management Ordinance amendments that eliminate mandatory parking minimums across town. https://engage.chapelhillnc.gov/re-writing-our-rules-lumo-update/news_feed/town-council-adopts-lumo-amendments"
     },
     {
       "key": "lutiStartShare.downtown",
@@ -7582,58 +7693,58 @@
     },
     {
       "key": "lutiHeadwayMin.downtown",
-      "value": 10,
-      "source": "PLACEHOLDER - needs citation"
+      "value": 15,
+      "source": "Our calculation from Chapel Hill Transit's GTFS feed, Fall 2026 Update (valid from October 9, 2026), via the Mobility Database (feed tld-89). https://files.mobilitydatabase.org/tld-89/latest.zip"
     },
     {
       "key": "lutiHeadwayMin.campus",
       "value": 10,
-      "source": "PLACEHOLDER - needs citation"
+      "source": "Our calculation from Chapel Hill Transit's GTFS feed, Fall 2026 Update (valid from October 9, 2026), via the Mobility Database (feed tld-89). https://files.mobilitydatabase.org/tld-89/latest.zip"
     },
     {
       "key": "lutiHeadwayMin.north",
-      "value": 15,
-      "source": "PLACEHOLDER - needs citation"
+      "value": 18,
+      "source": "Our calculation from Chapel Hill Transit's GTFS feed, Fall 2026 Update (valid from October 9, 2026), via the Mobility Database (feed tld-89). https://files.mobilitydatabase.org/tld-89/latest.zip"
     },
     {
       "key": "lutiHeadwayMin.east",
-      "value": 15,
-      "source": "PLACEHOLDER - needs citation"
+      "value": 23,
+      "source": "Our calculation from Chapel Hill Transit's GTFS feed, Fall 2026 Update (valid from October 9, 2026), via the Mobility Database (feed tld-89). https://files.mobilitydatabase.org/tld-89/latest.zip"
     },
     {
       "key": "lutiHeadwayMin.south",
-      "value": 20,
-      "source": "PLACEHOLDER - needs citation"
+      "value": 13,
+      "source": "Our calculation from Chapel Hill Transit's GTFS feed, Fall 2026 Update (valid from October 9, 2026), via the Mobility Database (feed tld-89). https://files.mobilitydatabase.org/tld-89/latest.zip"
     },
     {
       "key": "lutiRegion.outShare",
       "value": 0.45,
-      "source": "PLACEHOLDER - needs citation"
+      "source": "outShare: ACS 2020-2024 5-year, Chapel Hill town: 9,453 workers worked outside the town (B08008) of the 20,865 who did not work from home (29,039 workers less 8,174 at home, B08301), 45.3%. https://censusreporter.org/data/table/?table=B08008&geo_ids=16000US3711800. distanceKm and headway: PLACEHOLDER - need citation."
     },
     {
       "key": "lutiRegion.distanceKm",
       "value": 16,
-      "source": "PLACEHOLDER - needs citation"
+      "source": "outShare: ACS 2020-2024 5-year, Chapel Hill town: 9,453 workers worked outside the town (B08008) of the 20,865 who did not work from home (29,039 workers less 8,174 at home, B08301), 45.3%. https://censusreporter.org/data/table/?table=B08008&geo_ids=16000US3711800. distanceKm and headway: PLACEHOLDER - need citation."
     },
     {
       "key": "lutiRegion.headway",
       "value": 30,
-      "source": "PLACEHOLDER - needs citation"
+      "source": "outShare: ACS 2020-2024 5-year, Chapel Hill town: 9,453 workers worked outside the town (B08008) of the 20,865 who did not work from home (29,039 workers less 8,174 at home, B08301), 45.3%. https://censusreporter.org/data/table/?table=B08008&geo_ids=16000US3711800. distanceKm and headway: PLACEHOLDER - need citation."
     },
     {
       "key": "lutiTransitTownShare",
-      "value": 0.45,
-      "source": "PLACEHOLDER - needs citation"
+      "value": 0.34,
+      "source": "Town of Chapel Hill FY2026-27 adopted budget, Transit Fund revenue projections: the Town's transit property tax ($7,491,000) and vehicle tax ($450,000) are 34% of the three partners' contributions, with UNC ($12,624,606) and Carrboro ($2,673,487). https://www.chapelhillnc.gov/files/assets/town/v/1/bmd/documents/budgets/26-27-budget-development/26-27-adopted-budget/04-projections.pdf"
     },
     {
       "key": "lutiRevaluationYears.0",
       "value": 2029,
-      "source": "PLACEHOLDER - needs citation"
+      "source": "Orange County, 2025 Property Revaluation: the 2025 revaluation is as of January 1, 2025 and the next is January 1, 2029, on a four-year cycle. https://orangecountync.gov/revaluation"
     },
     {
       "key": "lutiRevaluationYears.1",
       "value": 2033,
-      "source": "PLACEHOLDER - needs citation"
+      "source": "Orange County, 2025 Property Revaluation: the 2025 revaluation is as of January 1, 2025 and the next is January 1, 2029, on a four-year cycle. https://orangecountync.gov/revaluation"
     },
     {
       "key": "lutiResidentialShareOfBase",
@@ -7648,6 +7759,46 @@
     {
       "key": "lutiLandCatchUpQuarters",
       "value": 12,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiAffordableGap",
+      "value": 0.4,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiApprovalCarryPerYear",
+      "value": 0.04,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiValueOfTimePerHour",
+      "value": 20,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiCarCo2GramsPerMile",
+      "value": 400,
+      "source": "U.S. EPA, Greenhouse Gas Emissions from a Typical Passenger Vehicle: about 400 grams of CO2 per mile (22.2 mpg, 8,887 g CO2 per gallon of gasoline). https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle"
+    },
+    {
+      "key": "lutiTrainingCost",
+      "value": 23135,
+      "source": "Year Up, a sectoral job-training programme evaluated by random assignment: net cost $23,135 per participant (Fein, Dastrup and Burnett 2021), as reported in J-PAL North America, Sectoral Employment Programs evidence review (2022). https://www.povertyactionlab.org/sites/default/files/publication/Evidence-Review_Sectoral-Employment_2222022_0.pdf"
+    },
+    {
+      "key": "lutiTrainingEarningsGain",
+      "value": 0.2,
+      "source": "Katz, L., Roth, J., Hendra, R. and Schaberg, K. (2022), Why Do Sectoral Employment Programs Work? Lessons from WorkAdvance, Journal of Labor Economics 40(S1): S249-S291: substantial and persistent earnings gains of 12% to 34% following training. https://www.nber.org/papers/w28248"
+    },
+    {
+      "key": "lutiWorkdaysPerYear",
+      "value": 250,
+      "source": "PLACEHOLDER - needs citation"
+    },
+    {
+      "key": "lutiTownParkingShare",
+      "value": 0.2,
       "source": "PLACEHOLDER - needs citation"
     }
   ]

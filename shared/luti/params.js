@@ -43,7 +43,7 @@ export const PARAMS = {
     label: 'Share of an upzoning’s value landowners capture in land prices',
     source: 'Land-value capitalisation of zoning (Freemark 2020, UAR); evidence varies widely' },
   marketParkingRatio: { lo: 0.6, mid: 0.85, hi: 1.0, unit: 'spaces/unit', group: 'Development',
-    label: 'Parking developers would build without a minimum',
+    label: 'Parking developers build per new home without a minimum (Chapel Hill has none since January 2026)',
     source: 'After Buffalo dropped minimums, 47% of major projects built less than required; large projects about half (Hess & Rehler 2021, JAPA)' },
 
   // ---------- storefront businesses ----------

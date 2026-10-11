@@ -72,7 +72,7 @@ test('each card moves its own lever\'s outcome the expected way (10 years, centr
   assert.ok(rel(r['transit-upzoning'], 'housingUnits') > .01, 'upzoning adds homes');
   assert.ok(rel(r['transit-upzoning'], 'rent') < 0, 'upzoning lowers rent vs. baseline');
   assert.ok(rel(r['housing-construction-subsidy'], 'housingUnits') > 0, 'construction subsidy adds homes');
-  assert.ok(rel(r['parking-minimum-reduction'], 'housingUnits') > 0, 'parking reduction adds homes');
+  assert.ok(rel(r['parking-minimum-restore'], 'housingUnits') < 0, 'requiring parking again slows building');
   assert.ok(at(r['property-tax-adjustment'], 'propertyTax') < B[39].propertyTax, 'tax cut lowers revenue');
   assert.equal(at(r['property-tax-adjustment'], 'taxRate'), 46, 'at the card\'s rate: 50¢ - 4¢');
   assert.ok(rel(r['small-business-support-grant'], 'businesses') > 0, 'support grants add businesses');

@@ -58,6 +58,12 @@ export const VARIABLES = {
   vacancyTaxRevenue: { label: 'Vacancy tax revenue', unit: '$/yr', fmt: 'usdm' },
   assessedValue: { label: 'Taxable property value', fmt: 'usdb' },
   programCost: { label: 'Policy programme costs', unit: '$/yr', fmt: 'usdm' },
+  commuteCO2: { label: 'Commute CO₂', unit: 't/yr', fmt: 'int' },
+  affordableHomes: { label: 'Income-restricted homes', fmt: 'int' },
+  affordableStarts: { label: 'Income-restricted homes started', unit: 'per yr', fmt: 'int' },
+  impactFeeRevenue: { label: 'Impact fee revenue', unit: '$/yr', fmt: 'usdm' },
+  parkingRevenue: { label: 'Downtown parking revenue', unit: '$/yr', fmt: 'usdm' },
+  busSpeed: { label: 'Bus speed in town', fmt: 'index' },
   serviceCost: { label: 'Cost of serving added residents', unit: '$/yr', fmt: 'usdm' },
 };
 
@@ -89,27 +95,27 @@ function band(runs, key) { // runs: array of series → { p10, p50, p90 } arrays
  * @param {ReturnType<typeof import('./levers.js').cardPolicies>} policies
  * @param {import('../types').Assumptions} assumptions @param {import('../types').Baselines} baselines
  */
-export function runScenario(policies, assumptions, baselines, { runs = 200, seed = 2026, landUse = null } = {}) {
+export function runScenario(policies, assumptions, baselines, { runs = 200, seed = 2026, landUse = null, drivers = null } = {}) {
   const { simulate, ranges, midParams } = createModel(assumptions, baselines);
   const rand = rng(seed);
   const base = [], pol = [], diff = [];
   for (let r = 0; r < runs; r++) {
     const params = sampleParams(ranges, rand);
-    const b = simulate(params, [], { seedEvents: false }).series;
-    const p = policies.length || landUse ? simulate(params, policies, { seedEvents: false, landUse }).series : b;
+    const b = simulate(params, [], { seedEvents: false, drivers }).series;
+    const p = policies.length || landUse ? simulate(params, policies, { seedEvents: false, landUse, drivers }).series : b;
     base.push(b); pol.push(p);
     diff.push(p.map((row, q) => Object.fromEntries(Object.keys(VARIABLES).map(k => [k, row[k] - b[q][k]]))));
   }
   const keys = Object.keys(VARIABLES);
   const mid = midParams();
-  const midBase = simulate(mid, []), midPolicy = policies.length || landUse ? simulate(mid, policies, { landUse }) : midBase;
+  const midBase = simulate(mid, [], { drivers }), midPolicy = policies.length || landUse ? simulate(mid, policies, { landUse, drivers }) : midBase;
   // each card on its own, at central parameters, to show who did what
   const perPolicy = policies.length > 1 ? policies.map(p => {
-    const s = simulate(mid, [p], { seedEvents: false }).series;
+    const s = simulate(mid, [p], { seedEvents: false, drivers }).series;
     return { id: p.id, title: p.title, diff: s.map((row, q) => Object.fromEntries(keys.map(k => [k, row[k] - midBase.series[q][k]]))) };
   }) : policies.map(p => ({ id: p.id, title: p.title, diff: midPolicy.series.map((row, q) => Object.fromEntries(keys.map(k => [k, row[k] - midBase.series[q][k]]))) }));
   return {
-    model: MODEL, runs, seed, years: YEARS, policies: policies.map(p => p.id),
+    model: MODEL, runs, seed, years: YEARS, policies: policies.map(p => p.id), drivers,
     baseline: Object.fromEntries(keys.map(k => [k, band(base, k)])),
     policy: Object.fromEntries(keys.map(k => [k, band(pol, k)])),
     diff: Object.fromEntries(keys.map(k => [k, band(diff, k)])),

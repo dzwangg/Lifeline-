@@ -8,8 +8,9 @@ import { ZONE_IDS as LUTI_ZONES } from './luti/data.js';
 
 export const ZONE_STATES = ['forest', 'low_res', 'mid_res', 'mixed_use', 'parking', 'transit_station'];
 export const METRICS = ['housingUnits', 'medianRent', 'treeCoverPct', 'avgCommuteMin', 'taxRevenue'];
-export const HOUSEHOLD_METRICS = ['households', 'pricedOut']; // added by shared/combined.js
-export const LUTI_METRICS = ['jobs', 'businesses', 'storefrontVacancy', 'homeValue', 'netFiscal', 'transitRidership', 'trafficIndex']; // added by shared/combined.js
+export const HOUSEHOLD_METRICS = ['households', 'pricedOut', 'rentBurden']; // added by shared/combined.js
+export const LUTI_METRICS = ['jobs', 'businesses', 'storefrontVacancy', 'homeValue', 'netFiscal', 'transitRidership', 'trafficIndex',
+  'priceToIncome', 'affordableHomes', 'carShare', 'jobAccess', 'commuteCO2']; // added by shared/combined.js
 const OPTIONAL_METRICS = [...HOUSEHOLD_METRICS, ...LUTI_METRICS];
 
 /** Does a rule's `where` ("tag:<tag>", "id:<zoneId>" or "all") select this zone? @param {string} where @param {Pick<Zone, 'id' | 'tags'>} zone */
@@ -115,7 +116,8 @@ export function validateCard(card) {
 /** @param {SimResult} r */
 export function validateSimResult(r) {
   const { errors, ok, obj, list, strings } = checker();
-  if (!obj(r, '', ['scenarioId', 'policies', 'years', 'timeline', 'deltas', 'tradeoffs', 'assumptions'])) return errors;
+  if (!obj(r, '', ['scenarioId', 'policies', 'years', 'timeline', 'deltas', 'tradeoffs', 'assumptions'], ['drivers'])) return errors;
+  if ('drivers' in r) ok(isObj(r.drivers) && Object.values(r.drivers).every(v => isNum(v) || v === 'fed'), 'drivers', 'must map driver names to numbers (or "fed" for inflation)');
   ok(isStr(r.scenarioId), 'scenarioId', 'must be a non-empty string');
   ok(Number.isInteger(r.years) && r.years >= 0, 'years', 'must be a whole number');
   if (list(r.policies, 'policies')) r.policies.forEach((p, i) => {

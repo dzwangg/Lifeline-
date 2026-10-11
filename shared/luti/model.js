@@ -14,6 +14,7 @@
 import { TOWN, ZONES as ZONE_DATA, ZONE_IDS as ZID, BASE_YEAR } from './data.js';
 import { paramRanges, fixedValues } from './params.js';
 import { buildSchedule } from './levers.js';
+import { noDrivers, inflationAt } from './drivers.js';
 
 /** @typedef {import('../types').Assumptions} Assumptions @typedef {import('../types').Baselines} Baselines */
 
@@ -27,6 +28,7 @@ export const QUARTERS = 40;
 export const YEARS = Array.from({ length: QUARTERS }, (_, q) => BASE_YEAR + q / 4);
 
 const MODES = ['car', 'bus', 'bike', 'walk'];
+const KM_PER_MILE = 1.609344;
 const N = ZONE_DATA.length;
 const sum = a => a.reduce((s, x) => s + x, 0);
 const logistic = x => 1 / (1 + Math.exp(-x));
@@ -69,7 +71,7 @@ export function createModel(assumptions, baselines) {
   const bpr = vc => 1 + A.roadBpr.alpha * vc ** A.roadBpr.beta;
 
   // ---------- 1. travel ----------
-  function modeCosts(i, j, svc, carKmh, stress) {
+  function modeCosts(i, j, svc, carKmh, stress, busSpeed = 1, parkingPrice = 0) {
     const a = ZONES[i], walkToBus = F.busAccessMin, w = F.activeModeWeight;
     if (j < 0) { // commute out to Durham / RTP / Raleigh
       const d = REGION.distanceKm, car = d / S.regionCar * 60, bus = d / S.regionBus * 60, wait = REGION.headway / 2, term = F.terminalMin.other;
@@ -79,17 +81,19 @@ export function createModel(assumptions, baselines) {
       };
     }
     const b = ZONES[j], d = DIST[i][j];
-    const term = F.terminalMin[PARKING_SCARCE.has(b.id) ? 'parkingScarce' : 'other'];
-    const car = d / carKmh * 60, bus = d / S.bus * 60, bike = d / S.bike * 60, walk = d / S.walk * 60;
+    const scarce = PARKING_SCARCE.has(b.id), term = F.terminalMin[scarce ? 'parkingScarce' : 'other'];
+    const car = d / carKmh * 60, bus = d / (S.bus * busSpeed) * 60, bike = d / S.bike * 60, walk = d / S.walk * 60;
     const wait = Math.max(a.headway, b.headway) / svc / 2;
+    // a daily charge at Town-run parking downtown, as minutes of travel time, for the share of drivers there who park in it
+    const fee = b.id === 'downtown' ? parkingPrice * F.townParkingShare / (F.valueOfTimePerHour / 60) : 0;
     return {
-      gen: { car: car + F.ovtWeight * term, bus: bus + F.ovtWeight * (walkToBus + wait), bike: w * bike + stress, walk: w * walk },
+      gen: { car: car + F.ovtWeight * term + fee, bus: bus + F.ovtWeight * (walkToBus + wait), bike: w * bike + stress, walk: w * walk },
       time: { car: car + term, bus: bus + walkToBus + wait, bike, walk }, wait,
     };
   }
 
   function travel(s, L, p, cal) {
-    const svc = L['transit.serviceMultiplier'];
+    const svc = L['transit.serviceMultiplier'], busSpeed = L['transit.busSpeedMultiplier'] ?? 1, parkingPrice = L['transport.parkingPriceDelta'] ?? 0;
     const carKmh = S.car * bpr(F.peakVC) / bpr(F.peakVC * s.traffic);
     const stress = F.bikeStressMin * (1 - p.bikeInfraEffect * Math.min(F.bikeNetwork.maxEffect, L['transport.protectedBikeKm'] / F.bikeNetwork.referenceKm));
     const zones = [];
@@ -97,16 +101,18 @@ export function createModel(assumptions, baselines) {
       const w = s.jobs.map((J, j) => J * Math.exp(-F.gravityDecay * DIST[i][j])), ws = sum(w);
       const dests = w.map((x, j) => [j, (1 - REGION.outShare) * x / ws]).concat([[-1, REGION.outShare]]);
       const share = { car: 0, bus: 0, bike: 0, walk: 0 };
-      let time = 0, wait = 0, access = 0;
+      let time = 0, wait = 0, access = 0, carDowntown = 0, carKm = 0;
       for (const [j, pj] of dests) {
-        const c = modeCosts(i, j, svc, carKmh, stress), e = {};
+        const c = modeCosts(i, j, svc, carKmh, stress, busSpeed, parkingPrice), e = {};
         let se = 0;
         for (const m of MODES) { e[m] = Number.isFinite(c.gen[m]) ? Math.exp(cal.asc[i][m] - p.timeCoef * c.gen[m]) : 0; se += e[m]; }
         for (const m of MODES) { const pr = e[m] / se; share[m] += pj * pr; if (pr) time += pj * pr * c.time[m]; }
+        carKm += pj * e.car / se * (j >= 0 ? DIST[i][j] : REGION.distanceKm);
+        if (j >= 0 && ZONES[j].id === 'downtown') carDowntown += pj * e.car / se;
         wait += pj * c.wait;
         if (j >= 0) access += s.jobs[j] * Math.exp(F.accessDecay * Math.log(se) / p.timeCoef); // logsum → composite minutes
       }
-      zones.push({ share, time, wait, access });
+      zones.push({ share, time, wait, access, carDowntown, carKm });
     }
     const commuters = s.households.map((h, i) => TOWN.residentWorkers * h / HH0 * (1 - ZONES[i].wfh));
     const C = sum(commuters), avg = k => sum(zones.map((z, i) => z[k] * commuters[i])) / C;
@@ -114,7 +120,13 @@ export function createModel(assumptions, baselines) {
     const inCommuters = Math.max(0, sum(s.jobs) - C * (1 - REGION.outShare));
     const inTransit = Math.min(F.inCommuterTransitMax, F.inCommuterTransitShare * svc ** p.serviceElasticity);
     const carTrips = C * share.car + inCommuters * (1 - inTransit);
-    return { zones, share, time: avg('time'), wait: avg('wait'), carKmh, stress, carTrips, svc };
+    // cars parking in Town-run spaces downtown each workday: residents and in-commuters who drive there (in-commuters by the
+    // zone's share of jobs), times the share of them that park in the Town's decks, lots and meters
+    const downtownJobs = s.jobs[ZONES.findIndex(z => z.id === 'downtown')] / sum(s.jobs);
+    const parkedTown = (sum(zones.map((z, i) => z.carDowntown * commuters[i])) + inCommuters * (1 - inTransit) * downtownJobs) * F.townParkingShare;
+    // km driven one way each workday on commutes: residents' (in town and out) and in-commuters' who drive in
+    const carKm = sum(zones.map((z, i) => z.carKm * commuters[i])) + inCommuters * (1 - inTransit) * REGION.distanceKm;
+    return { zones, share, time: avg('time'), wait: avg('wait'), carKmh, stress, carTrips, svc, parkedTown, carKm };
   }
 
   // ---------- calibration: the no-policy model reproduces the observed base year ----------
@@ -151,21 +163,45 @@ export function createModel(assumptions, baselines) {
     return cal;
   }
 
-  function devCost(i, p, q, far, parkingMin, subsidy, landAdj) {
-    const z = ZONES[i], ci = grow(F.costDrift, q);
+  // g: the run's growth curves (see growthCurves); extra: { costShock, impactFee, approvalMonths } from drivers and levers
+  function devCost(i, p, q, far, parkingMin, subsidy, landAdj, g = null, extra = null) {
+    const z = ZONES[i], ci = (g ? g.cost(q) : grow(F.costDrift, q)) * (1 + (extra?.costShock ?? 0));
     const hard = F.unitSizeSf * p.hardCostPerSf * (1 + F.softCost) * ci;
-    const spaces = Math.max(Math.min(parkingMin, F.parkingMinimum[z.id]), Math.min(p.marketParkingRatio, F.parkingMinimum[z.id]));
+    const spaces = Math.max(parkingMin, p.marketParkingRatio); // builders build what the market asks, or the requirement if more
     const parking = spaces * (F.structuredParking[z.id] ? p.structuredParkingCost : F.surfaceParkingCost) * ci;
-    const land = F.landPerUnit[z.id] * grow(p.valueDrift, q) * (1 + p.landCapture * (landAdj - 1)) / far;
-    return hard + parking + land - subsidy;
+    const land = F.landPerUnit[z.id] * (g ? g.value(q) : grow(p.valueDrift, q)) * (1 + p.landCapture * (landAdj - 1)) / far;
+    const base = hard + parking + land;
+    if (!extra) return base - subsidy;
+    // a longer (or shorter) approval holds land and soft costs for longer (or shorter)
+    const carry = Math.max(-0.1, F.approvalCarryPerYear * (extra.approvalMonths ?? 0) / 12);
+    return base * (1 + carry) + (extra.impactFee ?? 0) - subsidy;
+  }
+
+  // Growth curves for one run. Without drivers they are the model's own rates; with them, every nominal rate moves with
+  // the scenario's inflation, by its difference from the default (lutiCpi), one for one.
+  function growthCurves(p, drivers) {
+    if (noDrivers(drivers)) {
+      return { rent: q => grow(p.rentDrift, q), rentStep: () => grow(p.rentDrift, 1), value: q => grow(p.valueDrift, q),
+        cost: q => grow(F.costDrift, q), cpi: q => grow(F.cpi, q), income: q => grow(F.incomeGrowth, q), price: q => grow(F.cpi, q) };
+    }
+    const shift = Array.from({ length: QUARTERS + 1 }, (_, q) => inflationAt(drivers, F.cpi, Math.floor(q / 4)) - F.cpi);
+    const curve = rate => { const c = [1]; for (let q = 0; q < QUARTERS; q++) c.push(c[q] * Math.pow(1 + rate + shift[q], 0.25)); return q => c[Math.min(q, QUARTERS)]; };
+    const rent = curve(p.rentDrift);
+    return { rent, rentStep: q => Math.pow(1 + p.rentDrift + shift[q], 0.25), value: curve(p.valueDrift), cost: curve(F.costDrift),
+      cpi: curve(F.cpi), income: curve(F.incomeGrowth), price: curve(F.cpi) };
   }
 
   // ---------- the simulation ----------
   // shock (tests only): { units: 0.01 } adds 1% to every zone's housing stock in the first quarter.
   // landUse: homes the land-use sim's zone rules build, { unitsAdded: [quarter] → { zoneId: homes added so far }, treeCoverPct:
   // [quarter] } (see shared/combined.js). They join the stock at the start of each quarter, like completions.
-  function simulate(params, policies = [], { seedEvents = true, shock = null, landUse = null } = {}) {
-    const p = params, cal = calibrate(p);
+  // drivers: scenario what-ifs (shared/luti/drivers.js), applied the same with and without policies.
+  function simulate(params, policies = [], { seedEvents = true, shock = null, landUse = null, drivers = null } = {}) {
+    const cal = calibrate(params); // calibrated to today, before any what-if, so a driver moves the town rather than its base year
+    const p = { ...params };
+    if (drivers?.uncJobsGrowth != null) p.tradableGrowth = drivers.uncJobsGrowth / 100;
+    if (drivers?.regionalGrowth != null) p.regionalGrowth = drivers.regionalGrowth / 100;
+    const g = growthCurves(p, drivers), costShock = (drivers?.constructionCost ?? 0) / 100;
     const schedule = buildSchedule(policies, ZID, { 'housing.parkingMinimum': F.parkingMinimum });
     const jps = p.jobsPerStorefront;
     const N0 = ZONES.map(z => TOWN.storefrontJobs * z.storefrontShare / jps);
@@ -181,7 +217,7 @@ export function createModel(assumptions, baselines) {
       avRes: ZONES.map(z => z.units * AV_PER_UNIT0),
       avCom: AV_COMMERCIAL0,
       rateBase: TAX_CENTS,
-      hired: 0, traffic: 1,
+      hired: 0, traffic: 1, affordable: 0,
     };
     // the pipeline starts full of the projects already under way, split by where starts land
     s.pipe = ZONES.map(z => new Array(F.buildQuarters).fill(BASE_STARTS_Q * F.startShare[z.id]));
@@ -202,6 +238,9 @@ export function createModel(assumptions, baselines) {
       jobs: sum(s.jobs), businesses: sum(N0), storefrontVacancy: 1 - N0[0] / spaces0[0], transitRidership: TOWN.transitRidership,
       commuteTime: B.meanCommuteMin, trafficIndex: 1, homeValue: B.medianHomeValue, treeCoverPct: B.treeCoverPct, landUseHomes: 0,
       taxRate: TAX_CENTS, propertyTax: propertyTaxAt(sum(s.units), 0), salesTax: TOWN.salesTax,
+      rentBurden: 1 - Phi((Math.log(0.30) - Math.log(TOWN.rentToIncomeMedian)) / F.rentBurdenSigma), carShare: cal.travel0.share.car,
+      accessIndex: 1, commuteCO2: cal.travel0.carKm * 2 * F.workdaysPerYear * F.carCo2GramsPerMile / KM_PER_MILE / 1e6,
+      affordableHomes: 0, incomeIndex: 1,
     };
     start.netFiscal = start.propertyTax + start.salesTax;
     start.zones = ZONES.map((z, i) => ({ units: z.units, households: z.households, rent: rent0[i], commute: cal.travel0.zones[i].time * cal.timeScale }));
@@ -212,13 +251,13 @@ export function createModel(assumptions, baselines) {
       if (landUse) ZONES.forEach((z, i) => { // homes the zone rules finished this quarter
         const added = landUse.unitsAdded[q][z.id] - (q ? landUse.unitsAdded[q - 1][z.id] : 0);
         s.units[i] += added;
-        s.avRes[i] += added * value0[i] * grow(p.valueDrift, q);
+        s.avRes[i] += added * value0[i] * g.value(q);
       });
       // NC revalues property every four years; the base rate is reset to revenue-neutral, the policy's change rides on top
       if (q > 0 && q % 4 === 0 && F.revaluationYears.includes(year)) {
         const before = sum(s.avRes) + s.avCom;
-        s.avRes = s.units.map((u, i) => u * value0[i] * grow(p.valueDrift, q) * (s.rent[i] / (rent0[i] * grow(p.rentDrift, q))));
-        s.avCom = AV_COMMERCIAL0 * grow(p.valueDrift, q);
+        s.avRes = s.units.map((u, i) => u * value0[i] * g.value(q) * (s.rent[i] / (rent0[i] * g.rent(q))));
+        s.avCom = AV_COMMERCIAL0 * g.value(q);
         s.rateBase *= before / (sum(s.avRes) + s.avCom);
       }
       const rate = s.rateBase * (1 + rateDelta / TAX_CENTS);
@@ -241,8 +280,8 @@ export function createModel(assumptions, baselines) {
       const pool = cal.pool0 * grow(p.regionalGrowth, q) * (jobsTotal / TOWN.jobs) ** p.jobsHousingElasticity;
       const occupancy = s.biz.map((n, i) => Math.min(1, n / s.spaces[i]));
       const V = ZONES.map((z, i) => {
-        const rentRef = rent0[i] * grow(p.rentDrift, q);
-        const taxCost = taxFrac * value0[i] * grow(p.valueDrift, q) * (ownerShare[i] + F.renterTaxShare * (1 - ownerShare[i])) / (12 * s.rent[i]);
+        const rentRef = rent0[i] * g.rent(q);
+        const taxCost = taxFrac * value0[i] * g.value(q) * (ownerShare[i] + F.renterTaxShare * (1 - ownerShare[i])) / (12 * s.rent[i]);
         return cal.ascLoc[i] + p.rentElasticity * (Math.log(s.rent[i] / rentRef) + Math.log(1 + taxCost))
           + p.accessElasticity * Math.log(tr.zones[i].access / access0[i])
           + p.vibrancyElasticity * Math.log(Math.max(0.05, occupancy[i]) / occ0[i]);
@@ -254,16 +293,18 @@ export function createModel(assumptions, baselines) {
         const market = s.units[i] - NONMARKET[i];
         s.households[i] = Math.min(market * (1 - F.minVacancy), s.households[i] + F.householdAdjust * (desired[i] - s.households[i]));
         vacancy[i] = 1 - s.households[i] / market;
-        s.rent[i] *= grow(p.rentDrift, 1) * (1 + p.rentVacancyResponse * 100 * (F.naturalVacancy - vacancy[i]) / 4);
+        s.rent[i] *= g.rentStep(q) * (1 + p.rentVacancyResponse * 100 * (F.naturalVacancy - vacancy[i]) / 4);
       }
 
       // 3 development: pro forma per zone → starts → pipeline → completions
       ZONES.forEach((z, i) => { s.landAdj[i] += (L['housing.farMultiplier'][z.id] - s.landAdj[i]) / F.landCatchUpQuarters; }); // land prices catch up with an upzoning
       const proForma = subsidy => ZONES.map((z, i) => {
         const far = L['housing.farMultiplier'][z.id];
-        const cost = devCost(i, p, q, far, L['housing.parkingMinimum'][z.id], subsidy, s.landAdj[i]);
+        const cost = devCost(i, p, q, far, L['housing.parkingMinimum'][z.id], subsidy, s.landAdj[i], g,
+          { costShock, impactFee: L['housing.impactFee'], approvalMonths: L['housing.approvalMonths'] });
         const noi = 12 * s.rent[i] * cal.premium[i] * (1 - F.opex) * (1 - F.stabilizedVacancy);
-        const value = noi / (p.capRate + rate / 1e4);
+        // an affordable-housing requirement rents that share of the new homes below market, which lowers what a building is worth
+        const value = noi / (p.capRate + rate / 1e4) * (1 - Math.min(0.9, L['housing.inclusionaryPct'] / 100) * F.affordableGap);
         const margin = value / cost - 1;
         const prob = logistic((margin - F.hurdle) / p.siteDispersion);
         const capacity = cal.cap0[i] * (1 + p.upzoneCapacity * (far - 1));
@@ -275,6 +316,8 @@ export function createModel(assumptions, baselines) {
       let subsidyPer = Math.max(0, L['housing.subsidyPerUnit']), dev = proForma(subsidyPer);
       if (subsidyPer * startsOf(dev) > budget) { subsidyPer = budget / startsOf(dev); dev = proForma(subsidyPer); }
       const startsTotal = startsOf(dev);
+      const affordableStarts = startsTotal * Math.min(0.9, L['housing.inclusionaryPct'] / 100);
+      s.affordable += affordableStarts;
       for (let i = 0; i < N; i++) {
         const z = ZONES[i], { starts, value, far } = dev[i];
         const done = s.pipe[i].shift();
@@ -314,11 +357,11 @@ export function createModel(assumptions, baselines) {
         const deaths = Math.max(0, s.biz[i] * d * ratio ** -p.bizDemandResponse - sv);
         s.biz[i] = Math.min(s.spaces[i], s.biz[i] + births - deaths);
         opened += births; closed += deaths; saved += Math.min(sv, s.biz[i] * d * ratio ** -p.bizDemandResponse); grantOpen += go; vacTaxOpen += vo;
-        vacTaxRevenue += vacTax / 100 * F.longVacantShare * Math.max(0, s.spaces[i] - s.biz[i]) * F.storefrontValue * grow(F.cpi, q);
+        vacTaxRevenue += vacTax / 100 * F.longVacantShare * Math.max(0, s.spaces[i] - s.biz[i]) * F.storefrontValue * g.cpi(q);
       }
 
       // 6 town budget, annualised
-      const cpi = grow(F.cpi, q);
+      const cpi = g.cpi(q);
       const assessed = sum(s.avRes) + s.avCom;
       const propertyTax = propertyTaxAt(sum(s.units), rateDelta);
       const salesTax = TOWN.salesTax * cpi * spendTown;
@@ -326,16 +369,20 @@ export function createModel(assumptions, baselines) {
       const transitCost = (tr.svc - 1) * TOWN.transitFund * F.transitTownShare * cpi;
       const bikeCost = L['transport.protectedBikeKm'] * (F.bikeLaneCost.capitalPerKm * F.bikeLaneCost.debtServicePerYear + F.bikeLaneCost.upkeepPerKm);
       const programCost = L['business.supportGrants'] + L['business.startupGrants'] + L['employment.hiringSubsidy']
-        + subsidySpend * 4 + L['housing.planningCost'] * 4 + transitCost + bikeCost;
-      const revenue = propertyTax + salesTax + vacTaxRevenue;
+        + subsidySpend * 4 + L['housing.planningCost'] * 4 + transitCost + bikeCost + L['budget.annualCost'] + L['budget.oneTimeCost'] * 4
+        + 12 * (L['assistance.rentHouseholds'] * L['assistance.rentMonthly'] + L['assistance.cashHouseholds'] * L['assistance.cashMonthly'])
+        + L['workforce.trainees'] * F.trainingCost * cpi;
+      const impactFeeRevenue = L['housing.impactFee'] * startsTotal * 4;
+      const parkingRevenue = L['transport.parkingPriceDelta'] * F.workdaysPerYear * tr.parkedTown;
+      const revenue = propertyTax + salesTax + vacTaxRevenue + impactFeeRevenue + parkingRevenue;
 
       // traffic feeds next quarter's car speeds
       s.traffic = tr.carTrips / cal.carTrips0;
 
       const hh = sum(s.households), rentAvg = sum(s.rent.map((r, i) => r * s.households[i])) / hh;
-      const rentIdx = rentAvg / B.medianGrossRent, incomeIdx = grow(F.incomeGrowth, q);
+      const rentIdx = rentAvg / B.medianGrossRent, incomeIdx = g.income(q);
       const ratio = TOWN.rentToIncomeMedian * rentIdx / incomeIdx;
-      const valueIdx = sum(ZONES.map((z, i) => s.households[i] * (s.rent[i] / (rent0[i] * grow(p.rentDrift, q))) * (1 - taxFrac / yield0[i]))) / hh;
+      const valueIdx = sum(ZONES.map((z, i) => s.households[i] * (s.rent[i] / (rent0[i] * g.rent(q))) * (1 - taxFrac / yield0[i]))) / hh;
       const svc = tr.svc;
       const storefrontVacancyDowntown = 1 - Math.min(1, s.biz[0] / s.spaces[0]);
       const marketUnits = sum(s.units) - sum(NONMARKET);
@@ -345,12 +392,13 @@ export function createModel(assumptions, baselines) {
         population: pop, households: hh, housingUnits: sum(s.units),
         landUseHomes: landUse ? sum(Object.values(landUse.unitsAdded[q])) : 0, treeCoverPct: landUse ? landUse.treeCoverPct[q] : B.treeCoverPct,
         rent: rentAvg, rentBurden: 1 - Phi((Math.log(0.30) - Math.log(ratio)) / F.rentBurdenSigma),
-        homeValue: B.medianHomeValue * grow(p.valueDrift, q) * valueIdx,
+        homeValue: B.medianHomeValue * g.value(q) * valueIdx,
         jobs: jobsTotal, storefrontJobs, hiredJobs: s.hired, businesses: sum(s.biz), storefrontVacancy: storefrontVacancyDowntown,
         openings: opened * 4, closures: closed * 4, grantSaves: saved * 4, startupOpenings: grantOpen * 4, vacancyTaxOpenings: vacTaxOpen * 4,
         storefrontSpaces: sum(s.spaces), spendingIndex: spendTown,
         transitRidership: TOWN.transitRidership * svc ** p.serviceElasticity * (fromResidents * pop / POP0 + (1 - fromResidents) * jobsTotal / TOWN.jobs),
         busShare: tr.share.bus, carShare: tr.share.car, bikeShare: tr.share.bike, walkShare: tr.share.walk,
+        commuteCO2: tr.carKm * 2 * F.workdaysPerYear * F.carCo2GramsPerMile / KM_PER_MILE / 1e6, // tonnes a year, there and back
         commuteTime: tr.time * cal.timeScale, busWait: tr.wait, carSpeed: tr.carKmh, bikeStress: tr.stress, serviceLevel: svc, bikeKm: L['transport.protectedBikeKm'],
         trafficIndex: s.traffic, accessIndex: sum(tr.zones.map((z, i) => z.access * s.households[i])) / sum(access0.map((a, i) => a * s.households[i])),
         starts: startsTotal * 4, completions: sum(dev.map(x => x.done)) * 4,
@@ -359,8 +407,12 @@ export function createModel(assumptions, baselines) {
         costPerHome: sum(dev.map(x => x.cost * x.starts)) / Math.max(1e-9, startsTotal),
         subsidyPerHome: subsidyPer,
         desiredHouseholds: sum(desired), vacancy: 1 - (hh / marketUnits),
-        taxRate: TAX_CENTS + rateDelta, assessedValue: assessed, propertyTax, salesTax, vacancyTaxRevenue: vacTaxRevenue,
+        taxRate: TAX_CENTS + rateDelta, assessedValue: assessed, propertyTax, salesTax, vacancyTaxRevenue: vacTaxRevenue, impactFeeRevenue, parkingRevenue,
+        affordableStarts: affordableStarts * 4, affordableHomes: s.affordable, priceIndex: g.price(q + 1), incomeIndex: incomeIdx, busSpeed: L['transit.busSpeedMultiplier'],
         townRevenue: revenue, programCost, serviceCost, netFiscal: revenue - programCost - serviceCost,
+        // for the household model: help paid to households and job training, as they stand this quarter
+        rentHelpHouseholds: L['assistance.rentHouseholds'], rentHelpMonthly: L['assistance.rentMonthly'],
+        cashHouseholds: L['assistance.cashHouseholds'], cashMonthly: L['assistance.cashMonthly'], trainees: L['workforce.trainees'],
       });
       zoneSeries.push(ZONES.map((z, i) => ({
         households: s.households[i], units: s.units[i], rent: s.rent[i], commute: tr.zones[i].time * cal.timeScale, starts: dev[i].starts * 4, margin: dev[i].margin,
@@ -394,17 +446,20 @@ export const CAUSES = {
   closures: ['grantSaves', 'spendingIndex'],
   storefrontVacancy: ['businesses', 'storefrontSpaces'],
   spendingIndex: ['population', 'jobs'],
-  busShare: ['busWait', 'carSpeed', 'bikeStress'],
-  carShare: ['busWait', 'carSpeed', 'bikeStress'],
+  busShare: ['busWait', 'busSpeed', 'carSpeed', 'bikeStress'],
+  carShare: ['busWait', 'busSpeed', 'carSpeed', 'bikeStress'],
   transitRidership: ['serviceLevel', 'population', 'jobs'],
   commuteTime: ['busWait', 'carSpeed', 'busShare'],
   carSpeed: ['trafficIndex'],
   trafficIndex: ['carShare', 'jobs', 'population'],
   accessIndex: ['busWait', 'carSpeed', 'bikeStress', 'jobs'],
-  townRevenue: ['propertyTax', 'salesTax', 'vacancyTaxRevenue'],
+  townRevenue: ['propertyTax', 'salesTax', 'vacancyTaxRevenue', 'impactFeeRevenue', 'parkingRevenue'],
+  affordableHomes: ['affordableStarts'],
+  affordableStarts: ['starts'],
   propertyTax: ['taxRate', 'housingUnits'],
   assessedValue: ['housingUnits', 'rent'],
   salesTax: ['spendingIndex'],
   netFiscal: ['townRevenue', 'programCost', 'serviceCost'],
   serviceCost: ['population'],
+  commuteCO2: ['carShare', 'jobs', 'households'],
 };

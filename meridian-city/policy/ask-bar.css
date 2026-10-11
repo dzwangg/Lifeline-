@@ -1,0 +1,56 @@
+/* "Ask the city" bar: bottom of the map, between the info plate (left) and the results dashboard (right). It wears the
+   page's .plate glass, which retro-ui.css frames in the pixel theme; its answer opens above it. */
+.ask {
+  position: fixed; z-index: 31; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 404px; right: 472px;
+  display: grid; gap: 8px; padding: 8px !important; box-sizing: border-box; font-family: var(--pp-font, 'Mukta', sans-serif); color: var(--ink, #123e58);
+}
+body.city-loading .ask { visibility: hidden; }
+.ask__row { display: flex; gap: 8px; align-items: center; }
+.ask__input {
+  flex: 1; min-width: 0; height: 38px; padding: 0 12px; box-sizing: border-box; font: 500 15px var(--pp-font, 'Mukta', sans-serif); color: inherit;
+  background: #fff; border: 2px solid var(--ae-navy, #1c2c5e); border-radius: 9px; box-shadow: inset 0 2px 0 rgba(28, 44, 94, .1);
+}
+.ask__input::placeholder { color: var(--muted, #42758a); }
+.ask__input:focus-visible { outline: 3px solid var(--ae-gold, #ffd23f); outline-offset: 2px; }
+.ask__send { flex: none; width: 38px; height: 38px; }
+.ask__send svg { width: 18px; height: 18px; }
+.ask.is-busy .ask__input { opacity: .6; }
+
+.ask__out {
+  position: relative; max-height: min(52vh, 460px); overflow: auto; padding: 10px 40px 10px 12px; border-radius: 8px;
+  background: #ffffff; border: 2px solid var(--ae-navy, #1c2c5e); box-shadow: 0 3px 0 rgba(28, 44, 94, .35); font-size: 14px; line-height: 1.45;
+}
+.ask__out[hidden] { display: none; }
+.ask__out--refuse { background: linear-gradient(180deg, #ffffff 0 40%, #fff6cf 40% 100%); }
+.ask__out--error { background: linear-gradient(180deg, #ffffff 0 40%, #ffe3ec 40% 100%); }
+.ask__close {
+  position: absolute; top: 6px; right: 6px; display: grid; place-items: center; width: 24px; height: 24px; padding: 0 0 2px; cursor: pointer;
+  font: 600 16px/1 var(--ae-pixel, monospace); color: #ffffff; border: 2px solid var(--ae-navy, #1c2c5e); border-radius: 7px;
+  background: linear-gradient(180deg, #ffd0e8 0 46%, var(--ae-pink, #ff7fbf) 46% 100%); box-shadow: inset 0 2px 0 #ffffff, inset 0 -3px 0 var(--ae-pink-dark, #d94a92), 0 2px 0 var(--ae-navy, #1c2c5e);
+}
+.ask__close:focus-visible { outline: 3px solid var(--ae-gold, #ffd23f); outline-offset: 2px; }
+.ask__kicker { margin: 0 0 2px; font: 600 11px var(--ae-pixel, var(--mono, monospace)); letter-spacing: .06em; text-transform: uppercase; color: var(--ae-aqua-dark, #1a8fc4); }
+.ask__out--refuse .ask__kicker { color: #8a560b; }
+.ask__you { margin: 0 0 4px; font-size: 13px; color: var(--muted, #42758a); font-style: italic; }
+.ask__lede { margin: 0; font-weight: 600; color: var(--ae-navy, #1c2c5e); }
+.ask__note { margin: 6px 0 0; font-size: 13px; color: var(--ae-ink-soft, #456186); }
+.ask__card { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: linear-gradient(180deg, #ffffff 0 45%, #e3f6fc 45% 100%); border: 2px solid var(--ae-navy, #1c2c5e); }
+.ask__card strong { display: block; font: 600 15px var(--ae-pixel, monospace); color: var(--ae-navy, #1c2c5e); }
+.ask__list { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
+.ask__list--notes { color: #8a560b; }
+.ask__chips, .ask__actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.ask__chip {
+  padding: 4px 10px 3px; border: 2px solid var(--ae-navy, #1c2c5e); border-radius: 9px; cursor: pointer;
+  font: 500 12.5px var(--ae-pixel, monospace); color: var(--ae-navy, #1c2c5e);
+  background: linear-gradient(180deg, #f2fdff 0 46%, #8fdcf7 46% 100%); box-shadow: inset 0 2px 0 #ffffff, inset 0 -3px 0 #4fb8e0, 0 2px 0 var(--ae-navy, #1c2c5e);
+}
+.ask__chip:hover { filter: brightness(1.06) saturate(1.1); }
+.ask__chip:active { transform: translateY(2px); box-shadow: inset 0 2px 0 #ffffff, inset 0 -1px 0 #4fb8e0; }
+.ask__chip:focus-visible { outline: 3px solid var(--ae-gold, #ffd23f); outline-offset: 2px; }
+.ask__spinner { display: inline-block; width: 12px; height: 12px; margin-right: 8px; vertical-align: -1px; border: 2px solid var(--ae-aqua-dark, #1a8fc4); border-top-color: transparent; border-radius: 50%; animation: ask-spin .8s steps(8) infinite; }
+@keyframes ask-spin { to { transform: rotate(1turn); } }
+@media (prefers-reduced-motion: reduce) { .ask__spinner { animation: none; } }
+
+/* Narrower screens: above the info plate, left of the dashboard. Phones: full width, above the info plate. */
+@media (max-width: 1180px) { .ask { left: 16px; bottom: calc(176px + env(safe-area-inset-bottom, 0px)); } }
+@media (max-width: 640px) { .ask { left: 12px; right: 12px; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); } .ask__out { max-height: 34vh; } }

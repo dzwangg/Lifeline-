@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges">
+  <!-- Prosperia's tab icon: a pixel tower and tree on a green hill under the Aero sky, in the city's palette. -->
+  <path fill="#1c2c5e" d="M2 0h12v1h1v1h1v12h-1v1h-1v1H2v-1H1v-1H0V2h1V1h1z"/>
+  <path fill="#56bdf0" d="M2 1h12v1h1v8H1V2h1z"/>
+  <path fill="#a8e7f9" d="M1 8h14v2H1z"/>
+  <path fill="#ffe27a" d="M11 2h2v2h-2z"/>
+  <path fill="#6cc644" d="M1 11h14v2h-1v1h-1v1H3v-1H2v-1H1z"/>
+  <path fill="#a6e05a" d="M1 11h14v1H1z"/>
+  <path fill="#1c2c5e" d="M4 3h5v9H4z"/>
+  <path fill="#ffffff" d="M5 4h3v8H5z"/>
+  <path fill="#2fc6e8" d="M5 5h1v1H5zM7 5h1v1H7zM5 7h1v1H5zM7 7h1v1H7zM5 9h1v1H5zM7 9h1v1H7z"/>
+  <path fill="#1c2c5e" d="M10 6h3v1h1v3h-1v1h-1v1h-1v-1h-1V7h0zM11 11h1v1h-1z"/>
+  <path fill="#3fa34d" d="M11 7h2v3h-1v1h-1v-1h-1V7z"/>
+</svg>

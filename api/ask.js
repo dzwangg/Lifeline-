@@ -11,7 +11,7 @@
 // need no model) and after it (lever limits, a budget ceiling, the card checks /api/policies uses, slider ranges, driver
 // bounds, neutral wording). Replies are cached by prompt and context; drafted cards are signed like /api/policies' ones.
 import { randomBytes } from 'node:crypto';
-import { AI_PAUSED, aiLimiter, badNumbers, clientIp, evaluativeWords, gemini, hashInput, readBody, signCard } from './narration.js';
+import { AI_PAUSED, AI_UNAVAILABLE, aiLimiter, badNumbers, clientIp, evaluativeWords, gemini, hashInput, readBody, signCard } from './narration.js';
 import { CARD_SCHEMA, checkCard, directionErrors, generateCard, loadContext, systemPrompt as cardRules, tidy } from './policies.js';
 import { LEVERS, LEVER_LIMITS, cardPolicies } from '../shared/luti/levers.js';
 import { DRIVERS, FED_SEP_2026_09, clampDrivers } from '../shared/luti/drivers.js';
@@ -250,7 +250,7 @@ export async function ask(prompt, { active = [], drivers = {} } = {}, env = proc
   const pre = preCheck(prompt);
   if (pre) return pre;
   if (!env.GEMINI_API_KEY || env.DEMO_MODE === '1')
-    throw fail(503, 'Gemini isn’t set up on this server, so only simple what-ifs work (try “what if inflation is 5%?”). Add GEMINI_API_KEY to .env.local.');
+    throw fail(503, `${AI_UNAVAILABLE} Simple what-ifs still work: try “what if inflation is 5%?”`);
   const ctx = await loadContext();
   // maxOutputTokens: a reply with a card runs about 700 tokens, so one that runs on is cut short in seconds and retried, not waited out
   const opts = { feature: 'cards', system: askPrompt(ctx, active, drivers), config: { responseMimeType: 'application/json', responseSchema: ASK_SCHEMA, maxOutputTokens: 1500 }, timeout: 45_000 };
@@ -259,7 +259,11 @@ export async function ask(prompt, { active = [], drivers = {} } = {}, env = proc
   for (let attempt = 0; attempt < 2; attempt++) {
     let text, reply;
     // "low" thinking, not the narration's "minimal": with minimal, Gemini dropped the card from replies that also set a what-if
-    try { text = await gemini(env, contents, opts, env.GEMINI_THINKING_LEVEL || 'low'); } catch (err) { throw err.aiPaused ? fail(503, AI_PAUSED) : fail(502, `Gemini failed: ${err.message}`); }
+    try { text = await gemini(env, contents, opts, env.GEMINI_THINKING_LEVEL || 'low'); } catch (err) {
+      if (err.aiPaused) throw fail(503, AI_PAUSED);
+      console.error('ask: Gemini failed:', err.message);
+      throw fail(502, AI_UNAVAILABLE);
+    }
     try { reply = JSON.parse(text); } catch { reply = null; }
     // A policy with no card (Gemini sometimes drops it when the prompt also sets a what-if): draft the card with
     // /api/policies' card-only drafter, which has made every check, and keep the rest of this reply.
@@ -296,7 +300,7 @@ const fail = (status, error, extra = {}) => Object.assign(new Error(error), { st
 
 // ---------- HTTP ----------
 const MAX_BODY = 8192;
-const retryAfter = aiLimiter(10, 6); // prompts per IP that reach Gemini: 10 per 10 minutes in production, else 6 a minute
+const retryAfter = aiLimiter(30, 6); // prompts per IP that reach Gemini: 30 per 10 minutes in production (a venue shares one IP), else 6 a minute
 const answers = new Map(); // prompt + context hash -> result; ponytail: per instance, the last 100, like /api/policies
 const isActive = a => Array.isArray(a) && a.length <= 10 && a.every(c => c && typeof c.id === 'string' && Array.isArray(c.params) && c.params.length <= 10
   && c.params.every(p => p && typeof p.key === 'string' && [p.min, p.max].every(Number.isFinite)));

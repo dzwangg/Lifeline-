@@ -180,7 +180,7 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
   const [, assumptions, baselines] = await dataReady;
   // cards is live: the ask bar (policy/ask-bar.js) adds the cards it drafts
   const cardById = { get: id => cards.find(c => c.id === id), has: id => cards.some(c => c.id === id) };
-  const ui = { metric: null, picked: false, active: [], real: false, confirming: false, expanded: false };
+  const ui = { metric: null, picked: false, active: [], real: true, confirming: false, expanded: false };
   let sliding = false; // a slider here is moving, so the sliders needn't be rebuilt
   const cpi = assumptions.lutiCpi.value;
 
@@ -206,7 +206,7 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
   const demoBtn = demoMode && h('button', { class: 'sim__road sim__demo', type: 'button', onclick: runDemo }, 'Demo scenario');
   const meta = h('p', { class: 'rp-meta' });
   const driverChips = h('div', { class: 'rp-chips rp-drivers' });
-  const realIn = h('input', { type: 'checkbox', onchange: () => { ui.real = realIn.checked; drawn = []; render(); } });
+  const realIn = h('input', { type: 'checkbox', checked: true, onchange: () => { ui.real = realIn.checked; drawn = []; render(); } });
   const settings = h('details', { class: 'rp-settings' });
   const residentEl = h('div', { class: 'sim__resident', 'aria-live': 'polite' });
   const tiles = h('div', { class: 'rp-groups', 'aria-label': 'City-health indicators, with their change against no new policy' });

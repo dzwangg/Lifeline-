@@ -1,6 +1,22 @@
 {
-  "note": "Showcase residents for \"meet a resident\": year-0 households of the household model's seed-7 run (shared/agents.js), by agent id. Year-0 households are drawn before any policy input, so the ids are stable across scenarios; tests/resident.test.js checks each still matches. type and filing are our labels (the model has no household size): filing is the tax filing status, joint for families and owners. mode is how they get to work (the model has no mode; remote workers have none).",
+  "note": "Showcase residents for \"meet a resident\": year-0 households of the household model's seed-7 run (shared/agents.js), by agent id. Year-0 households are drawn before any policy input, so the ids are stable across scenarios; tests/resident.test.js checks each still matches. type and filing are our labels (the model has no household size): filing is the tax filing status, joint for families and owners. mode is how they get to work (the model has no mode; remote workers have none). Listed in the order the Residents window shows them: two families first, as the roster opens on the first.",
   "residents": [
+    {
+      "id": "hao",
+      "agent": 10,
+      "name": "Hao",
+      "type": "family",
+      "filing": "joint",
+      "mode": "car"
+    },
+    {
+      "id": "diego",
+      "agent": 249,
+      "name": "Diego",
+      "type": "family",
+      "filing": "joint",
+      "mode": "car"
+    },
     {
       "id": "uma",
       "agent": 0,
@@ -8,14 +24,6 @@
       "type": "student",
       "filing": "single",
       "mode": "bus"
-    },
-    {
-      "id": "keisha",
-      "agent": 114,
-      "name": "Keisha",
-      "type": "student",
-      "filing": "single",
-      "mode": "none"
     },
     {
       "id": "ben",
@@ -26,28 +34,12 @@
       "mode": "bus"
     },
     {
-      "id": "hao",
-      "agent": 10,
-      "name": "Hao",
-      "type": "family",
-      "filing": "joint",
-      "mode": "car"
-    },
-    {
       "id": "quinn",
       "agent": 107,
       "name": "Quinn",
       "type": "family",
       "filing": "joint",
       "mode": "bus"
-    },
-    {
-      "id": "diego",
-      "agent": 249,
-      "name": "Diego",
-      "type": "family",
-      "filing": "joint",
-      "mode": "car"
     },
     {
       "id": "femi",
@@ -399,6 +391,14 @@
       "name": "Yusuf D.",
       "type": "owner",
       "filing": "joint",
+      "mode": "none"
+    },
+    {
+      "id": "keisha",
+      "agent": 114,
+      "name": "Keisha",
+      "type": "student",
+      "filing": "single",
       "mode": "none"
     }
   ]

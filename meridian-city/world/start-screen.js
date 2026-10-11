@@ -1,4 +1,4 @@
-// The start screen: Prosperia's title, the game in three steps and a Start button, over a pixel-art Frutiger Aero
+// The start screen: Prosperia's title, a one-line premise and a Start button, over a pixel-art Frutiger Aero
 // landscape. It is up from the first paint and covers the city while it builds: the Start button fills as the build's
 // progress bar (progress), lights once the city is on screen (ready, which resolves when the player presses Start), or
 // says why the city couldn't be built (fail). Pressing Start fades it out over the city and points at the Policies button.

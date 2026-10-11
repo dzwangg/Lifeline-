@@ -4,7 +4,7 @@
 // policy and with the policies on the map, and lets the player talk to them (/api/resident). Opens from the Residents
 // button, the R key, a showcase resident's card on the map (the 'prosperia:meet' event) or ?meet=<id> in the address.
 import { h } from '../policy/components.js';
-import { scenario, simClock, cardsReady } from '../sim/scenario.js';
+import { scenario, simClock, cardsReady, DECADE, START_YEAR } from '../sim/scenario.js';
 import { residentsReady, residentState, statusOf, STATUS } from '../sim/residents.js';
 
 const TYPES = [['all', 'Everyone'], ['student', 'Students'], ['family', 'Families'], ['owner', 'Homeowners'], ['commuter', 'Durham commuters']];
@@ -61,7 +61,9 @@ export async function mountResidentPanel({ launch }) {
       h('div', { class: 'mr-main' }, head, youForm,
         h('div', { class: 'mr-controls' },
           h('label', {}, 'Compare with', compareSel),
-          h('label', { class: 'mr-year' }, 'Year', yearIn, ref('yearOut', h('output', {}, year)))),
+          h('label', { class: 'mr-year' }, 'Year', yearIn, ref('yearOut', h('output', {}, year))),
+          // the budgets run the first decade only; said once the map has moved past it
+          ref('span', h('p', { class: 'mr-span', hidden: true }, `Resident budgets cover ${START_YEAR}–${START_YEAR + DECADE}.`))),
         tabs, status, Object.values(panes))));
   const scrim = h('div', { class: 'mr-scrim', hidden: true, onclick: e => { if (e.target === scrim) hide(); } }, win);
   document.body.append(scrim);
@@ -201,7 +203,7 @@ export async function mountResidentPanel({ launch }) {
     const fromNessie = ledger.source === 'nessie';
     panes.bank.replaceChildren(
       h('div', { class: `mr-bank${fromNessie ? ' is-live' : ''}` },
-        h('span', { class: 'mr-bank__badge' }, fromNessie ? (ledger.written ? 'Nessie · just written' : 'Nessie · on file') : 'Computed here'),
+        h('span', { class: 'mr-bank__badge' }, fromNessie ? `Capital One Nessie sandbox · ${ledger.written ? 'just written' : 'on file'}` : 'Computed here, not in the Capital One Nessie sandbox'),
         h('p', {}, fromNessie ? `Read back from Capital One's Nessie sandbox. Its entries add up to ${money(ledger.totals.checking)} left in checking for the month and ${money(ledger.totals.savings)} in savings${ledger.totals.loan ? `, with ${money(ledger.totals.loan)} owed on the loan account` : ''}.`
           : `${ledger.note} The entries add up to ${money(ledger.totals.checking)} left for the month and ${money(ledger.totals.savings)} in savings${ledger.totals.loan ? `, with ${money(ledger.totals.loan)} owed` : ''}.`)),
       h('table', { class: 'mr-table mr-ledger' },
@@ -262,10 +264,11 @@ export async function mountResidentPanel({ launch }) {
         if (mine !== asked) return;
         reply.classList.remove('is-typing');
         reply.textContent = res.ok ? out.text : out.error;
-        if (out.fallback) reply.append(h('small', {}, 'A standard answer: the AI answer was unavailable.'));
+        if (out.fallback) reply.append(h('small', {}, 'A standard answer: AI answers are unavailable right now.'));
+        else if (res.ok) reply.append(h('small', { class: 'mr-credit' }, 'Answered by Gemini'));
         if (out.audio) {
           const play = h('button', { type: 'button', class: 'mr-play', 'aria-label': `Hear ${r.name} say it`, onclick: () => { audio.src = `data:audio/mpeg;base64,${out.audio}`; audio.play(); } }, '▶ Hear it');
-          reply.append(play);
+          reply.append(h('span', { class: 'mr-voice' }, play, h('small', { class: 'mr-credit' }, 'Voice by ElevenLabs')));
         }
       } catch {
         if (mine === asked) { reply.classList.remove('is-typing'); reply.textContent = `${r.name} can't answer right now. Check your connection and ask again.`; }
@@ -277,7 +280,7 @@ export async function mountResidentPanel({ launch }) {
     panes.talk.replaceChildren(log,
       h('div', { class: 'mr-starters', role: 'group', 'aria-label': 'Questions to start with' }, demo.questions.map(q => h('button', { type: 'button', class: 'mr-chip', onclick: () => ask(q) }, q))),
       h('form', { class: 'mr-ask', onsubmit: e => { e.preventDefault(); ask(input.value); } }, input, send),
-      h('p', { class: 'mr-fine' }, `AI-written, in character, from ${r.name}'s simulated numbers only.`));
+      h('p', { class: 'mr-fine' }, `Answered by Gemini, in character, from ${r.name}'s simulated numbers only. Voice by ElevenLabs.`));
   }
 
   function showTab() {
@@ -319,6 +322,7 @@ export async function mountResidentPanel({ launch }) {
   simClock.subscribe(({ shown, before }) => {
     if (!shown?.data) return;
     run = shown.data.run?.households ?? null; shownYear = before ? 0 : shown.step;
+    $.span.hidden = shownYear <= DECADE;
     if (open) drawRoster();
   });
   scenario.subscribe(() => { if (open) fillCompare(); });

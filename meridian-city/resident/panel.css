@@ -72,6 +72,8 @@ body.city-loading .mr-launch { visibility: hidden; }
 .mr-select { max-width: 340px; }
 .mr-year { grid-template-columns: auto 160px 3ch !important; align-items: center; }
 .mr-year output { font: 600 14px var(--ae-pixel); color: var(--ae-navy); }
+.mr-span { margin: 0; padding: 4px 10px 3px; font: 600 12.5px var(--ae-pixel); color: var(--ae-navy); background: #fff6d6; border: 2px solid var(--ae-gold); border-radius: 8px; }
+.mr-span[hidden] { display: none; }
 .mr-range { accent-color: var(--ae-aqua-dark); }
 .mr-you { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end; margin-top: 14px; padding: 12px; background: #fff; border: 2px solid #c8eef9; border-radius: 10px; }
 .mr-you[hidden] { display: none; }
@@ -122,7 +124,7 @@ body.city-loading .mr-launch { visibility: hidden; }
 .mr-bank { display: grid; gap: 6px; padding: 12px 14px; margin-bottom: 12px; background: #fff; border: 2px solid #c8eef9; border-radius: 10px; }
 .mr-bank p { margin: 0; max-width: 70ch; }
 .mr-bank__badge { justify-self: start; padding: 3px 9px 2px; font: 600 12px var(--ae-pixel); color: var(--ae-navy); background: #e3f6fc; border: 2px solid var(--ae-navy); border-radius: 7px; }
-.mr-bank.is-live .mr-bank__badge { color: #fff; text-shadow: 1px 1px 0 var(--ae-lime-dark); background: linear-gradient(180deg, var(--ae-lime-hi) 0 46%, var(--ae-lime) 46% 100%); }
+.mr-bank.is-live .mr-bank__badge { color: var(--ae-navy); background: linear-gradient(180deg, var(--ae-lime-hi) 0 46%, var(--ae-lime) 46% 100%); }
 
 /* talk: glossy speech bubbles */
 .mr-chat { display: flex; flex-direction: column; gap: 10px; max-height: 330px; overflow-y: auto; padding: 4px 4px 10px; }
@@ -132,6 +134,10 @@ body.city-loading .mr-launch { visibility: hidden; }
 .mr-bubble.is-typing { color: var(--ae-ink-soft); letter-spacing: .2em; }
 .mr-bubble small { display: block; margin-top: 4px; font-size: 11.5px; color: var(--ae-ink-soft); }
 .mr-play { display: block; margin-top: 8px; padding: 3px 10px 2px; font: 600 12px var(--ae-pixel); color: var(--ae-navy); cursor: pointer; background: #fff; border: 2px solid var(--ae-navy); border-radius: 8px; }
+.mr-voice { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.mr-voice .mr-play { margin-top: 0; }
+.mr-credit { display: block; margin-top: 6px; font-size: 11px; color: var(--ae-ink-soft); }
+.mr-voice .mr-credit { margin-top: 0; }
 .mr-starters { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
 .mr-ask { display: flex; gap: 8px; align-items: stretch; }
 .mr-ask textarea { flex: 1; resize: vertical; min-height: 44px; }

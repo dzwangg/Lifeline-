@@ -1,0 +1,57 @@
+[
+  {
+    "item": "3 start sentence",
+    "pass": true,
+    "detail": "Pick policies for Chapel Hill, watch the town change over 30 years, and meet the people it helps or prices out."
+  },
+  {
+    "item": "2 today's dollars",
+    "pass": true,
+    "detail": "checkbox checked=true; 2036 rent tile ticked \"Median rent$1,724•no clear change, no cl\" vs unticked \"Median rent$2,164•no clear change, no cl\""
+  },
+  {
+    "item": "5 roster order",
+    "pass": true,
+    "detail": "first=Hao selected=Hao second=diego last=keisha"
+  },
+  {
+    "item": "8 talk fallback",
+    "pass": true,
+    "detail": "ort. Over the years, I borrow $828 more than with no new policy.A standard answer: AI answers are unavailable right now."
+  },
+  {
+    "item": "8 ask bar",
+    "pass": true,
+    "detail": "×AI answers are unavailable right now. Simple what-ifs still work: try “what if inflation is 5%?”"
+  },
+  {
+    "item": "7 before Finish",
+    "pass": true,
+    "detail": "Dec 2056Paused · 4×End of the decade"
+  },
+  {
+    "item": "7 clock after Finish",
+    "pass": true,
+    "detail": "Dec 2056Game over"
+  },
+  {
+    "item": "label resident span",
+    "pass": true,
+    "detail": "hidden at 2036=true; at 2056: \"Resident budgets cover 2026–2036.\""
+  },
+  {
+    "item": "6 Nessie badge",
+    "pass": true,
+    "detail": "Capital One Nessie sandbox · on file"
+  },
+  {
+    "item": "6 talk credits",
+    "pass": true,
+    "detail": "[\"Answered by Gemini\",\"Voice by ElevenLabs\"] | Answered by Gemini, in character, from Diego's simulated numbers only. Voice by ElevenLabs."
+  },
+  {
+    "item": "no page errors",
+    "pass": true,
+    "detail": "none"
+  }
+]

@@ -13,7 +13,7 @@
 // Based on William Chen's scripts/create-policy-card.js (origin/William, 0f80831).
 import { randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { AI_PAUSED, aiLimiter, badNumbers, clientIp, evaluativeWords, gemini, hashInput, loadCards, readBody, signCard } from './narration.js';
+import { AI_PAUSED, AI_UNAVAILABLE, aiLimiter, badNumbers, clientIp, evaluativeWords, gemini, hashInput, loadCards, readBody, signCard } from './narration.js';
 import { ZONE_STATES, matchesWhere, validateCard } from '../shared/schema.js';
 import { runCombined, runModels } from '../shared/combined.js';
 import { runScenario } from '../shared/sim.js';
@@ -228,7 +228,9 @@ export async function generateCard(idea, env = process.env) {
     try {
       draft = await gemini(env, contents, opts);
     } catch (err) {
-      throw err.aiPaused ? fail(503, AI_PAUSED) : fail(502, `Gemini failed: ${err.message}`);
+      if (err.aiPaused) throw fail(503, AI_PAUSED);
+      console.error('policies: Gemini failed:', err.message);
+      throw fail(502, AI_UNAVAILABLE);
     }
     try {
       reply = JSON.parse(draft);
@@ -250,7 +252,7 @@ export async function generateCard(idea, env = process.env) {
 }
 
 const MAX_BODY = 4096;
-const retryAfter = aiLimiter(3, 5); // drafts per IP: 3 per 10 minutes in production, else 5 a minute; each is one or two Gemini calls
+const retryAfter = aiLimiter(10, 5); // drafts per IP: 10 per 10 minutes in production (a venue shares one IP; GEMINI_DAILY_CALL_CAP is the real guard), else 5 a minute; each is one or two Gemini calls
 // Drafts by idea, so an idea asked again (in any case or spacing) costs no Gemini call: the draft, or Gemini's verdict that
 // nothing in it can be simulated. Other failures aren't kept. ponytail: per instance and capped at 100 by insertion order,
 // like narration's cache; a shared KV if cold starts hurt.
@@ -267,7 +269,7 @@ export async function POST(request) {
   let hit = drafts.get(id);
   if (!hit) {
     if (!process.env.GEMINI_API_KEY || process.env.DEMO_MODE === '1')
-      return Response.json({ error: 'Policy drafting is off on this server.' }, { status: 503 });
+      return Response.json({ error: AI_UNAVAILABLE }, { status: 503 });
     const wait = retryAfter(clientIp(request));
     if (wait) return Response.json({ error: 'too many drafts; try again shortly' }, { status: 429, headers: { 'retry-after': String(wait) } });
     try {

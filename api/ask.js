@@ -296,7 +296,7 @@ const fail = (status, error, extra = {}) => Object.assign(new Error(error), { st
 
 // ---------- HTTP ----------
 const MAX_BODY = 8192;
-const retryAfter = aiLimiter(10, 6); // prompts per IP that reach Gemini: 10 per 10 minutes in production, else 6 a minute
+const retryAfter = aiLimiter(30, 6); // prompts per IP that reach Gemini: 30 per 10 minutes in production (a venue shares one IP), else 6 a minute
 const answers = new Map(); // prompt + context hash -> result; ponytail: per instance, the last 100, like /api/policies
 const isActive = a => Array.isArray(a) && a.length <= 10 && a.every(c => c && typeof c.id === 'string' && Array.isArray(c.params) && c.params.length <= 10
   && c.params.every(p => p && typeof p.key === 'string' && [p.min, p.max].every(Number.isFinite)));

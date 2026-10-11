@@ -47,7 +47,7 @@ const draft = (idea, ip) => policies(req({ idea }, ip));
 const ask = (question, ip) => resident(req({ resident: 'uma', policies: [], question }, ip), {}); // {}: Vercel's context, not env
 const cardReply = () => JSON.stringify({ card, unmodeled: [], unsupportedReason: null });
 
-test('production: 5 recaps, 5 questions and 3 drafts per IP per 10 minutes; cache hits are free', async () => {
+test('production: 5 recaps, 20 questions and 10 drafts per IP per 10 minutes; cache hits are free', async () => {
   await withGemini({}, body => (body.generationConfig.responseSchema ? cardReply() : body.generationConfig.maxOutputTokens === 200 ? 'I live here and my costs change a little.' : RECAP), async () => {
     for (let i = 1; i <= 5; i++) assert.equal((await recap(i, '192.0.2.1')).status, 200);
     const limited = await recap(6, '192.0.2.1');
@@ -55,11 +55,11 @@ test('production: 5 recaps, 5 questions and 3 drafts per IP per 10 minutes; cach
     assert.ok(+limited.headers.get('retry-after') > 60, 'a 10-minute window');
     assert.equal((await recap(1, '192.0.2.1')).status, 200, 'a cached recap is served past the limit');
 
-    for (let i = 1; i <= 5; i++) assert.equal((await ask(`question number ${i}?`, '192.0.2.2')).status, 200);
-    assert.equal((await ask('question number 6?', '192.0.2.2')).status, 429);
+    for (let i = 1; i <= 20; i++) assert.equal((await ask(`question number ${i}?`, '192.0.2.2')).status, 200);
+    assert.equal((await ask('question number 21?', '192.0.2.2')).status, 429);
 
-    for (let i = 1; i <= 3; i++) assert.equal((await draft(`apartments by the corridor, take ${i}`, '192.0.2.3')).status, 200);
-    assert.equal((await draft('apartments by the corridor, take 4', '192.0.2.3')).status, 429);
+    for (let i = 1; i <= 10; i++) assert.equal((await draft(`apartments by the corridor, take ${i}`, '192.0.2.3')).status, 200);
+    assert.equal((await draft('apartments by the corridor, take 11', '192.0.2.3')).status, 429);
     assert.equal((await draft('apartments by the corridor, take 1', '192.0.2.3')).status, 200, 'a cached draft is served past the limit');
   });
 });

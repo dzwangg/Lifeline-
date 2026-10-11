@@ -154,7 +154,7 @@ async function demoAnswer(key, type) {
 }
 
 const cache = new Map(); // ponytail: per instance, capped at 200 by insertion order, as narration's
-const retryAfter = aiLimiter(5, 10); // questions per IP: 5 per 10 minutes in production, else 10 a minute
+const retryAfter = aiLimiter(20, 10); // questions per IP: 20 per 10 minutes in production (a venue shares one IP), else 10 a minute
 
 // Vercel calls POST(request, context), so the handler reads process.env itself; tests pass their env to handle().
 export const POST = request => handle(request, process.env);

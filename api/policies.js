@@ -250,7 +250,7 @@ export async function generateCard(idea, env = process.env) {
 }
 
 const MAX_BODY = 4096;
-const retryAfter = aiLimiter(3, 5); // drafts per IP: 3 per 10 minutes in production, else 5 a minute; each is one or two Gemini calls
+const retryAfter = aiLimiter(10, 5); // drafts per IP: 10 per 10 minutes in production (a venue shares one IP; GEMINI_DAILY_CALL_CAP is the real guard), else 5 a minute; each is one or two Gemini calls
 // Drafts by idea, so an idea asked again (in any case or spacing) costs no Gemini call: the draft, or Gemini's verdict that
 // nothing in it can be simulated. Other failures aren't kept. ponytail: per instance and capped at 100 by insertion order,
 // like narration's cache; a shared KV if cold starts hurt.

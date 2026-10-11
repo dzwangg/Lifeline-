@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { POST, checkCard, generateCard, loadContext, tidy } from '../api/policies.js';
+import { POST, checkCard, directionErrors, generateCard, loadContext, tidy } from '../api/policies.js';
 import { POST as narrationPOST, signCard } from '../api/narration.js';
 import { cards } from './data.js';
 
@@ -12,6 +12,9 @@ const sample = JSON.parse(readFileSync(new URL('./fixtures/narration-sample.json
 const byId = id => structuredClone(cards.find(c => c.id === id));
 const zoneCard = { ...byId('corridor-midrise'), id: 'corridor-apartments' };
 const leverCard = { ...byId('bus-frequency-boost'), id: 'more-buses' };
+const directed = (card, direction) => ({ ...card, levers: card.levers.map(l => ({ ...l, direction })) }); // as Gemini replies
+const taxCard = (cents, direction) => directed({ ...byId('property-tax-adjustment'), id: 'tax-change',
+  params: [{ ...byId('property-tax-adjustment').params[0], default: cents }] }, direction);
 const ENV = { GEMINI_API_KEY: 'gem-secret', GEMINI_MODEL: 'gemini-test', GEMINI_THINKING_LEVEL: '', DEMO_MODE: '', CARD_SIGNING_KEY: 'sign-secret',
   ELEVENLABS_API_KEY: '', ELEVENLABS_VOICE_ID: '' };
 const reply = (card, unmodeled = [], unsupportedReason = null) => JSON.stringify({ card, unmodeled, unsupportedReason });
@@ -105,7 +108,7 @@ test('generate: an invalid draft is retried once with its problems, then the fix
 });
 
 test('generate: a levers card passes, and the parts of the idea the sim cannot represent come back as unmodeled', async () => {
-  await withGemini([reply(leverCard, ['fare-free rides'])], async () => {
+  await withGemini([reply(directed(leverCard, 'increase'), ['fare-free rides'])], async () => {
     const res = await generate('More buses and free fares');
     const body = await res.json();
     assert.equal(res.status, 200);
@@ -130,7 +133,7 @@ test('generate: bad requests, no key, and 5 drafts per IP per minute', async () 
     assert.equal((await generate('x'.repeat(1201))).status, 400);
   });
   await withGemini([], async () => assert.equal((await generate('buses')).status, 503), { ...ENV, GEMINI_API_KEY: '' });
-  await withGemini(Array(6).fill(reply(leverCard)), async bodies => {
+  await withGemini(Array(6).fill(reply(directed(leverCard, 'increase'))), async bodies => {
     for (let i = 0; i < 5; i++) assert.equal((await generate('buses', '192.0.2.9')).status, 200);
     const limited = await generate('buses', '192.0.2.9');
     assert.equal(limited.status, 429);
@@ -160,4 +163,45 @@ test('narration: a signed player card is read; a tampered, unsigned or invalid o
   await withGemini([], async () => {
     assert.match((await (await narrate(card, signature)).json()).text, /a proposed policy/, 'no signing key: nothing verifies');
   }, { ...ENV, GEMINI_API_KEY: '', CARD_SIGNING_KEY: '' });
+});
+
+test('direction: "cut property tax 3 cents" must lower the rate, and a draft that raises it is retried', async () => {
+  await withGemini([reply(taxCard(3, 'decrease')), reply(taxCard(-3, 'decrease'))], async bodies => {
+    const { card } = await generateCard('cut property tax 3 cents');
+    assert.equal(card.params[0].default, -3);
+    assert.ok(!('direction' in card.levers[0]), 'the declared direction is dropped from the card');
+    assert.equal(bodies.length, 2);
+    assert.match(bodies[1].contents.at(-1).parts[0].text,
+      /levers\[0\]: the idea asks to decrease property tax rate change, but 3 ¢ per \$100 would increase it \(the default of param cents_per_100\)/);
+  });
+});
+
+test('direction: "raise property tax 3 cents" passes at +3 in one call, and is retried at -3', async () => {
+  await withGemini([reply(taxCard(3, 'increase'))], async bodies => {
+    assert.equal((await generateCard('raise property tax 3 cents')).card.params[0].default, 3);
+    assert.equal(bodies.length, 1);
+  });
+  await withGemini([reply(taxCard(-3, 'increase')), reply(taxCard(-3, 'increase'))], async () => {
+    await assert.rejects(generateCard('raise property tax 3 cents'), err => /would decrease it/.test(err.extra.problems.join()));
+  });
+});
+
+test('direction: multipliers compare with 1, caps can only lower, and a missing direction is asked for', () => {
+  const card = { params: [] };
+  assert.deepEqual(directionErrors([{ lever: 'transit.serviceMultiplier', value: 2, direction: 'increase' }, { lever: 'housing.parkingMinimum', value: 0.5, direction: 'decrease' }], card), []);
+  assert.match(directionErrors([{ lever: 'transit.serviceMultiplier', value: 0.8, direction: 'increase' }], card)[0], /would decrease it/);
+  assert.match(directionErrors([{ lever: 'transit.serviceMultiplier', value: 1, direction: 'increase' }], card)[0], /leave it unchanged/);
+  assert.match(directionErrors([{ lever: 'housing.parkingMinimum', value: 2, direction: 'increase' }], card)[0], /can only lower it/);
+  assert.match(directionErrors([{ lever: 'tax.rateDelta', value: -3 }], card)[0], /levers\[0\]\.direction: must be/);
+});
+
+test('protect and parking cards: a protect card passes when it blocks a catalog card; parking can become homes', () => {
+  const protect = { ...byId('protect-remaining-forest'), id: 'keep-corridor-woods', zoneRules: [{ where: 'tag:corridor', protect: 'forest' }] };
+  assert.deepEqual(checkCard(protect, 'protect the corridor woods', ctx), []);
+  const idle = { ...protect, zoneRules: [{ where: 'tag:downtown', protect: 'parking' }] }; // no catalog card builds on parking
+  assert.match(checkCard(idle, '', ctx).join('\n'), /changes no metric over 10 years, and its protect rules block no other card/);
+  assert.match(checkCard({ ...protect, zoneRules: [{ where: 'tag:downtown', protect: 'forest' }] }, '', ctx).join('\n'), /no forest parcel matches tag:downtown/);
+  const lots = { ...zoneCard, id: 'campus-lot-homes', zoneRules: [{ where: 'tag:near_campus', from: 'parking', to: 'mid_res', ratePerYear: 0.2, capParam: 'acres_released' }] };
+  assert.deepEqual(checkCard(lots, '', ctx), []);
+  assert.match(checkCard({ ...lots, zoneRules: [{ ...lots.zoneRules[0], from: 'forest' }] }, '', ctx).join('\n'), /no forest parcel matches tag:near_campus/);
 });

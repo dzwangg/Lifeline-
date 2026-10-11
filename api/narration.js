@@ -139,7 +139,7 @@ export function badNumbers(text, input) {
 }
 
 // The prompt's "no evaluative or advocacy language" rule as a check. ponytail: a word list catches the usual slips, not
-// every slant; /api/policies runs it on card text.
+// every slant; narrate() retries on it, and /api/policies runs it on card text.
 const EVALUATIVE = /\b(help(s|ed|ing)?|good news|bad news|(un)?fortunately|great|terrible|disastrous|devastating|thriving|vibrant|crisis|best|worst|should|must|need(s)? to|unfair|fair share|wasteful|reckless|common.?sense|keep families in town)\b/gi;
 /** Evaluative or advocacy words in the text. Empty means it passes. */
 export const evaluativeWords = text => [...new Set(String(text).match(EVALUATIVE) ?? [])];
@@ -244,7 +244,7 @@ async function speak(env, text) {
   return Buffer.from(await res.arrayBuffer()).toString('base64');
 }
 
-/** Gemini text (one retry naming the bad numbers, then the template) read aloud by ElevenLabs. Never throws. `failed` marks a transient API error. */
+/** Gemini text (one retry naming the bad numbers or evaluative words, then the template) read aloud by ElevenLabs. Never throws. `failed` marks a transient API error. */
 export async function narrate(input, env = process.env) {
   let text = null, failed = false;
   if (env.GEMINI_API_KEY && env.GEMINI_MODEL) {
@@ -252,10 +252,12 @@ export async function narrate(input, env = process.env) {
       const contents = [{ role: 'user', parts: [{ text: userPrompt(input) }] }];
       for (let attempt = 0; attempt < 2 && !text; attempt++) {
         const draft = await gemini(env, contents);
-        const bad = badNumbers(draft, input);
-        if (!bad.length) text = draft;
-        else contents.push({ role: 'model', parts: [{ text: draft }] },
-          { role: 'user', parts: [{ text: `These numbers are not in the input: ${bad.join(', ')}. Rewrite the recap using only numbers from the input.` }] });
+        const bad = badNumbers(draft, input), words = evaluativeWords(draft);
+        if (!bad.length && !words.length) text = draft;
+        else contents.push({ role: 'model', parts: [{ text: draft }] }, { role: 'user', parts: [{ text: [
+          bad.length && `These numbers are not in the input: ${bad.join(', ')}. Rewrite the recap using only numbers from the input.`,
+          words.length && `These words are evaluative or advocacy: ${words.join(', ')}. Rewrite the recap without them, stating each change plainly.`,
+        ].filter(Boolean).join(' ') }] });
       }
     } catch (err) {
       failed = true;

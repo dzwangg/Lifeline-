@@ -5,7 +5,7 @@
 // From William Chen's restore code in meridian-city/index.html (origin/William, 0f80831).
 import { validateCard } from '../../shared/schema.js';
 
-const KEY = 'meridian.playerPolicies.v2'; // v1 (William's branch) held bare cards, without signatures
+const KEY = 'prosperia.playerPolicies.v2'; // v1 (William's branch) held bare cards, without signatures
 
 /** Saved entries whose card still validates, minus ids in `taken` (the catalog's). */
 export function loadPlayerCards(taken = new Set()) {

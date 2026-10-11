@@ -118,6 +118,19 @@ test('handler: one retry listing the bad numbers, then the template', async () =
   });
 });
 
+test('handler: evaluative words get the same retry, naming the words, then the template', async () => {
+  const SLANTED = GOOD.replace('Supporters note that', 'Unfortunately, critics note that').replace('more homes are built', 'more homes are built, which helps renters');
+  await withMocks(KEYS, [SLANTED, GOOD], async calls => {
+    const r = await post(variant(44));
+    assert.equal(r.text, GOOD);
+    assert.match(JSON.parse(calls[1].init.body).contents.at(-1).parts[0].text, /evaluative or advocacy: Unfortunately, helps\./);
+  });
+  await withMocks(KEYS, [SLANTED, SLANTED], async () => {
+    const r = await post(variant(45));
+    assert.deepEqual([r.text, r.fallback], [templateRecap(inputOf(variant(45))), true]);
+  });
+});
+
 test('handler: GEMINI_THINKING_LEVEL is sent, and a 400 about it retries once without thinkingConfig', async () => {
   const rejected = () => Response.json({ error: { code: 400, message: 'Thinking level LOW is not supported for this model.' } }, { status: 400 });
   const warn = console.warn;

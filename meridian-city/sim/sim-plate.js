@@ -23,6 +23,7 @@ import { residentState, statusOf, STATUS } from './residents.js';
 const VERDICT_COLORS = true;
 
 const SVGNS = 'http://www.w3.org/2000/svg';
+const MONEY = new Set(['usd', 'usdk', 'usdm', 'usdb']); // metric formats that are dollar amounts ("In today's dollars")
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const yearLabel = y => `${START_YEAR + y}`;
 
@@ -401,10 +402,10 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
     return luti && luti.version === scenario.get().version && luti.policies.join() === ui.active.filter(c => c.levers?.length).map(c => c.id).join()
       && luti.years.length === 4 * (run.result.timeline.length - 1);
   }
-  const MONEY = new Set(['usd', 'usdk', 'usdm', 'usdb']);
   // "In today's dollars" divides every dollar amount by the price level at the shown year: the charts and tiles (series,
-  // below) and the dollars in the detail panel's trace and per-policy bars, so one panel never mixes the two.
-  const real = (v, fmt) => (ui.real && MONEY.has(fmt) ? v / priceIndex(scenario.get().drivers, cpi, run.result.timeline.length - 1)[y] : v);
+  // below) and the dollars in the detail panel's trace and per-policy bars, so one panel never mixes the two. A
+  // declaration (and MONEY at the top of the file), not a const: render() runs as soon as the clock subscription fires.
+  function real(v, fmt) { return ui.real && MONEY.has(fmt) ? v / priceIndex(scenario.get().drivers, cpi, run.result.timeline.length - 1)[y] : v; }
   function series(m) {
     const deflate = ui.real && MONEY.has(m.fmt) ? priceIndex(scenario.get().drivers, cpi, run.result.timeline.length - 1) : null, at = (v, i) => (deflate ? v / deflate[i] : v);
     const pol = run.result.timeline.map((t, i) => at(t.metrics[m.key], i)), base = run.noPolicy.timeline.map((t, i) => at(t.metrics[m.key], i));

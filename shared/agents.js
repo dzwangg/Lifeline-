@@ -21,7 +21,8 @@
 /**
  * @typedef {object} Agent
  * @property {number} id
- * @property {string} name
+ * @property {string} name first name and last initial, unique in its run ("Felix M.")
+ * @property {string} first the first name alone
  * @property {AgentZone} zone
  * @property {boolean} renter
  * @property {boolean} student
@@ -46,6 +47,8 @@
  */
 
 const NAMES = 'Ava Ben Chloe Dev Elena Femi Grace Hao Isla Jamal Kai Lena Mateo Nia Omar Priya Quinn Rosa Sam Tara Uma Victor Wren Xavier Yara Zoe Aditi Bryce Carmen Diego Esther Felix Gia Hugo Ines Jonah Keisha Liam Maya Noah Olu Pablo Rhea Soren Tess Ulla Vik Will Ximena Yusuf Zara'.split(' ');
+// Last initials: no I, O, Q, U, X or Z, which read oddly. With them, ~50 first names name 1,000 households apart.
+const INITIALS = 'ABCDEFGHJKLMNPRSTVWY';
 
 function mulberry32(a) {
   return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -87,6 +90,16 @@ export function homesByYear(result, zones, assumptions) {
 export function simulate(inputs, assumptions, baselines, seed = 7) {
   const A = Object.fromEntries(Object.entries(assumptions).map(([k, v]) => [k, v.value]));
   const r = mulberry32(seed);
+  // A household's name: its first name (the run's draw) and a last initial chosen from its id, the first one not yet
+  // taken, so no two households in a run share a name. The initial uses no draws, so nothing else in the run changes.
+  const taken = new Set();
+  const nameFor = (id, first) => {
+    for (let k = 0; ; k++) {
+      const i = ((Math.imul(id + 1, 2654435761) >>> 0) + k) % INITIALS.length, n = Math.floor(k / INITIALS.length);
+      const name = `${first} ${INITIALS[i]}${n ? n + 1 : ''}.`; // ponytail: a number only past 20 of one first name
+      if (!taken.has(name)) { taken.add(name); return name; }
+    }
+  };
   const makeAgent = (id, zone, year) => {
     const renter = r() < A.agentRenterShare[zone];
     const student = renter && r() < A.agentStudentShare;
@@ -94,10 +107,12 @@ export function simulate(inputs, assumptions, baselines, seed = 7) {
     const income = lognorm(r, A.agentIncomeMedian[kind], A.agentIncomeSpread[kind]);
     const rw = r();
     const work = rw < A.agentRemoteShare ? 'remote' : rw < A.agentRemoteShare + A.agentDurhamShare ? 'durham' : (student || r() < A.agentCampusWorkShare) ? 'campus' : 'downtown';
-    return {
-      id, name: NAMES[Math.floor(r() * NAMES.length)], zone, renter, student, income: Math.round(income / 100) * 100, work,
+    const a = {
+      id, first: NAMES[Math.floor(r() * NAMES.length)], zone, renter, student, income: Math.round(income / 100) * 100, work,
       rentBase: A.agentZoneRent[zone] * (A.agentRentSpread.min + r() * A.agentRentSpread.range), x: r(), y: r(), joined: year, left: null, hazard: 0, leaveAt: -Math.log(1 - r()), burden0: null, hist: [],
     };
+    a.name = nameFor(id, a.first);
+    return a;
   };
 
   let agents = [], id = 0;

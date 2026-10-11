@@ -72,3 +72,20 @@ test('a household\'s rent and commute follow CH-LUTI\'s path for its zone', () =
     assert.ok(Math.abs(a.hist[t].commute / a.hist[0].commute - growth.commute[t][a.zone]) < .01, `commute, year ${t}`);
   }
 });
+
+test('every household in a run has its own name: a first name and a last initial, stable for its id', () => {
+  for (const seed of [1, 7, 42, 99]) {
+    const { agents } = simulate(growth, assumptions, baselines, seed); // with newcomers, who join the same run's pool
+    assert.ok(agents.length > 300 && agents.some(a => a.joined > 0));
+    assert.equal(new Set(agents.map(a => a.name)).size, agents.length, `seed ${seed}: a name used twice`);
+    for (const a of agents) assert.match(a.name, new RegExp(`^${a.first} [A-Z]\\.$`), a.name);
+  }
+  const a = simulate(growth, assumptions, baselines, 7).agents, b = simulate(ramp(509), assumptions, baselines, 7).agents;
+  assert.deepEqual(a.filter(x => !x.joined).map(x => x.name), b.filter(x => !x.joined).map(x => x.name), 'year-0 names do not depend on the scenario');
+});
+
+test('the showcase residents keep their first names (data/residents.json on feat/resident, seed 7)', () => {
+  const SHOWCASE = { 0: 'Uma', 114: 'Keisha', 130: 'Ben', 10: 'Hao', 107: 'Quinn', 249: 'Diego', 6: 'Femi', 207: 'Victor', 110: 'Jamal', 17: 'Bryce', 203: 'Lena', 135: 'Maya' };
+  const { agents } = simulate(growth, assumptions, baselines, 7);
+  for (const [id, first] of Object.entries(SHOWCASE)) assert.equal(agents[id].first, first, `agent ${id}`);
+});

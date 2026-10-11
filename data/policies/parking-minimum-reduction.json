@@ -14,7 +14,7 @@
     ]
   },
   "params": [
-    { "key": "spaces_per_home", "label": "Parking required per new home", "min": 0, "max": 1.5, "default": 0.5, "unit": "spaces" }
+    { "key": "spaces_per_home", "label": "Parking required per new home", "min": 0, "max": 1.5, "default": 0.5, "step": 0.01, "unit": "spaces" }
   ],
   "levers": [
     { "lever": "housing.parkingMinimum", "param": "spaces_per_home" }

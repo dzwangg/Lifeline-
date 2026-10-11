@@ -40,6 +40,7 @@ A card needs at least one zone rule or one lever (or both). Unknown fields are r
 | `min`, `max` | number | `min < max`. |
 | `default` | number | Between `min` and `max`. Used until the resident moves the slider. |
 | `unit` | string | Shown after the value, e.g. `acres`. May be `""`. |
+| `step` | number, optional | Slider step, above 0. Without it: 1 when `min`, `max` and `default` are whole numbers, else a hundredth of the range. `default` must be `min` plus a whole number of steps, so the slider can return to it. |
 
 ### Zone rules
 

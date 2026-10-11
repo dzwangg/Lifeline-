@@ -12,7 +12,7 @@ export interface Zone {
   geometry: { type: 'Polygon'; coordinates: [number, number][][] }; // GeoJSON, WGS84 lng/lat
 }
 
-export interface PolicyParam { key: string; label: string; min: number; max: number; default: number; unit: string }
+export interface PolicyParam { key: string; label: string; min: number; max: number; default: number; unit: string; step?: number } // step: see paramStep in schema.js
 
 export interface ZoneRule {
   where: string; // "tag:<tag>" or "id:<zoneId>"

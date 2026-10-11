@@ -33,3 +33,9 @@ test('a card needs zone rules or levers; levers name a known lever and a value o
   for (const path of ['levers[0].lever', 'levers[1]', 'levers[2].param', 'levers[3].zones', 'levers[4].zones', 'timing.delayQuarters', 'timing.phaseInQuarters', 'evidence[0].url'])
     assert.ok(errors.includes(path), path);
 });
+
+test('a param default must be reachable with its slider step', () => {
+  const p = { key: 'spaces', label: 'Spaces', min: 0, max: 1.5, default: 0.5, unit: '' }; // implicit step 0.015 skips 0.5
+  assert.ok(validateCard({ ...stub, params: [...stub.params, p] }).some(e => e.startsWith('params[1].default')));
+  assert.deepEqual(validateCard({ ...stub, params: [...stub.params, { ...p, step: 0.01 }] }), []);
+});

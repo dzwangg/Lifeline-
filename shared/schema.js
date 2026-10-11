@@ -16,6 +16,8 @@ const OPTIONAL_METRICS = [...HOUSEHOLD_METRICS, ...LUTI_METRICS];
 export const matchesWhere = (where, zone) => where === `id:${zone.id}` || (where.startsWith('tag:') && zone.tags.includes(where.slice(4)));
 
 const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+/** A param's slider step: its own, else 1 when min, max and default are whole numbers, else a hundredth of the range. */
+export const paramStep = p => p.step ?? ([p.min, p.max, p.default].every(Number.isInteger) ? 1 : (p.max - p.min) / 100);
 const isStr = v => typeof v === 'string' && v.trim() !== '';
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
 const join = (path, key) => (path ? `${path}.${key}` : key);
@@ -52,14 +54,18 @@ export function validateCard(card) {
   const keys = [];
   if (list(card.params, 'params')) card.params.forEach((p, i) => {
     const path = `params[${i}]`;
-    if (!obj(p, path, ['key', 'label', 'min', 'max', 'default', 'unit'])) return;
+    if (!obj(p, path, ['key', 'label', 'min', 'max', 'default', 'unit'], ['step'])) return;
     if (ok(typeof p.key === 'string' && /^[a-z][a-z0-9_]*$/.test(p.key), `${path}.key`, 'must be snake_case, e.g. "acres_released"'))
       ok(!keys.includes(p.key), `${path}.key`, `"${p.key}" is used by another param`);
     keys.push(p.key);
     ok(isStr(p.label), `${path}.label`, 'must be a non-empty string');
     ok(typeof p.unit === 'string', `${path}.unit`, 'must be a string (may be empty)');
     if (['min', 'max', 'default'].map(k => ok(isNum(p[k]), `${path}.${k}`, 'must be a number')).every(Boolean) && ok(p.min < p.max, `${path}.max`, 'must be greater than min'))
-      ok(p.min <= p.default && p.default <= p.max, `${path}.default`, 'must be between min and max');
+      if (ok(p.min <= p.default && p.default <= p.max, `${path}.default`, 'must be between min and max')
+        && (!('step' in p) || ok(isNum(p.step) && p.step > 0 && p.step <= p.max - p.min, `${path}.step`, 'must be a number above 0, at most max - min'))) {
+        const n = (p.default - p.min) / paramStep(p); // the slider can only land on min + a whole number of steps
+        ok(Math.abs(n - Math.round(n)) < 1e-6, `${path}.default`, `must be min plus a whole number of steps (${paramStep(p)}); add a "step"`);
+      }
   });
 
   ok(card.zoneRules?.length || card.levers?.length, '(card)', 'needs at least one entry in zoneRules or levers');

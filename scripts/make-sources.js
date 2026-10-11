@@ -7,9 +7,11 @@ import { fileURLToPath } from 'node:url';
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const OUT = new URL('../meridian-city/sources.html', import.meta.url);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-const URL_RE = /https?:\/\/[^\s<>"')]+[^\s<>"').,;:]/g;
-const links = text => [...new Set(String(text).match(URL_RE) ?? [])];
-const withoutLinks = text => String(text).replace(URL_RE, '').replace(/\s+([,;.])/g, '$1').replace(/(\s*[,;]\s*)+$|\s{2,}/g, ' ').trim();
+const URL_RE = /https?:\/\/[^\s<>"']+/g;
+// A URL ends before trailing punctuation and any ")" it didn't open, so "(2021).pdf" stays whole and "(see https://x.org)" loses the ")".
+const trimUrl = u => { u = u.replace(/[.,;:]+$/, ''); while (u.endsWith(')') && (u.match(/\(/g) ?? []).length < (u.match(/\)/g) ?? []).length) u = u.slice(0, -1).replace(/[.,;:]+$/, ''); return u; };
+const links = text => [...new Set((String(text).match(URL_RE) ?? []).map(trimUrl))];
+const withoutLinks = text => String(text).replace(URL_RE, u => u.slice(trimUrl(u).length)).replace(/\s+([,;.])/g, '$1').replace(/(\s*[,;]\s*)+$|\s{2,}/g, ' ').trim();
 const linkList = urls => urls.map(u => `<a href="${esc(u)}">${esc(new URL(u).hostname.replace(/^www\./, ''))}</a>`).join(' · ');
 const value = v => (Array.isArray(v) ? v.join(', ') : typeof v === 'object' ? Object.entries(v).map(([k, x]) => `${k} ${x}`).join(' · ') : v.toLocaleString('en-US', { maximumFractionDigits: 6 }));
 const flag = source => /^(PLACEHOLDER|VERIFY)/.exec(source)?.[1];

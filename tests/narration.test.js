@@ -273,6 +273,7 @@ test('the current full SimResult (every metric, all against no new policy) is ac
   assert.equal(now.deltas.length, current.deltas.length);
   const traffic = now.deltas.find(d => d.metric === 'trafficIndex');
   assert.ok(traffic.final > 5 && traffic.final < 15, 'car traffic in percent above year 0');
+  assert.ok(Math.abs(traffic.changePct - (traffic.final - traffic.baseline) / traffic.baseline * 100) < .01, 'changePct on the same scale as the values');
   const text = templateRecap(now), words = text.split(/\s+/).length;
   assert.ok(text.includes('Compared with no new policy') && words <= 100, `${words} words: ${text}`);
   assert.deepEqual(badNumbers(text, now), []);

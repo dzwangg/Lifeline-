@@ -5,6 +5,7 @@ import { h } from '../policy/components.js';
 import { scenario, dataReady, devMode, stubOn, stubAuto, shownYear } from './scenario.js';
 import { VARIABLES, explain } from '../../shared/luti/run.js';
 import { LEVERS } from '../../shared/luti/levers.js';
+import { paramStep } from '../../shared/schema.js';
 
 // The sources popups, CH-LUTI's P10-P90 ranges, its "why" traces and the cards' timing and evidence, left off so the
 // panel stays simple. true brings them back.
@@ -177,7 +178,7 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
       h('dl', { class: 'resident__facts' },
         h('dt', {}, 'Job'), h('dd', {}, a.student ? (a.work === 'campus' ? 'Student at UNC' : `Student; ${WORK[a.work].toLowerCase()}`) : WORK[a.work]),
         h('dt', {}, 'Home'), h('dd', {}, a.renter ? 'Renter' : 'Owner'),
-        h('dt', {}, 'Income'), h('dd', {}, `${money(a.income)} a year`),
+        h('dt', {}, 'Income'), h('dd', {}, `${money(at.income)} a year`),
         h('dt', {}, 'Rent'), h('dd', {}, a.renter ? `${money(at.rent)}/mo · ${share(at.burden)} of income` : 'None, owns home'),
         h('dt', {}, 'Commute'), h('dd', {}, a.work === 'remote' ? 'None, works from home' : `${at.commute} min`)),
       h('p', { class: 'resident__story' }, story(a, y, at)),
@@ -207,10 +208,9 @@ export async function mountSimPlate({ policyStore, cards, host = document.body }
   function Slider(card, p, value, onChange) {
     const show = v => `${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}${p.unit ? ` ${p.unit}` : ''}`;
     const out = h('output', { class: 'sim__val' }, show(value));
-    const allInts = [p.min, p.max, p.default].every(Number.isInteger);
     return h('label', { class: 'sim__slider' },
       h('span', {}, p.label, ' ', out),
-      h('input', { type: 'range', min: p.min, max: p.max, step: allInts ? 1 : (p.max - p.min) / 100, value, oninput: e => {
+      h('input', { type: 'range', min: p.min, max: p.max, step: paramStep(p), value, oninput: e => {
         const v = +e.target.value, params = scenario.get().params;
         out.textContent = show(v);
         scenario.set({ params: { ...params, [card.id]: { ...params[card.id], [p.key]: v } } });

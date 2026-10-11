@@ -76,8 +76,10 @@ export function parseInput(b, cards) {
     policies: b.policies.map(({ id, params }) => ({ id, title: cards.get(id).title, params })),
     years: b.years,
     deltas: b.deltas.map(({ metric, baseline, final, changePct, changePts, comparedWith = 'year 0' }) => {
-      const as = METRICS[metric].toInput ?? (v => v); // shares and indexes in percent, so the recap can quote them as they are
-      return { metric, baseline: as(baseline), final: as(final), changePct, ...(changePts !== undefined && { changePts }), comparedWith };
+      // shares and indexes in percent, so the recap can quote them as they are; changePct then follows the converted values
+      const as = METRICS[metric].toInput, [b0, f0] = as ? [as(baseline), as(final)] : [baseline, final];
+      const pct = as ? (b0 ? Math.round((f0 - b0) / Math.abs(b0) * 1e4) / 100 : 0) : changePct;
+      return { metric, baseline: b0, final: f0, changePct: pct, ...(changePts !== undefined && { changePts }), comparedWith };
     }),
     tradeoffs: { pros: sides('pros'), cons: sides('cons') },
   } };

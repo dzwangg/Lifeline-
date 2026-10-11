@@ -181,7 +181,7 @@ export function createModel(assumptions, baselines) {
       avRes: ZONES.map(z => z.units * AV_PER_UNIT0),
       avCom: AV_COMMERCIAL0,
       rateBase: TAX_CENTS,
-      hired: 0, traffic: 1, prevStarts: BASE_STARTS_Q,
+      hired: 0, traffic: 1,
     };
     // the pipeline starts full of the projects already under way, split by where starts land
     s.pipe = ZONES.map(z => new Array(F.buildQuarters).fill(BASE_STARTS_Q * F.startShare[z.id]));
@@ -258,26 +258,31 @@ export function createModel(assumptions, baselines) {
       }
 
       // 3 development: pro forma per zone → starts → pipeline → completions
-      const subsidyPer = L['housing.subsidyPerUnit'] > 0 ? Math.min(L['housing.subsidyPerUnit'], L['housing.subsidyCap'] / 4 / Math.max(1, s.prevStarts)) : 0;
-      const dev = [];
-      let startsTotal = 0;
-      for (let i = 0; i < N; i++) {
-        const z = ZONES[i], far = L['housing.farMultiplier'][z.id];
-        s.landAdj[i] += (far - s.landAdj[i]) / F.landCatchUpQuarters; // land prices catch up with an upzoning
-        const cost = devCost(i, p, q, far, L['housing.parkingMinimum'][z.id], subsidyPer, s.landAdj[i]);
+      ZONES.forEach((z, i) => { s.landAdj[i] += (L['housing.farMultiplier'][z.id] - s.landAdj[i]) / F.landCatchUpQuarters; }); // land prices catch up with an upzoning
+      const proForma = subsidy => ZONES.map((z, i) => {
+        const far = L['housing.farMultiplier'][z.id];
+        const cost = devCost(i, p, q, far, L['housing.parkingMinimum'][z.id], subsidy, s.landAdj[i]);
         const noi = 12 * s.rent[i] * cal.premium[i] * (1 - F.opex) * (1 - F.stabilizedVacancy);
         const value = noi / (p.capRate + rate / 1e4);
         const margin = value / cost - 1;
         const prob = logistic((margin - F.hurdle) / p.siteDispersion);
         const capacity = cal.cap0[i] * (1 + p.upzoneCapacity * (far - 1));
-        const starts = capacity * prob;
-        startsTotal += starts;
+        return { margin, prob, capacity, starts: capacity * prob, cost, value, far };
+      });
+      // The subsidy per home is the card's, unless that would spend more than the quarter's share of the yearly limit on
+      // this quarter's starts; then it is cut to fit. A smaller subsidy only means fewer starts, so spending stays within it.
+      const budget = L['housing.subsidyCap'] / 4, startsOf = d => sum(d.map(x => x.starts));
+      let subsidyPer = Math.max(0, L['housing.subsidyPerUnit']), dev = proForma(subsidyPer);
+      if (subsidyPer * startsOf(dev) > budget) { subsidyPer = budget / startsOf(dev); dev = proForma(subsidyPer); }
+      const startsTotal = startsOf(dev);
+      for (let i = 0; i < N; i++) {
+        const z = ZONES[i], { starts, value, far } = dev[i];
         const done = s.pipe[i].shift();
         s.pipe[i].push(starts);
         s.units[i] += done;
         s.avRes[i] += done * value;
         if (MIXED_USE.has(z.id)) s.spaces[i] += done * F.retailSpacesPerUnit;
-        dev.push({ margin, prob, capacity, starts, done, cost, value, far });
+        dev[i].done = done;
         // discrete projects for a renderer: every `projectSize` homes of starts becomes one building
         if (seedEvents) {
           s.projAcc[i] += starts;
@@ -289,7 +294,6 @@ export function createModel(assumptions, baselines) {
         }
       }
       const subsidySpend = subsidyPer * startsTotal;
-      s.prevStarts = startsTotal;
 
       // 4 storefront businesses: openings and closures move the stock toward what local spending supports
       const spendTown = (1 - F.spendingFromJobs) * pop / POP0 + F.spendingFromJobs * jobsTotal / TOWN.jobs;

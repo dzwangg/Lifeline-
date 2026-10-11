@@ -67,7 +67,8 @@ const indexOf = (run, key, y, zone) => {
 
 /**
  * Runs the three models. result is the SimResult without deltas (see withDeltas); inputs feed the household model's
- * runs; policies and landUse are CH-LUTI's inputs, for its Monte Carlo ranges (landUse is null when no zone changed).
+ * runs; policies and landUse are CH-LUTI's inputs, for its Monte Carlo ranges (landUse is null when no zone changed);
+ * luti is CH-LUTI's central run (api/resident-bank.js reads owners' tax rate and home value from it).
  * @param {PolicyCard[]} cards @param {Record<string, Record<string, number>>} params @param {Zone[]} zones
  * @param {Assumptions} assumptions @param {Baselines} baselines
  */
@@ -100,7 +101,7 @@ export function runModels(cards, params, zones, assumptions, baselines) {
     };
   });
   const changed = zones.some(z => raw.timeline.at(-1).zoneStates[z.id] !== z.state);
-  return { result: { ...raw, timeline }, inputs, averages, policies, landUse: changed ? landUse : null };
+  return { result: { ...raw, timeline }, inputs, averages, policies, landUse: changed ? landUse : null, luti };
 }
 
 /**

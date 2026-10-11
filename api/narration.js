@@ -58,18 +58,23 @@ export async function loadCards(production = process.env.VERCEL_ENV === 'product
   return new Map([...cards, ...(production ? [] : [stub])].map(c => [c.id, c]));
 }
 
+const inRange = (params, card) => isObj(params) && Object.entries(params).every(([k, v]) => {
+  if (!card.params) return isNum(v); // an unverified player card: its specs are untrusted, and the template never says params
+  const spec = card.params.find(s => s.key === k);
+  return spec && isNum(v) && v >= spec.min && v <= spec.max;
+});
+/** 1-`max` of { id, params }, each a card in `cards` with that card's params, in range. Also used by api/resident*.js. */
+export const validPolicies = (list, cards, min = 1, max = 10) => Array.isArray(list) && list.length >= min && list.length <= max
+  && list.every(p => isObj(p) && cards.has(p.id) && inRange(p.params, cards.get(p.id)));
+export const policiesError = (cards, min = 1) =>
+  `policies must be ${min}-10 of { id, params } where id is one of ${[...cards.keys()].join(', ')} and params are that card's, within its range`;
+
 /** Hand-written check of the fields the recap uses. Titles and tradeoffs come from `cards`, never the body. @returns {{ errors: string[], input?: NarrationInput }} */
 export function parseInput(b, cards) {
   if (!isObj(b)) return { errors: ['body must be a JSON object'] };
   const errors = [];
   const ok = (pass, problem) => pass || errors.push(problem);
-  const inRange = (params, card) => isObj(params) && Object.entries(params).every(([k, v]) => {
-    if (!card.params) return isNum(v); // an unverified player card: its specs are untrusted, and the template never says params
-    const spec = card.params.find(s => s.key === k);
-    return spec && isNum(v) && v >= spec.min && v <= spec.max;
-  });
-  ok(isList(b.policies, 10, p => isObj(p) && cards.has(p.id) && inRange(p.params, cards.get(p.id))),
-    `policies must be 1-10 of { id, params } where id is one of ${[...cards.keys()].join(', ')} and params are that card's, within its range`);
+  ok(validPolicies(b.policies, cards), policiesError(cards));
   ok(Number.isInteger(b.years) && b.years >= 1 && b.years <= 100, 'years must be a whole number from 1 to 100');
   ok(isList(b.deltas, Object.keys(METRICS).length, d => isObj(d) && Object.hasOwn(METRICS, d.metric) && [d.baseline, d.final, d.changePct].every(isNum)
     && (d.changePts === undefined || isNum(d.changePts)) && [undefined, 'year 0', NO_POLICY].includes(d.comparedWith)),
@@ -227,10 +232,22 @@ export const nextModel = (env, model) => {
 
 // Thinking makes Gemini 3 slow here (12-19s at its default level, 1.5s at "minimal"), but each model accepts different
 // levels (gemini-3.8-flash rejects "minimal"), so a 400 about the level retries once with the model's default.
-// A 429 for a daily quota (quotaId ...PerDay...) tries nextModel once; any other 429 or error throws, and callers use the template.
+// A 429 for a daily quota (quotaId ...PerDay...) pauses that model until its retry time (at most an hour), so the calls in
+// between cost nothing and go straight to nextModel, and tries nextModel once. Any other 429 with a short retry (a
+// per-minute limit) waits and retries once; else it throws. Callers fall back to their template on a throw.
+// Errors throw, and callers use their template. The pauses are per instance (and per process, for scripts).
 // opts: feature, system prompt, extra generationConfig (such as a responseSchema) and timeout; /api/policies passes its own.
+const paused = new Map(); // model -> { until }: its daily quota is spent
+/** Forgets every paused model (for tests, which each start with fresh quotas). */
+export const clearGeminiPauses = () => paused.clear();
 export async function gemini(env, contents, opts = {}, thinkingLevel = env.GEMINI_THINKING_LEVEL || 'minimal') {
-  const { feature = 'narration', model = modelFor(env, feature), fellBack = false, system = SYSTEM_PROMPT, config = {}, timeout = 20_000 } = opts;
+  const { feature = 'narration', model = modelFor(env, feature), fellBack = false, retried = false, system = SYSTEM_PROMPT, config = {}, timeout = 20_000 } = opts;
+  const pause = paused.get(model);
+  if (pause && Date.now() < pause.until) {
+    const next = !fellBack && nextModel(env, model);
+    if (next) return gemini(env, contents, { ...opts, model: next, fellBack: true }, thinkingLevel);
+    throw new Error(`Gemini HTTP 429 (${model} paused until ${new Date(pause.until).toISOString()})`);
+  }
   const generationConfig = { temperature: 0.2, ...config, ...(thinkingLevel && { thinkingConfig: { thinkingLevel } }) };
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
     method: 'POST',
@@ -242,12 +259,20 @@ export async function gemini(env, contents, opts = {}, thinkingLevel = env.GEMIN
     console.warn(`gemini: ${model} rejected thinking level "${thinkingLevel}"; retrying with its default`);
     return gemini(env, contents, { ...opts, model }, null);
   }
-  if (res.status === 429 && !fellBack && /PerDay/.test(await res.text())) {
-    const next = nextModel(env, model);
+  if (res.status === 429) { // RESOURCE_EXHAUSTED, with RetryInfo { retryDelay: "78413s" } once a daily free-tier quota is spent
+    const body = await res.text(), error = (() => { try { return JSON.parse(body).error; } catch { return undefined; } })();
+    const delay = error?.details?.find(d => d.retryDelay)?.retryDelay, wait = parseFloat(delay) || 60, daily = /PerDay/.test(body);
+    if (!daily && wait <= 10 && !retried) {
+      await new Promise(done => setTimeout(done, wait * 1000));
+      return gemini(env, contents, { ...opts, model, retried: true }, thinkingLevel);
+    }
+    if (daily) paused.set(model, { until: Date.now() + Math.min(wait, 3600) * 1000 });
+    const next = daily && !fellBack && nextModel(env, model);
     if (next) {
       console.warn(`gemini: ${model}'s daily quota is spent; trying ${next}`);
-      return gemini(env, contents, { ...opts, model: next, fellBack: true });
+      return gemini(env, contents, { ...opts, model: next, fellBack: true, retried: false }, thinkingLevel);
     }
+    throw new Error(`Gemini HTTP 429 (${error?.status ?? 'rate limited'}${delay ? `, retry in ${delay}` : ''}) from ${model}`);
   }
   if (!res.ok) throw new Error(`Gemini HTTP ${res.status} (${model})`);
   const parts = (await res.json()).candidates?.[0]?.content?.parts ?? [];
@@ -256,8 +281,8 @@ export async function gemini(env, contents, opts = {}, thinkingLevel = env.GEMIN
   return text;
 }
 
-async function speak(env, text) {
-  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(env.ELEVENLABS_VOICE_ID)}?output_format=mp3_44100_128`, {
+export async function speak(env, text, voice = env.ELEVENLABS_VOICE_ID) {
+  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}?output_format=mp3_44100_128`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', accept: 'audio/mpeg', 'xi-api-key': env.ELEVENLABS_API_KEY },
     body: JSON.stringify({ text: speakable(text), model_id: env.ELEVENLABS_MODEL || 'eleven_flash_v2_5', apply_text_normalization: 'on' }),
@@ -321,14 +346,14 @@ const RATE_LIMIT = 10; // calls that reach Gemini or ElevenLabs, per IP per minu
 // ponytail: per instance, so it resets on cold starts and doesn't add up across instances. The real cap is a Vercel
 // Firewall rate-limit rule on /api/narration; this one stops a single client hammering a warm instance.
 
-/** A per-IP limiter: (ip) -> seconds until this IP may call again, or 0 if it is under `limit` a minute (and now counted). */
-export function rateLimiter(limit) {
+/** A per-IP limiter: (ip) -> seconds until this IP may call again, or 0 if it is under `limit` per `windowMs` (and now counted). */
+export function rateLimiter(limit, windowMs = 60_000) {
   const hits = new Map(); // ip -> { n, reset }
   return (ip, now = Date.now()) => {
     if (hits.size > 10_000) hits.clear();
     const h = hits.get(ip);
     if (!h || now >= h.reset) {
-      hits.set(ip, { n: 1, reset: now + 60_000 });
+      hits.set(ip, { n: 1, reset: now + windowMs });
       return 0;
     }
     return ++h.n > limit ? Math.ceil((h.reset - now) / 1000) : 0;

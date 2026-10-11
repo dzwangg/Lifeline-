@@ -1,0 +1,1192 @@
+{
+ "families": {
+  "1": "Primary workplace jobs",
+  "2": "Resident employment",
+  "3": "Operating establishments",
+  "4": "Openings, closures, relocations",
+  "5": "New housing",
+  "6": "Income-restricted housing",
+  "7": "Rent and burden",
+  "8": "Town-taxable base",
+  "9": "Town receipts",
+  "10": "Spending, balance and reserves"
+ },
+ "metrics": [
+  {
+   "id": "workplace_jobs",
+   "family": 1,
+   "label": "Workplace primary jobs",
+   "unit": "jobs",
+   "kind": "count",
+   "favorable": "up",
+   "level": "persistence",
+   "effect": "assumption",
+   "note": "Baseline: last observed LODES JT01 year (2023) carried forward, spread from observed 2009-2023 annual changes; no ML. Change: assumption-based response modules.",
+   "show": true
+  },
+  {
+   "id": "resident_jobs",
+   "family": 2,
+   "label": "Resident primary-job employment",
+   "unit": "jobs",
+   "kind": "count",
+   "favorable": "up",
+   "level": "persistence",
+   "effect": "assumption",
+   "note": "Residents of the 2020 town place holding a primary job anywhere in NC (LODES RAC). Not the ACS employment rate.",
+   "show": true
+  },
+  {
+   "id": "external_workplace_share",
+   "family": 2,
+   "label": "Residents working outside town",
+   "unit": "%",
+   "kind": "percent",
+   "favorable": "neutral",
+   "level": "observed_anchor",
+   "effect": "assumption",
+   "note": "NC-only share (out-of-state destinations need other states' files); held at the 2023 observed share in the baseline.",
+   "show": true
+  },
+  {
+   "id": "establishments_change",
+   "family": 3,
+   "label": "Operating establishments (change)",
+   "unit": "establishments",
+   "kind": "count",
+   "favorable": "up",
+   "level": "unavailable",
+   "effect": "assumption",
+   "note": "No townwide establishment registry, so the stock level is unavailable; only the policy-induced change is shown.",
+   "show": true
+  },
+  {
+   "id": "openings_new",
+   "family": 4,
+   "label": "New establishment openings (change)",
+   "unit": "per year",
+   "kind": "count",
+   "favorable": "up",
+   "level": "unavailable",
+   "effect": "assumption",
+   "note": "",
+   "show": true
+  },
+  {
+   "id": "openings_relocations",
+   "family": 4,
+   "label": "Relocations into town (change)",
+   "unit": "per year",
+   "kind": "count",
+   "favorable": "neutral",
+   "level": "unavailable",
+   "effect": "assumption",
+   "note": "Relocations are not new businesses; they may move activity from elsewhere in the region.",
+   "show": true
+  },
+  {
+   "id": "closures_change",
+   "family": 4,
+   "label": "Establishment closures (change)",
+   "unit": "per year",
+   "kind": "count",
+   "favorable": "down",
+   "level": "unavailable",
+   "effect": "assumption",
+   "note": "",
+   "show": true
+  },
+  {
+   "id": "housing_completed_new",
+   "family": 5,
+   "label": "Completed new homes (additional)",
+   "unit": "units per year",
+   "kind": "count",
+   "favorable": "up",
+   "level": "unavailable",
+   "effect": "assumption",
+   "note": "Only completions caused by the subsidy (after additionality). Baseline construction is unavailable: no completion history.",
+   "show": true
+  },
+  {
+   "id": "housing_removals",
+   "family": 5,
+   "label": "Housing removals",
+   "unit": "units per year",
+   "kind": "count",
+   "favorable": "down",
+   "level": "unavailable",
+   "effect": "unavailable",
+   "note": "No demolition or conversion records were acquired.",
+   "show": false
+  },
+  {
+   "id": "housing_net_stock_change",
+   "family": 5,
+   "label": "Net housing stock change (cumulative)",
+   "unit": "units",
+   "kind": "count",
+   "favorable": "up",
+   "level": "unavailable",
+   "effect": "assumption",
+   "note": "",
+   "show": true
+  },
+  {
+   "id": "housing_under_construction",
+   "family": 5,
+   "label": "Funded units in the pipeline",
+   "unit": "units",
+   "kind": "count",
+   "favorable": "neutral",
+   "level": "unavailable",
+   "effect": "assumption",
+   "note": "",
+   "show": true
+  },
+  {
+   "id": "restricted_new_completed",
+   "family": 6,
+   "label": "Completed income-restricted new units",
+   "unit": "units per year",
+   "kind": "count",
+   "favorable": "up",
+   "level": "unavailable",
+   "effect": "assumption",
+   "note": "",
+   "show": true
+  },
+  {
+   "id": "restricted_preserved",
+   "family": 6,
+   "label": "Units newly restricted by preservation",
+   "unit": "units per year",
+   "kind": "count",
+   "favorable": "up",
+   "level": "unavailable",
+   "effect": "assumption",
+   "note": "Preservation restricts existing homes; it adds no physical units.",
+   "show": true
+  },
+  {
+   "id": "restricted_expired",
+   "family": 6,
+   "label": "Restrictions expiring",
+   "unit": "units per year",
+   "kind": "count",
+   "favorable": "down",
+   "level": "observed_anchor",
+   "effect": "arithmetic",
+   "note": "",
+   "show": true
+  },
+  {
+   "id": "restricted_stock",
+   "family": 6,
+   "label": "Income-restricted stock",
+   "unit": "units",
+   "kind": "count",
+   "favorable": "up",
+   "level": "observed_anchor",
+   "effect": "assumption",
+   "note": "Starts from 1,138 units in the FY2025 inventory (S16); most units have no recorded end date, so unknown expiries are not modelled.",
+   "show": true
+  },
+  {
+   "id": "median_gross_rent",
+   "family": 7,
+   "label": "Median gross rent",
+   "unit": "$ per month",
+   "kind": "currency",
+   "favorable": "down",
+   "level": "observed_anchor",
+   "effect": "assumption",
+   "note": "Level is the ACS 2019-2023 5-year anchor ($1,483), not an annual forecast. Change: transported supply elasticity.",
+   "show": true
+  },
+  {
+   "id": "renter_burden",
+   "family": 7,
+   "label": "Renters paying 30%+ of income",
+   "unit": "%",
+   "kind": "percent",
+   "favorable": "down",
+   "level": "unavailable",
+   "effect": "unavailable",
+   "note": "Needs ACS B25070 (CENSUS_API_KEY not set). No annual burden model.",
+   "show": false
+  },
+  {
+   "id": "taxable_base",
+   "family": 8,
+   "label": "Town-taxable assessed base",
+   "unit": "$",
+   "kind": "currency",
+   "favorable": "up",
+   "level": "assumption",
+   "effect": "assumption",
+   "note": "FY2026 anchor from an unaudited parcel snapshot ($12.88B); growth is an assumed range; new homes add assessed value.",
+   "show": true
+  },
+  {
+   "id": "receipts_property_tax",
+   "family": 9,
+   "label": "Property-tax receipts",
+   "unit": "$",
+   "kind": "currency",
+   "favorable": "neutral",
+   "level": "arithmetic",
+   "effect": "arithmetic",
+   "note": "Levy = base x rate (cents) / 10,000 x collection rate. Town levy only.",
+   "show": true
+  },
+  {
+   "id": "receipts_sales_tax",
+   "family": 9,
+   "label": "Sales-tax distribution",
+   "unit": "$",
+   "kind": "currency",
+   "favorable": "neutral",
+   "level": "illustrative",
+   "effect": "unavailable",
+   "note": "ILLUSTRATIVE placeholder: NCDOR distribution history (S45) not acquired. Policies do not change it here.",
+   "show": true
+  },
+  {
+   "id": "receipts_other",
+   "family": 9,
+   "label": "Other comparable receipts",
+   "unit": "$",
+   "kind": "currency",
+   "favorable": "neutral",
+   "level": "illustrative",
+   "effect": "unavailable",
+   "note": "ILLUSTRATIVE placeholder: audited receipts (S42) blocked.",
+   "show": true
+  },
+  {
+   "id": "receipts_total",
+   "family": 9,
+   "label": "Total comparable receipts",
+   "unit": "$",
+   "kind": "currency",
+   "favorable": "neutral",
+   "level": "illustrative",
+   "effect": "arithmetic",
+   "note": "",
+   "show": true
+  },
+  {
+   "id": "expenditure_operating",
+   "family": 10,
+   "label": "Comparable operating expenditure",
+   "unit": "$",
+   "kind": "currency",
+   "favorable": "neutral",
+   "level": "illustrative",
+   "effect": "arithmetic",
+   "note": "ILLUSTRATIVE baseline (balanced FY2026 reference grown by assumed cost inflation) plus exact policy payments.",
+   "show": true
+  },
+  {
+   "id": "policy_disbursements",
+   "family": 10,
+   "label": "Policy disbursements",
+   "unit": "$",
+   "kind": "currency",
+   "favorable": "neutral",
+   "level": "arithmetic",
+   "effect": "arithmetic",
+   "note": "",
+   "show": true
+  },
+  {
+   "id": "operating_balance",
+   "family": 10,
+   "label": "Operating balance",
+   "unit": "$",
+   "kind": "currency",
+   "favorable": "up",
+   "level": "illustrative",
+   "effect": "arithmetic",
+   "note": "",
+   "show": true
+  },
+  {
+   "id": "fund_balance",
+   "family": 10,
+   "label": "Available fund balance",
+   "unit": "$",
+   "kind": "currency",
+   "favorable": "up",
+   "level": "illustrative",
+   "effect": "arithmetic",
+   "note": "",
+   "show": true
+  },
+  {
+   "id": "fund_balance_pct",
+   "family": 10,
+   "label": "Fund balance, % of expenditure",
+   "unit": "%",
+   "kind": "percent",
+   "favorable": "up",
+   "level": "illustrative",
+   "effect": "arithmetic",
+   "note": "",
+   "show": true
+  },
+  {
+   "id": "funding_gap",
+   "family": 10,
+   "label": "Funding gap (unfunded requests)",
+   "unit": "$",
+   "kind": "currency",
+   "favorable": "down",
+   "level": "arithmetic",
+   "effect": "arithmetic",
+   "note": "Requested spending that no legally available source could cover (no borrowing).",
+   "show": true
+  }
+ ],
+ "policy_defaults": {
+  "small_business_support_grant": {
+   "enabled": false,
+   "start_fy": 2027,
+   "end_fy": 2029,
+   "funding_source": "general_fund",
+   "annual_budget": 500000,
+   "grant_per_establishment": 10000,
+   "eligibility": "all_small"
+  },
+  "new_business_startup_grant": {
+   "enabled": false,
+   "start_fy": 2027,
+   "end_fy": 2029,
+   "funding_source": "general_fund",
+   "annual_budget": 300000,
+   "award_per_startup": 15000,
+   "eligibility": "all_new"
+  },
+  "hiring_subsidy": {
+   "enabled": false,
+   "start_fy": 2027,
+   "end_fy": 2029,
+   "funding_source": "general_fund",
+   "annual_budget": 400000,
+   "subsidy_per_hire": 5000,
+   "duration_months": 12,
+   "eligibility": "any_hire"
+  },
+  "housing_construction_subsidy": {
+   "enabled": false,
+   "start_fy": 2027,
+   "end_fy": 2029,
+   "funding_source": "general_fund",
+   "annual_budget": 2000000,
+   "award_per_unit": 40000,
+   "affordable_share": 0.5,
+   "affordability_term_years": 30,
+   "preservation_share": 0.0,
+   "area": "townwide"
+  },
+  "property_tax_adjustment": {
+   "enabled": false,
+   "start_fy": 2027,
+   "end_fy": 2029,
+   "funding_source": "general_fund",
+   "change_cents_per_100": 0.0,
+   "duration_years": 0,
+   "applies_to": "all_town_taxable_real_property",
+   "include_behavioral_sensitivity": false
+  }
+ },
+ "policy_schema": {
+  "$defs": {
+   "HiringSubsidy": {
+    "properties": {
+     "enabled": {
+      "default": false,
+      "title": "Enabled",
+      "type": "boolean"
+     },
+     "start_fy": {
+      "default": 2027,
+      "maximum": 2036,
+      "minimum": 2027,
+      "title": "Start Fy",
+      "type": "integer"
+     },
+     "end_fy": {
+      "default": 2029,
+      "maximum": 2036,
+      "minimum": 2027,
+      "title": "End Fy",
+      "type": "integer"
+     },
+     "funding_source": {
+      "default": "general_fund",
+      "enum": [
+       "general_fund",
+       "fund_balance",
+       "tax_adjustment",
+       "unfunded"
+      ],
+      "title": "Funding Source",
+      "type": "string"
+     },
+     "annual_budget": {
+      "default": 400000,
+      "maximum": 10000000.0,
+      "minimum": 0.0,
+      "title": "Annual Budget",
+      "type": "number"
+     },
+     "subsidy_per_hire": {
+      "default": 5000,
+      "maximum": 30000.0,
+      "minimum": 500.0,
+      "title": "Subsidy Per Hire",
+      "type": "number"
+     },
+     "duration_months": {
+      "default": 12,
+      "maximum": 24,
+      "minimum": 1,
+      "title": "Duration Months",
+      "type": "integer"
+     },
+     "eligibility": {
+      "default": "any_hire",
+      "enum": [
+       "any_hire",
+       "town_residents_only"
+      ],
+      "title": "Eligibility",
+      "type": "string"
+     }
+    },
+    "title": "HiringSubsidy",
+    "type": "object"
+   },
+   "HousingSubsidy": {
+    "properties": {
+     "enabled": {
+      "default": false,
+      "title": "Enabled",
+      "type": "boolean"
+     },
+     "start_fy": {
+      "default": 2027,
+      "maximum": 2036,
+      "minimum": 2027,
+      "title": "Start Fy",
+      "type": "integer"
+     },
+     "end_fy": {
+      "default": 2029,
+      "maximum": 2036,
+      "minimum": 2027,
+      "title": "End Fy",
+      "type": "integer"
+     },
+     "funding_source": {
+      "default": "general_fund",
+      "enum": [
+       "general_fund",
+       "fund_balance",
+       "tax_adjustment",
+       "unfunded"
+      ],
+      "title": "Funding Source",
+      "type": "string"
+     },
+     "annual_budget": {
+      "default": 2000000,
+      "maximum": 50000000.0,
+      "minimum": 0.0,
+      "title": "Annual Budget",
+      "type": "number"
+     },
+     "award_per_unit": {
+      "default": 40000,
+      "maximum": 300000.0,
+      "minimum": 5000.0,
+      "title": "Award Per Unit",
+      "type": "number"
+     },
+     "affordable_share": {
+      "default": 0.5,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Affordable Share",
+      "type": "number"
+     },
+     "affordability_term_years": {
+      "default": 30,
+      "maximum": 99,
+      "minimum": 1,
+      "title": "Affordability Term Years",
+      "type": "integer"
+     },
+     "preservation_share": {
+      "default": 0.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Preservation Share",
+      "type": "number"
+     },
+     "area": {
+      "default": "townwide",
+      "enum": [
+       "townwide",
+       "transit_corridors"
+      ],
+      "title": "Area",
+      "type": "string"
+     }
+    },
+    "title": "HousingSubsidy",
+    "type": "object"
+   },
+   "PropertyTax": {
+    "properties": {
+     "enabled": {
+      "default": false,
+      "title": "Enabled",
+      "type": "boolean"
+     },
+     "start_fy": {
+      "default": 2027,
+      "maximum": 2036,
+      "minimum": 2027,
+      "title": "Start Fy",
+      "type": "integer"
+     },
+     "end_fy": {
+      "default": 2029,
+      "maximum": 2036,
+      "minimum": 2027,
+      "title": "End Fy",
+      "type": "integer"
+     },
+     "funding_source": {
+      "default": "general_fund",
+      "enum": [
+       "general_fund",
+       "fund_balance",
+       "tax_adjustment",
+       "unfunded"
+      ],
+      "title": "Funding Source",
+      "type": "string"
+     },
+     "change_cents_per_100": {
+      "default": 0.0,
+      "maximum": 15.0,
+      "minimum": -15.0,
+      "title": "Change Cents Per 100",
+      "type": "number"
+     },
+     "duration_years": {
+      "default": 0,
+      "maximum": 10,
+      "minimum": 0,
+      "title": "Duration Years",
+      "type": "integer"
+     },
+     "applies_to": {
+      "const": "all_town_taxable_real_property",
+      "default": "all_town_taxable_real_property",
+      "title": "Applies To",
+      "type": "string"
+     },
+     "include_behavioral_sensitivity": {
+      "default": false,
+      "title": "Include Behavioral Sensitivity",
+      "type": "boolean"
+     }
+    },
+    "title": "PropertyTax",
+    "type": "object"
+   },
+   "SmallBusinessGrant": {
+    "properties": {
+     "enabled": {
+      "default": false,
+      "title": "Enabled",
+      "type": "boolean"
+     },
+     "start_fy": {
+      "default": 2027,
+      "maximum": 2036,
+      "minimum": 2027,
+      "title": "Start Fy",
+      "type": "integer"
+     },
+     "end_fy": {
+      "default": 2029,
+      "maximum": 2036,
+      "minimum": 2027,
+      "title": "End Fy",
+      "type": "integer"
+     },
+     "funding_source": {
+      "default": "general_fund",
+      "enum": [
+       "general_fund",
+       "fund_balance",
+       "tax_adjustment",
+       "unfunded"
+      ],
+      "title": "Funding Source",
+      "type": "string"
+     },
+     "annual_budget": {
+      "default": 500000,
+      "maximum": 10000000.0,
+      "minimum": 0.0,
+      "title": "Annual Budget",
+      "type": "number"
+     },
+     "grant_per_establishment": {
+      "default": 10000,
+      "maximum": 100000.0,
+      "minimum": 1000.0,
+      "title": "Grant Per Establishment",
+      "type": "number"
+     },
+     "eligibility": {
+      "default": "all_small",
+      "enum": [
+       "all_small",
+       "retail_food_service",
+       "downtown_only"
+      ],
+      "title": "Eligibility",
+      "type": "string"
+     }
+    },
+    "title": "SmallBusinessGrant",
+    "type": "object"
+   },
+   "StartupGrant": {
+    "properties": {
+     "enabled": {
+      "default": false,
+      "title": "Enabled",
+      "type": "boolean"
+     },
+     "start_fy": {
+      "default": 2027,
+      "maximum": 2036,
+      "minimum": 2027,
+      "title": "Start Fy",
+      "type": "integer"
+     },
+     "end_fy": {
+      "default": 2029,
+      "maximum": 2036,
+      "minimum": 2027,
+      "title": "End Fy",
+      "type": "integer"
+     },
+     "funding_source": {
+      "default": "general_fund",
+      "enum": [
+       "general_fund",
+       "fund_balance",
+       "tax_adjustment",
+       "unfunded"
+      ],
+      "title": "Funding Source",
+      "type": "string"
+     },
+     "annual_budget": {
+      "default": 300000,
+      "maximum": 5000000.0,
+      "minimum": 0.0,
+      "title": "Annual Budget",
+      "type": "number"
+     },
+     "award_per_startup": {
+      "default": 15000,
+      "maximum": 100000.0,
+      "minimum": 1000.0,
+      "title": "Award Per Startup",
+      "type": "number"
+     },
+     "eligibility": {
+      "default": "all_new",
+      "enum": [
+       "all_new",
+       "storefront_only"
+      ],
+      "title": "Eligibility",
+      "type": "string"
+     }
+    },
+    "title": "StartupGrant",
+    "type": "object"
+   }
+  },
+  "properties": {
+   "small_business_support_grant": {
+    "$ref": "#/$defs/SmallBusinessGrant",
+    "default": {
+     "enabled": false,
+     "start_fy": 2027,
+     "end_fy": 2029,
+     "funding_source": "general_fund",
+     "annual_budget": 500000.0,
+     "grant_per_establishment": 10000.0,
+     "eligibility": "all_small"
+    }
+   },
+   "new_business_startup_grant": {
+    "$ref": "#/$defs/StartupGrant",
+    "default": {
+     "enabled": false,
+     "start_fy": 2027,
+     "end_fy": 2029,
+     "funding_source": "general_fund",
+     "annual_budget": 300000.0,
+     "award_per_startup": 15000.0,
+     "eligibility": "all_new"
+    }
+   },
+   "hiring_subsidy": {
+    "$ref": "#/$defs/HiringSubsidy",
+    "default": {
+     "enabled": false,
+     "start_fy": 2027,
+     "end_fy": 2029,
+     "funding_source": "general_fund",
+     "annual_budget": 400000.0,
+     "subsidy_per_hire": 5000.0,
+     "duration_months": 12,
+     "eligibility": "any_hire"
+    }
+   },
+   "housing_construction_subsidy": {
+    "$ref": "#/$defs/HousingSubsidy",
+    "default": {
+     "enabled": false,
+     "start_fy": 2027,
+     "end_fy": 2029,
+     "funding_source": "general_fund",
+     "annual_budget": 2000000.0,
+     "award_per_unit": 40000.0,
+     "affordable_share": 0.5,
+     "affordability_term_years": 30,
+     "preservation_share": 0.0,
+     "area": "townwide"
+    }
+   },
+   "property_tax_adjustment": {
+    "$ref": "#/$defs/PropertyTax",
+    "default": {
+     "enabled": false,
+     "start_fy": 2027,
+     "end_fy": 2029,
+     "funding_source": "general_fund",
+     "change_cents_per_100": 0.0,
+     "duration_years": 0,
+     "applies_to": "all_town_taxable_real_property",
+     "include_behavioral_sensitivity": false
+    }
+   }
+  },
+  "title": "Policies",
+  "type": "object"
+ },
+ "card_ids": {
+  "small_business_support_grant": "small-business-support-grant",
+  "new_business_startup_grant": "new-business-startup-grant",
+  "hiring_subsidy": "hiring-subsidy",
+  "housing_construction_subsidy": "housing-construction-subsidy",
+  "property_tax_adjustment": "property-tax-adjustment"
+ },
+ "cards": {
+  "small_business_support_grant": {
+   "title": "Small-Business Support Grant",
+   "evidence_grade": "assumption_only",
+   "mechanism": "Eligible existing establishments apply; awards are capped by budget and applications. A grant lowers a recipient's closure hazard by a dose-dependent amount that can be zero. Only avoided closures count, net of displacement of competitors; most funded businesses would have stayed open anyway.",
+   "delays": "Effects start in the award year; saved establishments then face ordinary closure risk.",
+   "constraints": "Recipients are capped by the assumed eligible stock and take-up; unspent budget is reported.",
+   "missing_evidence": "Applicant, award, rejection and survival records (Town Economic Development, Orange County)."
+  },
+  "new_business_startup_grant": {
+   "title": "New-Business Startup Grant",
+   "evidence_grade": "assumption_only",
+   "mechanism": "Applications -> eligible awards -> disbursement -> incremental openings after additionality. Openings are split into new establishments and relocations; survival and competitor crowd-out follow.",
+   "delays": "Openings occur one year after the award; first-year survival is below later survival.",
+   "constraints": "Awards are capped by eligible applications and budget.",
+   "missing_evidence": "Applicant and award histories with actual opening and survival dates."
+  },
+  "hiring_subsidy": {
+   "title": "Hiring Subsidy",
+   "evidence_grade": "assumption_only",
+   "mechanism": "Subsidised qualifying hires minus deadweight (hires that would happen anyway) and substitution give additional workplace jobs; resident employment rises only by the share filled by town residents.",
+   "delays": "Jobs persist while subsidised; after support ends a retention share survives, then separations continue.",
+   "constraints": "Qualifying hires are capped by the eligible hiring pool, budget and labour availability.",
+   "missing_evidence": "Employer contracts, reimbursed wages, headcount/retention outcomes and comparison cohorts."
+  },
+  "housing_construction_subsidy": {
+   "title": "Housing Construction Subsidy",
+   "evidence_grade": "assumption_only (delays: observed local distribution)",
+   "mechanism": "Budget funds units up to an assumed feasible capacity. Funded projects move through the pipeline and complete after a delay drawn from the town's observed approval-to-completion lags (S13), at least one year; some fail. Only the additional share adds housing supply; restrictions apply to funded units and expire after the chosen term. Preservation restricts existing homes and adds no units.",
+   "delays": "No same-year homes: completions follow funding by one to five years.",
+   "constraints": "Zoning, sewer capacity, flood, wetland and soil constraints were not acquired; an assumed annual capacity cap stands in and is labelled. Half the award is paid at funding, half at completion; the unpaid half is encumbered.",
+   "missing_evidence": "Complete permit/certificate-of-occupancy histories, financing stacks and OWASA capacity decisions."
+  },
+  "property_tax_adjustment": {
+   "title": "Property Tax Adjustment",
+   "evidence_grade": "observed_arithmetic (levy); behavioural response not identified",
+   "mechanism": "Town levy = town-taxable base x rate in cents per $100 / 10,000, times a collection rate. Only the town component changes; county, school and district rates are separate. Lower taxes are not assumed to cause growth.",
+   "delays": "Applies from the effective fiscal year for the chosen duration.",
+   "constraints": "The base is an unaudited current parcel snapshot grown by an assumed rate.",
+   "missing_evidence": "Annual assessment rolls, exemptions and collection history."
+  }
+ },
+ "assumptions": [
+  {
+   "key": "sbg_eligible_establishments",
+   "low": 1200,
+   "central": 1800,
+   "high": 2500,
+   "unit": "establishments",
+   "grade": "assumption_only",
+   "note": "Townwide small establishments eligible for support. No establishment registry was acquired (dossier S33-S36)."
+  },
+  {
+   "key": "sbg_takeup",
+   "low": 0.15,
+   "central": 0.3,
+   "high": 0.5,
+   "unit": "share of eligible",
+   "grade": "assumption_only",
+   "note": "Share of eligible establishments that apply in a funded year."
+  },
+  {
+   "key": "sbg_base_closure_hazard",
+   "low": 0.06,
+   "central": 0.09,
+   "high": 0.12,
+   "unit": "per year",
+   "grade": "transported_external",
+   "note": "Annual establishment exit rate, in the range of national Business Dynamics Statistics rates (S34, not acquired locally)."
+  },
+  {
+   "key": "sbg_hazard_reduction_max",
+   "low": 0.0,
+   "central": 0.1,
+   "high": 0.25,
+   "unit": "relative",
+   "grade": "assumption_only",
+   "note": "Largest relative cut in a recipient's closure hazard; scaled by grant size with diminishing returns. Can be zero."
+  },
+  {
+   "key": "sbg_dose_half",
+   "low": 8000,
+   "central": 15000,
+   "high": 30000,
+   "unit": "$",
+   "grade": "assumption_only",
+   "note": "Grant size giving half of the maximum hazard reduction."
+  },
+  {
+   "key": "sbg_displacement",
+   "low": 0.0,
+   "central": 0.2,
+   "high": 0.4,
+   "unit": "share",
+   "grade": "assumption_only",
+   "note": "Share of avoided closures offset by competitors' closures."
+  },
+  {
+   "key": "jobs_per_small_establishment",
+   "low": 4,
+   "central": 6,
+   "high": 9,
+   "unit": "jobs",
+   "grade": "assumption_only",
+   "note": "Primary jobs per small local establishment."
+  },
+  {
+   "key": "su_applications",
+   "low": 60,
+   "central": 120,
+   "high": 200,
+   "unit": "per year",
+   "grade": "assumption_only",
+   "note": "Startup applications per funded year. County Business Formation Statistics (S35) were not acquired."
+  },
+  {
+   "key": "su_eligible_share",
+   "low": 0.4,
+   "central": 0.6,
+   "high": 0.8,
+   "unit": "share",
+   "grade": "assumption_only",
+   "note": "Share of applications meeting eligibility."
+  },
+  {
+   "key": "su_additionality",
+   "low": 0.1,
+   "central": 0.25,
+   "high": 0.5,
+   "unit": "share",
+   "grade": "assumption_only",
+   "note": "Share of awardees that would not otherwise open in town."
+  },
+  {
+   "key": "su_relocation_share",
+   "low": 0.05,
+   "central": 0.2,
+   "high": 0.35,
+   "unit": "share",
+   "grade": "assumption_only",
+   "note": "Share of incremental openings that are relocations, not new establishments."
+  },
+  {
+   "key": "su_first_year_survival",
+   "low": 0.7,
+   "central": 0.8,
+   "high": 0.9,
+   "unit": "share",
+   "grade": "transported_external",
+   "note": "Survival through the first year of operation (BDS-like range)."
+  },
+  {
+   "key": "su_later_hazard",
+   "low": 0.08,
+   "central": 0.12,
+   "high": 0.18,
+   "unit": "per year",
+   "grade": "transported_external",
+   "note": "Annual exit hazard after the first year."
+  },
+  {
+   "key": "su_crowd_out",
+   "low": 0.0,
+   "central": 0.15,
+   "high": 0.3,
+   "unit": "share",
+   "grade": "assumption_only",
+   "note": "Competitor closures per incremental opening."
+  },
+  {
+   "key": "jobs_per_new_establishment",
+   "low": 2,
+   "central": 3,
+   "high": 5,
+   "unit": "jobs",
+   "grade": "assumption_only",
+   "note": "Primary jobs per new establishment."
+  },
+  {
+   "key": "hire_rate",
+   "low": 0.2,
+   "central": 0.3,
+   "high": 0.4,
+   "unit": "hires per job per year",
+   "grade": "assumption_only",
+   "note": "Gross hires per workplace job. QWI hire rates (S31) were not acquired."
+  },
+  {
+   "key": "hire_eligible_share",
+   "low": 0.1,
+   "central": 0.2,
+   "high": 0.35,
+   "unit": "share of hires",
+   "grade": "assumption_only",
+   "note": "Share of baseline hires at eligible employers/positions."
+  },
+  {
+   "key": "hire_deadweight",
+   "low": 0.4,
+   "central": 0.6,
+   "high": 0.85,
+   "unit": "share",
+   "grade": "assumption_only",
+   "note": "Subsidised hires that would have happened anyway."
+  },
+  {
+   "key": "hire_substitution",
+   "low": 0.0,
+   "central": 0.15,
+   "high": 0.3,
+   "unit": "share",
+   "grade": "assumption_only",
+   "note": "Additional hires offset by fewer unsubsidised hires."
+  },
+  {
+   "key": "hire_retention_after",
+   "low": 0.4,
+   "central": 0.6,
+   "high": 0.8,
+   "unit": "share",
+   "grade": "assumption_only",
+   "note": "Additional jobs still filled one year after support ends."
+  },
+  {
+   "key": "hire_separation_later",
+   "low": 0.15,
+   "central": 0.25,
+   "high": 0.35,
+   "unit": "per year",
+   "grade": "assumption_only",
+   "note": "Annual separation of retained additional jobs."
+  },
+  {
+   "key": "labor_slack_cap",
+   "low": 0.005,
+   "central": 0.01,
+   "high": 0.02,
+   "unit": "share of jobs",
+   "grade": "assumption_only",
+   "note": "Cap on additional hires per year from labour availability."
+  },
+  {
+   "key": "hs_capacity_units",
+   "low": 80,
+   "central": 150,
+   "high": 250,
+   "unit": "units per year",
+   "grade": "assumption_only",
+   "note": "Feasible subsidisable units per year. Zoning, sewer capacity (OWASA), flood and soil layers were not acquired."
+  },
+  {
+   "key": "hs_additionality",
+   "low": 0.25,
+   "central": 0.5,
+   "high": 0.75,
+   "unit": "share",
+   "grade": "assumption_only",
+   "note": "Share of funded new units that would not be built without the subsidy (financing-gap additionality)."
+  },
+  {
+   "key": "hs_failure",
+   "low": 0.05,
+   "central": 0.1,
+   "high": 0.2,
+   "unit": "share",
+   "grade": "assumption_only",
+   "note": "Funded projects cancelled before completion."
+  },
+  {
+   "key": "hs_assessed_value_per_unit",
+   "low": 200000,
+   "central": 300000,
+   "high": 400000,
+   "unit": "$",
+   "grade": "assumption_only",
+   "note": "Assessed value added per completed new unit."
+  },
+  {
+   "key": "rent_supply_elasticity",
+   "low": -0.19,
+   "central": -0.1,
+   "high": 0.0,
+   "unit": "elasticity",
+   "grade": "transported_external",
+   "note": "Rent change per % change in housing stock: Li (2022) -0.1; Mense (2025) -0.19 (as cited in data/assumptions.json). Transported from other markets; not a Chapel Hill estimate."
+  },
+  {
+   "key": "collection_rate",
+   "low": 0.985,
+   "central": 0.99,
+   "high": 0.995,
+   "unit": "share",
+   "grade": "assumption_only",
+   "note": "Current-year collection rate. Audited collection history (S42) was blocked."
+  },
+  {
+   "key": "tax_base_elasticity",
+   "low": 0.0,
+   "central": 0.0,
+   "high": 0.0,
+   "unit": "elasticity",
+   "grade": "assumption_only",
+   "note": "Behavioural response of the taxable base to the town rate. Fixed at 0: not identified; lower taxes are not assumed to cause growth."
+  },
+  {
+   "key": "base_growth_nominal",
+   "low": 0.01,
+   "central": 0.025,
+   "high": 0.04,
+   "unit": "per year",
+   "grade": "assumption_only",
+   "note": "Nominal growth of the town-taxable base between revaluations. No assessment history was acquired."
+  },
+  {
+   "key": "cost_inflation",
+   "low": 0.02,
+   "central": 0.03,
+   "high": 0.04,
+   "unit": "per year",
+   "grade": "assumption_only",
+   "note": "Nominal growth of comparable operating expenditure."
+  },
+  {
+   "key": "resident_share_of_town_jobs",
+   "low": 0.11363948987010945,
+   "central": 0.11363948987010945,
+   "high": 0.11363948987010945,
+   "unit": "share",
+   "grade": "observed_arithmetic",
+   "note": "Residents working in town / town workplace primary jobs, LODES 2023 (S24)."
+  }
+ ],
+ "targets": {
+  "workplace_jobs_growth_pct_per_year": 1.0,
+  "resident_jobs_growth_pct_per_year": 0.5,
+  "restricted_share_of_stock_pct": 10.0,
+  "operating_balance_min": 0.0,
+  "fund_balance_pct_of_expenditure": 8.0,
+  "renter_burden_max_pct": 40.0
+ },
+ "peer_selection": {
+  "status": "not assembled",
+  "frozen": false,
+  "peers": [],
+  "criteria": [
+   "population",
+   "university presence",
+   "economy",
+   "housing",
+   "fiscal responsibilities"
+  ]
+ },
+ "model": {
+  "model_version": "persistence.v1.lodes8-2009-2023.tiger2020.v1",
+  "model": "persistence (no ML)",
+  "data_version": "lodes8-2009-2023.tiger2020.v1",
+  "origin_observed_year": 2023,
+  "years": [
+   2024,
+   2025,
+   2026,
+   2027,
+   2028,
+   2029,
+   2030,
+   2031,
+   2032,
+   2033,
+   2034,
+   2035,
+   2036
+  ],
+  "nowcast_years": [
+   2024,
+   2025,
+   2026
+  ],
+  "draws": 500,
+  "method": "Current-policy baseline for town jobs. No machine learning: nothing is fitted or trained.\n\nPersistence: the last observed LODES year (2023) is carried forward, so the median path is flat (no growth is assumed).\nYear-to-year spread comes from resampling the town's own observed annual log changes 2009-2023, demeaned so they add\nnoise but no trend. Workplace and resident jobs use the same resampled year in a draw (shared shocks).\n2024-2026 are nowcast years, 2027+ projections.",
+  "observed_town_jobs_2023": 50889.0,
+  "observed_town_rac_2023": 21351.0
+ }
+}

@@ -64,13 +64,17 @@ function outline(p, x0, y0, w, h, color = P.ink) {
 
 export function spriteAtlas() {
   const p = new Pix(SIZE, SIZE, 909), sprites = {};
+  // Cells are GAP clear pixels apart (past each sprite's one-pixel outline), so the mip levels that sprites are drawn
+  // at (they hide or turn into canopy discs below LOD.macro) never mix one sprite into its neighbour.
+  const GAP = 5;
   let cx = 1, cy = 1, rowH = 0;
   // Registers a sprite of w x h pixels; meta: { sway, glow }. Painters draw with (x, y) at the cell's top left.
   const add = (name, w, h, paint, meta = {}) => {
-    if (cx + w + 2 > SIZE) { cx = 1; cy += rowH + 3; rowH = 0; }
+    if (cx + w + 2 > SIZE) { cx = 1; cy += rowH + 2 + GAP; rowH = 0; }
+    if (cy + h + 2 > SIZE) throw new Error(`Sprite atlas is full at "${name}"`);
     paint(cx + 1, cy + 1, w, h);
     sprites[name] = { px: [cx + 1, cy + 1, w, h], w: w * TEXEL, h: h * TEXEL, ...meta };
-    cx += w + 3; rowH = Math.max(rowH, h);
+    cx += w + 2 + GAP; rowH = Math.max(rowH, h);
   };
   const r = seeded(77);
 
@@ -115,6 +119,24 @@ export function spriteAtlas() {
   pine('pine', 28, 72, 5);
   pine('spruce', 22, 58, 6);
   pine('pineSmall', 16, 32, 3);
+  // Groves: a stand of eight or nine trees in one sprite, for the outskirts' woods, where single trees would run to
+  // hundreds of thousands. A back row of crowns, then a front row whose trunks stand over it.
+  const grove = (name, palettes, W, H) => add(name, W, H, (x, y) => {
+    for (const [cy, n, rad] of [[.34, 4, .26], [.5, 5, .23]]) {
+      for (let k = 0; k < n; k++) {
+        const R = H * (rad + r() * .05), cx = W * (k + .5) / n + (r() - .5) * W * .06, ccy = H * cy + (r() - .5) * H * .06;
+        const top = Math.floor(ccy + R * .55);
+        trunk(p, x + Math.floor(cx) - 1, y + top, 3, H - top - 1);
+        const bx = Math.max(0, Math.floor(cx - R)), by = Math.max(0, Math.floor(ccy - R)), bw = Math.min(W - bx, Math.ceil(R * 2)), bh = Math.min(H - by, Math.ceil(R * 2));
+        const lx = cx - bx, ly = ccy - by;
+        canopy(p, x + bx, y + by, bw, bh, r.pick(palettes), [[lx, ly, R * .82], [lx - R * .38, ly + R * .2, R * .56], [lx + R * .38, ly + R * .16, R * .56]], r);
+      }
+    }
+    outline(p, x - 1, y - 1, W + 2, H + 2, mix(P.leafDark, P.ink, .5));
+  }, { sway: .25 });
+  grove('grove', [CANOPY.oak, CANOPY.darkOak, CANOPY.oak, CANOPY.golden, CANOPY.birch], 100, 76);
+  grove('groveDark', [CANOPY.darkOak, CANOPY.pine, CANOPY.darkOak, CANOPY.oak], 100, 80);
+  grove('groveAutumn', [CANOPY.oak, CANOPY.amber, CANOPY.maple, CANOPY.darkOak, CANOPY.golden], 96, 74);
 
   // ---------- shrubs and flowers ----------
   const bush = (name, colors, W, H, dots) => add(name, W, H, (x, y) => {
@@ -152,6 +174,28 @@ export function spriteAtlas() {
     p.rect(x + 3, y + 8, 3, 2, '#5fc8f0'); p.rect(x + 3, y + 8, 3, 1, '#c8f4ff'); // glass planter
   }, { sway: .1 });
   add('fern', 6, 5, (x, y) => { for (let i = 0; i < 6; i++) for (let j = Math.abs(i - 2.5) | 0; j < 5; j++) p.set(x + i, y + j, (i + j) % 2 ? P.leafLight : P.leaf); }, { sway: .3 });
+  // The water's edge: cattail reeds, and a lily pad with a pink flower (laid flat as a decal).
+  add('reeds', 12, 14, (x, y) => {
+    for (let k = 0; k < 7; k++) {
+      const sx = x + 1 + Math.floor(r() * 10), top = y + Math.floor(r() * 5);
+      for (let j = top; j < y + 14; j++) p.set(sx, j, (j + k) % 3 ? P.leaf : P.leafDark);
+      if (k < 4) { p.rect(sx, top, 1, 3, P.woodDark); p.set(sx, top, P.wood); }
+    }
+    outline(p, x - 1, y - 1, 14, 16, mix(P.leafDark, P.ink, .5));
+  }, { sway: .6 });
+  add('lily', 10, 7, (x, y) => {
+    for (let j = 0; j < 7; j++) for (let i = 0; i < 10; i++) {
+      const d = ((i - 4.5) / 5) ** 2 + ((j - 3) / 3.5) ** 2;
+      if (d < 1 && !(i > 4 && Math.abs(j - 3) < 1)) p.set(x + i, y + j, d > .7 ? P.leafDark : (i + j) % 3 ? P.leaf : P.leafLight); // a notched pad
+    }
+    p.rect(x + 2, y + 2, 2, 2, P.blossom); p.set(x + 2, y + 2, '#ffffff');
+  });
+  // A path bollard with a soft blue light on top.
+  add('bollard', 3, 8, (x, y) => {
+    p.rect(x, y + 2, 3, 6, '#eef5f9'); p.rect(x + 2, y + 2, 1, 6, '#c9d8e2');
+    p.rect(x, y, 3, 2, '#8eeaff'); p.set(x, y, '#ffffff');
+    outline(p, x - 1, y - 1, 5, 10);
+  }, { glow: 1 });
   add('rock', 5, 3, (x, y) => { p.rect(x, y + 1, 5, 2, P.stoneDark); p.rect(x + 1, y, 3, 2, P.stone); p.set(x + 1, y, P.stoneLight); outline(p, x - 1, y - 1, 7, 5); });
 
   // ---------- street furniture ----------
@@ -219,8 +263,8 @@ export function spriteAtlas() {
     });
   }
 
+  // Mipmapped (see pixelFiltering), so a tree a few pixels across shows its averaged crown, not a random handful of texels.
   const texture = p.texture({ repeat: false, flipY: false });
-  texture.minFilter = THREE.NearestFilter; texture.generateMipmaps = false;
   for (const s of Object.values(sprites)) {
     const [x, y, w, h] = s.px;
     s.uv = [x / SIZE, y / SIZE, (x + w) / SIZE, (y + h) / SIZE];
@@ -239,6 +283,6 @@ export const FLOWERS = ['tulipsRed', 'tulipsYellow', 'tulipsPurple', 'daisies', 
 
 // Each tree's canopy as one colour, for far zooms where a tree is a disc: its palette's dark tone, so woods
 // stand out from the lawn, and autumn trees keep a hint of their colour.
-const CANOPY_OF = { oak: 'oak', oakSmall: 'oak', oakDark: 'darkOak', magnolia: 'darkOak', maple: 'maple', amber: 'amber', golden: 'golden', dogwood: 'blossom', birch: 'birch', pine: 'pine', spruce: 'pine', pineSmall: 'pine' };
+const CANOPY_OF = { oak: 'oak', oakSmall: 'oak', oakDark: 'darkOak', magnolia: 'darkOak', maple: 'maple', amber: 'amber', golden: 'golden', dogwood: 'blossom', birch: 'birch', pine: 'pine', spruce: 'pine', pineSmall: 'pine', grove: 'oak', groveDark: 'darkOak', groveAutumn: 'amber' };
 const TONES = Object.fromEntries(Object.entries(CANOPY_OF).map(([name, c]) => [name, new THREE.Color(mix(CANOPY[c][1], P.leafDark, .45))]));
 export const canopyTone = name => TONES[name] ?? TONES.oak;

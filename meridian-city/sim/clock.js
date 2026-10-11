@@ -10,12 +10,13 @@ const MAX_DT = .25; // real seconds per tick at most: a hitch or a background ta
 
 /**
  * @param {object} o
- * @param {number} o.steps the last step (years after the start)
+ * @param {number} o.steps the last step (years after the start); a game's next turn moves it on (setRange)
  * @param {(version: number, step: number) => Promise<any>} o.predict resolves one step's snapshot for a scenario version
  * @param {number} [o.yearMs] real milliseconds per simulated year at 1x
  */
 export function createClock({ steps, predict, yearMs = 1000 }) {
   let version = 0, step = 0, frac = 0, playing = false, speed = 1, before = false, error = null;
+  let first = 0; // where a replay starts: the start of the decade being played
   let shown = null; // what is on screen: { version, step, data, prev, base, tween }
   // Show `step` as soon as its prediction is in: 'show' for the first load or a seek (even while paused),
   // 'resume' to pick up a changed scenario once playing. false while the screen is current.
@@ -101,8 +102,9 @@ export function createClock({ steps, predict, yearMs = 1000 }) {
     play(s = speed) {
       if (!SPEEDS.includes(s)) throw new RangeError(`speed ${s}`);
       speed = s; error = null; before = false;
-      // replay from the start once the last year has played out, or after a seek to it; paused during its construction, carry on
-      if (!playing && step >= steps && (frac >= 1 || !shown?.tween)) { step = 0; frac = 0; needCommit = 'show'; }
+      // replay from the start (of this turn's decade) once the last year has played out, or after a seek to it; paused
+      // during its construction, carry on
+      if (!playing && step >= steps && (frac >= 1 || !shown?.tween)) { step = first; frac = 0; needCommit = 'show'; }
       else if (shown && shown.version !== version) needCommit = 'resume'; // pick up the changed scenario where we are
       playing = true;
       want(step);
@@ -121,6 +123,12 @@ export function createClock({ steps, predict, yearMs = 1000 }) {
       emit();
     },
     setBefore(b) { before = !!b; if (before && playing) stop(); emit(); },
+
+    /** A game's next turn: the forecast now runs to step `to`, and replays start from `from`. Shows `from`, paused. */
+    setRange(from, to) {
+      first = from; steps = to;
+      clock.seek(from);
+    },
 
     /** The scenario's inputs changed, so earlier predictions are stale. Playback holds until the new ones arrive;
      *  paused, the new forecast for the shown year replaces the old one as soon as it lands. */

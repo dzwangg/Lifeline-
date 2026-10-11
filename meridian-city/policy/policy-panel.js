@@ -1,20 +1,27 @@
-import { h, cls, catVars, slotLabel, PolicyCard, PolicySlot, CategoryRow, GlassButton, FilterChip } from './components.js';
+import { h, cls, catVars, slotLabel, glyph, PolicyCard, PolicySlot, ScenarioItem, GlassButton, FilterChip } from './components.js';
 import { createDrag, flyFrom } from './drag.js';
 
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const ARROWS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
 
-// Mounts the policy overlay. Returns { open(trigger?), close(), isOpen() }.
-export function mountPolicyPanel({ store, host = document.body } = {}) {
+// Mounts the policy overlay. Returns { open(trigger?), close(), isOpen() }. With a game of turns (sim/turns.js), the panel
+// plans the current decade: it lists the policies already in force, and applies nothing once the game is over.
+export function mountPolicyPanel({ store, game = null, host = document.body } = {}) {
   const cats = new Map(store.categories.map(c => [c.id, c]));
   const catOf = policy => cats.get(policy.category);
   // armed: a card picked up by click or keyboard, waiting for a destination. from: its slot, if any.
-  const ui = { query: '', filter: 'all', armed: null, dragging: null, open: false, returnFocus: null };
+  // target: a slot whose Add policy or Change was chosen; the next fitting library card goes straight into it.
+  // scen: a scenario being renamed or confirming its deletion. expanded: slots showing their description.
+  const ui = { query: '', filter: 'all', armed: null, target: null, filterBefore: null, scen: null, expanded: new Set(), dragging: null, open: false, returnFocus: null };
 
   // ---------- skeleton ----------
   const live = h('div', { class: 'pp-sr', 'aria-live': 'polite' });
-  const nameInput = h('textarea', { class: 'pp-scenario__input', id: 'pp-scenario', rows: 1, maxlength: 60, autocomplete: 'off', spellcheck: 'false' });
-  const summary = h('div', { class: 'pp-summary' });
+  const scenList = h('ul', { class: 'pp-scenarios', 'aria-labelledby': 'pp-scen-title' });
+  const btnNew = h('button', { class: 'pp-scen-new', type: 'button' }, glyph('plus'), 'New scenario');
+  const activeCount = h('span', { class: 'pp-active__count' });
+  const activeStatus = h('span', { class: 'pp-active__status' });
+  const sub = h('p', { class: 'pp-sub' }, 'Choose the policies this scenario runs with. Nothing changes in the city until you apply them.');
+  const inForce = h('section', { class: 'pp-inforce', 'aria-labelledby': 'pp-inforce-title', hidden: true });
   const rows = h('div', { class: 'pp-rows' });
   const search = h('input', { class: 'pp-search__input', type: 'search', placeholder: 'Search policies', 'aria-label': 'Search policies' });
   const chips = h('div', { class: 'pp-chips', role: 'group', 'aria-label': 'Filter by category' });
@@ -41,21 +48,25 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
     h('header', { class: 'pp-head' },
       h('div', {},
         h('h2', { class: 'pp-title', id: 'pp-title' }, 'Policies'),
-        h('p', { class: 'pp-sub' }, 'Choose the policies this scenario runs with. Nothing changes in the city until you apply them.')),
+        sub),
       btnClose),
     h('div', { class: 'pp-columns' },
-      h('aside', { class: 'pp-col pp-left', 'aria-label': 'Scenario' },
-        h('label', { class: 'pp-scenario__label', for: 'pp-scenario' }, 'Scenario'),
-        nameInput,
-        summary),
-      h('section', { class: 'pp-col pp-center', 'aria-labelledby': 'pp-active-title' },
+      h('aside', { class: 'pp-col pp-left', 'aria-labelledby': 'pp-scen-title' },
         h('div', { class: 'pp-col__head' },
-          h('h3', { class: 'pp-col__title', id: 'pp-active-title' }, 'Active policies')),
+          h('h3', { class: 'pp-col__title', id: 'pp-scen-title' }, 'Scenarios')),
+        scenList,
+        btnNew,
+        inForce),
+      h('section', { class: 'pp-col pp-center', 'aria-labelledby': 'pp-active-title' },
+        h('div', { class: 'pp-col__head pp-active__head' },
+          h('h3', { class: 'pp-col__title', id: 'pp-active-title' }, 'Active policies'),
+          activeCount,
+          activeStatus),
         rows),
       library),
     h('footer', { class: 'pp-foot' },
       h('p', { class: 'pp-help', id: 'pp-help' },
-        'Drag a card into a matching slot, or select a card and then a slot. Arrow keys move between cards, Delete returns a card, Esc cancels.'),
+        'Drag a card into a matching slot, or choose Add policy and pick from the library. Arrow keys move between cards, Delete removes a policy, Esc cancels.'),
       h('div', { class: 'pp-actions' }, btnClear, btnCancel, btnApply)),
     live);
 
@@ -66,40 +77,62 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
   function render() {
     const focusKey = panel.contains(document.activeElement) ? document.activeElement.closest('[data-key]')?.dataset.key : null;
     const s = store.getState();
-    renderSummary(s);
+    renderScenarios(s);
+    renderGame();
     renderRows(s);
     renderLibrary(s);
-    if (document.activeElement !== nameInput) nameInput.value = s.scenarioName;
-    btnApply.disabled = !s.dirty;
+    btnApply.disabled = !s.dirty || !!game?.get().over;
     btnClear.disabled = !store.slots.some(sl => s.draft[sl.id]);
     markTargets();
-    if (focusKey) focusByKey(focusKey);
+    if (ui.scen?.mode === 'rename') {
+      const input = scenList.querySelector('[data-rename-input]');
+      if (input && document.activeElement !== input) { input.focus(); input.select(); }
+    } else if (focusKey) focusByKey(focusKey);
   }
 
-  function renderSummary(s) {
-    const filled = store.slots.filter(sl => s.draft[sl.id]).length;
-    const anyApplied = store.slots.some(sl => s.applied[sl.id]);
-    summary.replaceChildren(
-      h('h3', { class: 'pp-col__title' }, 'Selected policies'),
-      h('p', { class: 'pp-summary__count' }, h('strong', {}, `${filled} of ${store.slots.length}`), ' slots filled'),
-      h('p', { class: cls('pp-status', s.dirty && 'is-dirty') },
-        s.dirty ? 'Changes not applied yet' : anyApplied ? 'Matches the applied policies' : 'No policies applied yet'),
-      h('ul', { class: 'pp-summary__list' }, store.slots.map(sl => {
-        const cat = cats.get(sl.category);
-        const now = s.draft[sl.id], was = s.applied[sl.id];
-        const change = now === was ? null : !was ? 'Added' : !now ? 'Removed' : 'Changed';
-        const shown = store.getPolicy(now ?? (change === 'Removed' ? was : null));
-        return h('li', { class: cls('pp-sum', !now && 'is-empty', change === 'Removed' && 'is-removed'), style: catVars(cat) },
-          h('span', { class: 'pp-sum__slot' }, slotLabel(sl, cat)),
-          h('span', { class: 'pp-sum__title' }, shown ? shown.title : 'Empty'),
-          change && h('span', { class: `pp-sum__tag is-${change.toLowerCase()}` }, change));
+  function renderScenarios(s) {
+    const canDelete = s.scenarios.length > 1;
+    scenList.replaceChildren(...s.scenarios.map(sc =>
+      ScenarioItem(sc, store.slots.length, { mode: ui.scen?.id === sc.id ? ui.scen.mode : null, canDelete })));
+  }
+
+  // The decade being planned, and the policies earlier decades enacted, which stay in force and are gone from the library.
+  function renderGame() {
+    if (!game) return;
+    const g = game.get(), year = y => g.startYear + y;
+    sub.textContent = g.over
+      ? `The game is over: all ${g.turns} decades are played, and the results panel shows where they left the town.`
+      : `Decade ${g.turn + 1} of ${g.turns}: ${year(g.from)}–${year(g.to)}. Choose the policies to try this decade, then apply them. Ending the decade in the results panel enacts them for good.`;
+    inForce.hidden = !g.enacted.length;
+    inForce.replaceChildren(
+      h('h3', { class: 'pp-col__title', id: 'pp-inforce-title' }, 'In force'),
+      h('ul', { class: 'pp-inforce__list' }, g.enacted.map(({ id, start }) => {
+        const p = store.getPolicy(id), cat = p && catOf(p);
+        return h('li', { class: 'pp-inforce__item', style: cat ? catVars(cat) : null },
+          h('span', { class: 'pp-inforce__title' }, p?.title ?? id),
+          h('span', { class: 'pp-inforce__since' }, `Since ${year(start)}`));
       })));
   }
 
   function renderRows(s) {
-    rows.replaceChildren(...store.categories.map(cat => CategoryRow(cat,
-      store.slots.filter(sl => sl.category === cat.id).map(sl =>
-        PolicySlot(sl, cat, store.getPolicy(s.draft[sl.id]), { armed: ui.armed?.from === sl.id })))));
+    const filled = store.slots.filter(sl => s.draft[sl.id]).length;
+    const anyApplied = store.slots.some(sl => s.applied[sl.id]);
+    activeCount.textContent = `${filled} of ${store.slots.length} filled`;
+    activeStatus.className = cls('pp-tag', 'pp-active__status', s.dirty ? 'is-pending' : 'is-applied');
+    activeStatus.replaceChildren(glyph(s.dirty ? 'pending' : 'check'),
+      s.dirty ? 'Changes not applied yet' : anyApplied ? 'Running in the city' : 'Nothing applied yet');
+    // Only the running scenario compares against the city; every policy in another scenario is pending.
+    const running = s.scenarioId === s.appliedScenarioId;
+    rows.replaceChildren(...store.slots.map(sl => {
+      const now = s.draft[sl.id], was = running ? s.applied[sl.id] : null;
+      return PolicySlot(sl, cats.get(sl.category), store.getPolicy(now), {
+        armed: ui.armed?.from === sl.id,
+        choosing: ui.target === sl.id,
+        status: now ? (now === was ? 'applied' : 'pending') : null,
+        removing: !now && was ? store.getPolicy(was) : null,
+        expanded: ui.expanded.has(sl.id),
+      });
+    }));
   }
 
   function renderLibrary(s) {
@@ -114,7 +147,7 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
     if (!list.length) {
       const where = ui.filter === 'all' ? '' : ` in ${cats.get(ui.filter).label}`;
       grid.replaceChildren(h('p', { class: 'pp-empty' },
-        q ? `No policies${where} match “${ui.query.trim()}”. Try another search or show all categories.` : `No policies${where} yet.`));
+        q ? `No policies${where} match “${ui.query.trim()}”. Try another search or show all categories.` : `No policies${where} ${game?.get().enacted.length ? 'left: the rest are in force' : 'yet'}.`));
       return;
     }
     grid.replaceChildren(...list.map(p => {
@@ -159,17 +192,33 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
   const cardRect = (policyId, from) =>
     (from ? slotEl(from)?.querySelector('.pp-card') : grid.querySelector(`[data-policy="${policyId}"]`))?.getBoundingClientRect() ?? null;
 
+  // A rect the size of `el`, centred on `from`: slot faces are wide and library cards tall, so a flight between
+  // them travels without stretching.
+  const centred = (from, el) => {
+    if (!from || !el) return from;
+    const to = el.getBoundingClientRect();
+    return new DOMRect(from.left + (from.width - to.width) / 2, from.top + (from.height - to.height) / 2, to.width, to.height);
+  };
+
   // Runs a store change and flies every slotted card that moved (or arrived) into its new place.
   function withFlight(mutate, arrivals = {}) {
     const before = new Map([...rows.querySelectorAll('.pp-card')].map(el => [el.dataset.policy, el.getBoundingClientRect()]));
     const change = mutate();
     if (!change) return null;
-    for (const el of rows.querySelectorAll('.pp-card')) flyFrom(el, arrivals[el.dataset.policy] ?? before.get(el.dataset.policy));
+    for (const el of rows.querySelectorAll('.pp-card')) flyFrom(el, centred(arrivals[el.dataset.policy] ?? before.get(el.dataset.policy), el));
     return change;
+  }
+
+  // Ends Add policy / Change mode without rendering, putting back the library filter it chose.
+  function dropTarget() {
+    ui.target = null;
+    if (ui.filterBefore != null) ui.filter = ui.filterBefore;
+    ui.filterBefore = null;
   }
 
   // ---------- actions ----------
   function arm(policyId, from, viaKeyboard) {
+    dropTarget();
     ui.armed = { policyId, from };
     render();
     const p = store.getPolicy(policyId), cat = catOf(p);
@@ -200,6 +249,7 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
   function place(policyId, slotId, fromRect, viaKeyboard) {
     const source = fromRect ?? cardRect(policyId, ui.armed?.policyId === policyId ? ui.armed.from : store.slotOf(policyId));
     ui.armed = null;
+    dropTarget();
     const change = withFlight(() => store.place(policyId, slotId), { [policyId]: source });
     if (!change) return render();
     pulse(slotEl(slotId), 'is-landed');
@@ -217,7 +267,7 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
     ui.armed = null;
     store.remove(slotId);
     const libCard = grid.querySelector(`[data-policy="${policyId}"]`);
-    flyFrom(libCard, source);
+    flyFrom(libCard, centred(source, libCard));
     pulse(libCard, 'is-returned');
     announce(`Returned ${store.getPolicy(policyId).title} to the library.`);
     if (viaKeyboard) focusByKey(`slot:${slotId}`);
@@ -236,11 +286,36 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
       }
     }
     if (occupant) return arm(occupant, slotId, viaKeyboard);
+    choose(slotId, viaKeyboard);
+  }
+
+  // Add policy (empty slot) or Change (filled slot): show that slot's category in the library and send the next
+  // card chosen there straight into the slot. Choosing the same slot again stops.
+  function choose(slotId, viaKeyboard) {
+    if (ui.target === slotId) return stopChoosing(viaKeyboard);
     const cat = cats.get(store.getSlot(slotId).category);
-    announce(`Empty ${nameOfSlot(slotId)} slot. Select a ${cat.label.toLowerCase()} card in the library first.`);
+    ui.armed = null;
+    if (ui.filterBefore == null) ui.filterBefore = ui.filter;
+    ui.target = slotId;
+    ui.filter = cat.id;
+    render();
+    announce(`Choose a ${cat.label.toLowerCase()} policy in the library for ${nameOfSlot(slotId)}. Escape stops.`);
+    const first = grid.querySelector('.pp-card:not(.is-in-use)') ?? grid.querySelector('.pp-card');
+    if (viaKeyboard && first) focusByKey(first.dataset.key);
+    else first?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
+  }
+
+  function stopChoosing(viaKeyboard) {
+    const slotId = ui.target;
+    if (!slotId) return;
+    dropTarget();
+    render();
+    announce('Stopped choosing.');
+    if (viaKeyboard) focusByKey(store.getState().draft[slotId] ? `change:${slotId}` : `slot:${slotId}`);
   }
 
   function activateLibraryCard(policyId, viaKeyboard) {
+    if (ui.target && store.fits(policyId, ui.target)) return place(policyId, ui.target, null, viaKeyboard);
     if (ui.armed?.policyId === policyId) {
       const key = disarm('Selection cancelled.');
       if (viaKeyboard) focusByKey(key);
@@ -249,11 +324,69 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
     arm(policyId, store.slotOf(policyId), viaKeyboard);
   }
 
+  // ---------- scenarios ----------
+  const scenarioById = id => store.getState().scenarios.find(sc => sc.id === id);
+  const resetEditing = () => { ui.armed = null; ui.scen = null; ui.expanded.clear(); dropTarget(); };
+
+  function selectScenario(id) {
+    if (id === store.getState().scenarioId) return;
+    resetEditing();
+    store.selectScenario(id);
+    const sc = scenarioById(id);
+    announce(`Editing ${sc.name}: ${sc.filled} of ${store.slots.length} policies.`);
+  }
+
+  function newScenario() {
+    resetEditing();
+    const { scenarioId } = store.addScenario();
+    ui.scen = { id: scenarioId, mode: 'rename' };
+    render();
+    announce(`Added ${scenarioById(scenarioId).name}, with no policies yet. Type a name, then press Enter.`);
+  }
+
+  function startRename(id) {
+    ui.scen = { id, mode: 'rename' };
+    render();
+  }
+
+  function finishRename(save, viaKeyboard) {
+    const input = scenList.querySelector('[data-rename-input]');
+    if (ui.scen?.mode !== 'rename' || !input) return;
+    const { id } = ui.scen;
+    ui.scen = null;
+    const renamed = save && store.renameScenario(id, input.value);
+    if (!renamed) render();
+    else announce(`Renamed to ${scenarioById(id).name}.`);
+    if (viaKeyboard) focusByKey(`scen:${id}`);
+  }
+
+  function askDelete(id) {
+    ui.scen = { id, mode: 'confirm-delete' };
+    render();
+    focusByKey(`delete-no:${id}`);
+  }
+
+  function confirmDelete(id) {
+    const name = scenarioById(id).name;
+    resetEditing();
+    store.deleteScenario(id);
+    const now = store.getState();
+    announce(`Deleted ${name}. Editing ${now.scenarioName}. Cancel brings it back.`);
+    focusByKey(`scen:${now.scenarioId}`);
+  }
+
+  function keepScenario(id) {
+    ui.scen = null;
+    render();
+    focusByKey(`delete:${id}`);
+  }
+
   function open(trigger) {
     if (ui.open) return;
     ui.open = true;
     ui.returnFocus = trigger ?? document.activeElement;
-    Object.assign(ui, { armed: null, query: '', filter: 'all' });
+    Object.assign(ui, { armed: null, target: null, filterBefore: null, scen: null, query: '', filter: 'all' });
+    ui.expanded.clear();
     search.value = '';
     store.revert(); // reopen on the applied selection
     backdrop.hidden = false;
@@ -291,6 +424,7 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
 
   // ---------- events ----------
   store.subscribe(() => { if (ui.open) render(); });
+  game?.subscribe(() => { if (ui.open) render(); });
 
   const drag = createDrag({
     root: panel,
@@ -316,8 +450,25 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
     const viaKeyboard = e.detail === 0;
     const remove = e.target.closest('[data-remove]');
     if (remove) return returnToLibrary(remove.dataset.remove, null, viaKeyboard);
+    const change = e.target.closest('[data-change]');
+    if (change) return choose(change.dataset.change, viaKeyboard);
+    const details = e.target.closest('[data-details]');
+    if (details) {
+      const id = details.dataset.details;
+      if (!ui.expanded.delete(id)) ui.expanded.add(id);
+      return render();
+    }
+    const scen = e.target.closest('[data-scenario], [data-rename], [data-delete], [data-delete-yes], [data-delete-no]');
+    if (scen) {
+      const d = scen.dataset;
+      if (d.scenario) return selectScenario(d.scenario);
+      if (d.rename) return startRename(d.rename);
+      if (d.delete) return askDelete(d.delete);
+      if (d.deleteYes) return confirmDelete(d.deleteYes);
+      return keepScenario(d.deleteNo);
+    }
     const chip = e.target.closest('[data-filter]');
-    if (chip) { ui.filter = chip.dataset.filter; return render(); }
+    if (chip) { ui.filter = chip.dataset.filter; ui.filterBefore = null; return render(); }
     const slot = e.target.closest('.pp-slot');
     if (slot) return activateSlot(slot.dataset.slot, viaKeyboard);
     const card = e.target.closest('.pp-card');
@@ -329,11 +480,25 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
 
   panel.addEventListener('keydown', e => {
     if (e.key === 'Tab') return trapTab(e);
+    if (e.target.matches?.('[data-rename-input]')) {
+      if (e.key === 'Enter') { e.preventDefault(); finishRename(true, true); }
+      if (e.key === 'Escape') { e.preventDefault(); finishRename(false, true); }
+      return;
+    }
     if (e.key === 'Escape') {
       if (e.target === search && search.value) return; // let the field clear itself first
       e.preventDefault();
+      if (ui.scen) return keepScenario(ui.scen.id);
+      if (ui.target) return stopChoosing(true);
       if (ui.armed) return focusByKey(disarm('Selection cancelled.'));
       return cancel();
+    }
+    const pick = e.target.closest?.('.pp-scen__pick');
+    if (pick && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault();
+      const picks = [...scenList.querySelectorAll('.pp-scen__pick')];
+      picks[picks.indexOf(pick) + (e.key === 'ArrowDown' ? 1 : -1)]?.focus();
+      return;
     }
     const el = e.target.closest?.('.pp-card, .pp-slot__empty');
     if (!el) return;
@@ -383,11 +548,11 @@ export function mountPolicyPanel({ store, host = document.body } = {}) {
   });
 
   search.addEventListener('input', () => { ui.query = search.value; render(); });
-  nameInput.addEventListener('input', () => store.setScenarioName(nameInput.value.replace(/\s*\n\s*/g, ' ')));
-  nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); nameInput.blur(); } });
-  nameInput.addEventListener('blur', () => { if (!nameInput.value.trim()) store.setScenarioName('Untitled scenario'); });
+  scenList.addEventListener('focusout', e => { if (e.target.matches('[data-rename-input]')) finishRename(true, false); });
+  btnNew.addEventListener('click', newScenario);
   btnClear.addEventListener('click', () => {
     ui.armed = null;
+    dropTarget();
     if (store.clear()) announce('Cleared the selection. Apply to make it take effect, or Cancel to keep the applied policies.');
     btnCancel.focus();
   });

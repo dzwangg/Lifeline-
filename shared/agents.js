@@ -11,7 +11,7 @@
  *  @typedef {import('./types').SimResult} SimResult @typedef {import('./types').Zone} Zone */
 /** @typedef {'downtown' | 'campus' | 'edge' | 'corridor'} AgentZone */
 /**
- * @typedef {object} HouseholdInputs one entry per year 0-10, from CH-LUTI's central run
+ * @typedef {object} HouseholdInputs one entry per year from 0 to the run's last (10, or more in a game of turns), from CH-LUTI's central run
  * @property {Record<AgentZone, number>[]} homes real homes added since year 0, by household zone
  * @property {number[]} households real households added since year 0
  * @property {Record<AgentZone, number>[]} [rent] rent by household zone, as a multiple of year 0's (1 if missing)
@@ -83,7 +83,7 @@ export function homesByYear(result, zones, assumptions) {
 }
 
 /**
- * @param {HouseholdInputs | null} inputs null for no new homes or households
+ * @param {HouseholdInputs | null} inputs null for no new homes or households (then the run is ten years)
  * @param {Assumptions} assumptions @param {Baselines} baselines
  * @returns {{ agents: Agent[], years: AgentYear[] }}
  */
@@ -131,7 +131,8 @@ export function simulate(inputs, assumptions, baselines, seed = 7) {
   const raw = a => (a.work === 'remote' ? 0 : A.agentBaseCommuteMin[a.zone] + ((a.zone === 'edge' || a.work === 'durham') ? road(ratio0) : 0) + (a.work === 'durham' ? A.agentDurhamExtraMin : 0));
   const commuters0 = agents.filter(a => a.work !== 'remote'), calib = baselines.meanCommuteMin.value / (commuters0.reduce((s, a) => s + raw(a), 0) / commuters0.length);
   const years = [];
-  for (let t = 0; t <= 10; t++) {
+  const last = inputs ? inputs.homes.length - 1 : 10;
+  for (let t = 0; t <= last; t++) {
     const added = inputs?.homes[t] ?? NO_HOMES, units = {};
     for (const z in A.agentUnits) units[z] = A.agentUnits[z] + added[z] / A.agentScale; // fractional, so a few homes still count
     const live = () => agents.filter(a => a.left === null);

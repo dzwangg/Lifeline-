@@ -39,14 +39,17 @@ export const panelPolicies = cards => [
   ...cards.map(c => ({ id: c.id, title: c.title, category: c.category ?? 'housing', icon: c.icon ?? 'house', summary: c.summary })),
 ];
 
-// The scenario's inputs. cards: the applied cards. params: card id -> param key -> value. Changing either bumps the
-// version; the clock (clock.js) drops predictions made for older versions. The rest is view state, which never touches
-// the forecast: result, the latest full SimResult (shared/combined.js), for the narration pipeline (the panel and map read
-// the clock's shown year instead); resident, the household picked on the map; focus and focusZones, the guided view
-// (focus.js): null, 'road' or 'changes', and the parcels a 'changes' view frames (null: all the forecast converts);
-// wipe, the before/after split screen is on;
+export const DECADE = 10, TURNS = 3; // a forecast is a decade; a game is three turns of one decade each (turns.js)
+
+// The scenario's inputs. cards: the applied cards (in a game of turns, the enacted ones too). params: card id -> param key
+// -> value. years: how far the forecast runs, a decade per turn played. starts: card id -> the year it is enacted, for
+// cards enacted after year 0. Changing any of these bumps the version; the clock (clock.js) drops predictions made for
+// older versions. The rest is view state, which never touches the forecast: result, the latest full SimResult
+// (shared/combined.js), for the narration pipeline (the panel and map read the clock's shown year instead); resident, the
+// household picked on the map; focus and focusZones, the guided view (focus.js): null, 'road' or 'changes', and the
+// parcels a 'changes' view frames (null: all the forecast converts); wipe, the before/after split screen is on;
 // luti, CH-LUTI's 200-run ranges and "why" traces (shared/luti/run.js runScenario).
-let state = { cards: [], params: {}, version: 0, result: null, resident: null, focus: null, focusZones: null, wipe: false, luti: null };
+let state = { cards: [], params: {}, years: DECADE, starts: {}, version: 0, result: null, resident: null, focus: null, focusZones: null, wipe: false, luti: null };
 const listeners = new Set();
 export const scenario = {
   get: () => state,
@@ -54,7 +57,8 @@ export const scenario = {
   set(patch) {
     // View state (a picked resident, the camera) keeps the forecast, and so does re-sending the same cards.
     const ids = cards => cards.map(c => c.id).join();
-    const input = ('cards' in patch && ids(patch.cards) !== ids(state.cards)) || 'params' in patch;
+    const input = ('cards' in patch && ids(patch.cards) !== ids(state.cards)) || 'params' in patch
+      || ('years' in patch && patch.years !== state.years) || ('starts' in patch && JSON.stringify(patch.starts) !== JSON.stringify(state.starts));
     state = { ...state, ...patch, version: state.version + (input ? 1 : 0) };
     listeners.forEach(fn => fn(state));
     if (input) rerun();
@@ -71,11 +75,20 @@ export const highlight = {
   set(on) { highlightOn = !!on; highlightListeners.forEach(fn => fn(highlightOn)); },
 };
 
+// What the map builds for the shown year (the zone layer's ledger, growth/units.js summarize): homes the forecast asks
+// of its converted parcels, homes placed, and homes that didn't fit (unmet). null until the zone layer has planned.
+let growthNow = null;
+const growthListeners = new Set();
+export const growthReport = {
+  get: () => growthNow,
+  subscribe(fn) { growthListeners.add(fn); fn(growthNow); return () => growthListeners.delete(fn); },
+  set(report) { growthNow = report; growthListeners.forEach(fn => fn(growthNow)); },
+};
+
 // Predictions: one step's { zoneStates, metrics } for a scenario version. The whole timeline is computed in the
 // browser, in a worker (sim-worker.js; debounced, as a dragged slider fires many inputs); a forecast backend would
 // answer the same call.
 // ?latency=ms delays each answer, to see the clock hold and the loading indicator.
-export const YEARS = 10;
 const latency = +query.get('latency') || 0;
 const runs = new Map(); // version -> { promise, resolve, reject, failed }
 const runFor = version => {
@@ -100,7 +113,7 @@ function rerun() {
 }
 async function send(version) { // the worker job for the current inputs
   const [zones, assumptions, baselines] = await dataReady;
-  if (version === state.version) runSim({ version, cards: state.cards, params: state.params, zones, assumptions, baselines });
+  if (version === state.version) runSim({ version, cards: state.cards, params: state.params, years: state.years, starts: state.starts, zones, assumptions, baselines });
 }
 // One run at a time in the worker; while it is busy only the newest request waits, and older answers are dropped.
 const simWorker = new Worker(new URL('./sim-worker.js', import.meta.url), { type: 'module' });
@@ -156,7 +169,7 @@ rerun(); // the baseline, before any card is applied
 // The shared clock, and the one animation loop that drives it. onFrame callbacks get the real seconds since the
 // last frame (for the camera and other inspection) and the simulated seconds (for everything the clock freezes).
 export const START_YEAR = 2026, YEAR_MS = 3000; // 1x: three seconds per simulated year (2x and 4x: 1.5 s and 0.75 s)
-export const simClock = createClock({ steps: YEARS, predict, yearMs: YEAR_MS });
+export const simClock = createClock({ steps: DECADE, predict, yearMs: YEAR_MS });
 let clockVersion = 0;
 scenario.subscribe(s => { if (s.version !== clockVersion) simClock.invalidate(clockVersion = s.version); }); // inputs only, not view state
 const frames = new Set();

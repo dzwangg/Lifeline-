@@ -1,56 +1,8 @@
-// Frutiger Aero atmosphere around the pixel city:
-// - backdrop(): rolling green hills and glossy wind turbines on the countryside ring outside the mapped
-//   area, so the real city's geography is untouched;
+// Frutiger Aero atmosphere over the pixel city (the hills, woods and wind turbines past the map are in outskirts.js):
 // - mountBubbles(): pixel bubbles drifting up the screen, drawn on a low-resolution overlay canvas
 //   (slower and without wobble when the system asks for reduced motion). Pass onFrame to run them on the
 //   sim clock's frames, so they freeze and speed up with the city; paused, they stay on screen, holding still.
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
 import { PIXEL_SCALE, seeded, AERO } from './palette.js';
-
-export function backdrop(scene, ext, grassTexture) {
-  const r = seeded(808), group = new THREE.Group();
-  // Distance from the centre to the edge of the square mapped area (plus its road margin) in direction a.
-  const edge = a => (ext + 150) / Math.max(Math.abs(Math.cos(a)), Math.abs(Math.sin(a)));
-  const grass = grassTexture.clone(); grass.repeat.set(1 / 60, 1 / 60); grass.needsUpdate = true;
-  const hillMat = new THREE.MeshLambertMaterial({ map: grass, color: '#d8ffd0' });
-  const hillGeo = new THREE.SphereGeometry(1, 24, 10, 0, Math.PI * 2, 0, Math.PI / 2);
-  // UVs scaled so the grass texture keeps roughly its world size on the dome.
-  const uv = hillGeo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 40, uv.getY(i) * 6);
-  for (let k = 0; k < 16; k++) {
-    // Each hill's inner edge stays well clear of the mapped city, so no real street or building is covered.
-    const a = k / 16 * Math.PI * 2 + r() * .3, d = edge(a) + 380 + r() * 420, w = Math.min(320 + r() * 380, d - edge(a) - 60);
-    const hill = new THREE.Mesh(hillGeo, hillMat);
-    hill.position.set(Math.cos(a) * d, -2, Math.sin(a) * d);
-    hill.scale.set(w, 45 + r() * 70, w * (.7 + r() * .3));
-    hill.receiveShadow = true;
-    group.add(hill);
-  }
-
-  // Wind turbines: glossy white tower, nacelle and three blades turning about the hub.
-  const white = new THREE.MeshPhongMaterial({ color: '#ffffff', specular: '#9fb4c4', shininess: 60 });
-  const towerGeo = new THREE.CylinderGeometry(1.4, 2.6, 70, 8).translate(0, 35, 0);
-  const nacelleGeo = new THREE.BoxGeometry(8, 4, 4);
-  const bladeGeo = new THREE.BoxGeometry(1.4, 34, .6).translate(0, 17, 0);
-  const rotors = [];
-  for (let k = 0; k < 9; k++) {
-    const a = k / 9 * Math.PI * 2 + .35 + r() * .25, d = edge(a) + 140 + r() * 320;
-    const t = new THREE.Group();
-    t.position.set(Math.cos(a) * d, 0, Math.sin(a) * d);
-    t.rotation.y = r() * Math.PI * 2;
-    const tower = new THREE.Mesh(towerGeo, white), nacelle = new THREE.Mesh(nacelleGeo, white);
-    nacelle.position.set(0, 71, 0);
-    const rotor = new THREE.Group();
-    rotor.position.set(4.4, 71, 0);
-    for (let b = 0; b < 3; b++) { const blade = new THREE.Mesh(bladeGeo, white); blade.rotation.x = b * Math.PI * 2 / 3; rotor.add(blade); }
-    rotor.rotation.x = r() * Math.PI;
-    for (const m of [tower, nacelle, ...rotor.children]) m.castShadow = m.receiveShadow = true;
-    t.add(tower, nacelle, rotor);
-    group.add(t);
-    rotors.push([rotor, .35 + r() * .25]);
-  }
-  scene.add(group);
-  return { update(dt) { for (const [rotor, speed] of rotors) rotor.rotation.x += dt * speed; } };
-}
 
 // Pixel bubbles over the city. A canvas at 1/PIXEL_SCALE resolution, scaled up crisp, never takes clicks.
 export function mountBubbles(host = document.body, { onFrame } = {}) {

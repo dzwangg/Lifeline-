@@ -1,0 +1,5 @@
+{
+  "status": "missing: credential",
+  "detail": "Set CENSUS_API_KEY to ingest ACS tables; rent and burden outputs stay 'unavailable' until then.",
+  "checked_at": "2026-10-10T20:44:49+00:00"
+}

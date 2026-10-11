@@ -9,6 +9,12 @@
   --pp-ink-soft: #3c5d79;
   --pp-font: 'Mukta', 'Segoe UI', 'Frutiger', 'Helvetica Neue', Arial, sans-serif;
   --pp-ease: cubic-bezier(.22, 1, .36, 1);
+  /* outline, highlight and accent shades for the scenario bar and slots; they follow the Aero skin when it loads */
+  --pp-line: var(--ae-navy, #1c2c5e);
+  --pp-muted: var(--ae-ink-soft, #456186);
+  --pp-gold: var(--ae-gold, #ffd23f);
+  --pp-sky: var(--ae-sky, #7fd6f5);
+  --pp-aqua-dark: var(--ae-aqua-dark, #1a8fc4);
 }
 
 .pp-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -73,12 +79,12 @@
   background: linear-gradient(180deg, #fff 0%, #eaf6fd 49%, #d3ebf9 51%, #eef8fe 100%);
   box-shadow: inset 0 1px 0 #fff, 0 3px 8px -3px rgba(8, 50, 90, .35);
 }
-.pp-close svg, .pp-slot__remove svg { width: 12px; height: 12px; stroke: var(--pp-ink); stroke-width: 1.8; stroke-linecap: round; fill: none; }
+.pp-close svg { width: 12px; height: 12px; stroke: var(--pp-ink); stroke-width: 1.8; stroke-linecap: round; fill: none; }
 .pp-close:hover { background: linear-gradient(180deg, #fff 0%, #dff2fd 49%, #bfe3f8 51%, #e4f4fe 100%); }
 
 /* ---------- columns ---------- */
 .pp-columns {
-  display: grid; grid-template-columns: 250px minmax(0, 1fr) minmax(320px, 400px); gap: 14px;
+  display: grid; grid-template-columns: minmax(220px, 248px) minmax(0, 1fr) minmax(320px, 400px); gap: 14px;
   min-height: 0; padding: 12px 20px;
 }
 .pp-col {
@@ -90,74 +96,98 @@
 .pp-col__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
 .pp-col__title { margin: 0; font-size: 17px; font-weight: 800; color: var(--pp-ink); }
 
-/* left: scenario + summary */
-.pp-left { overflow-y: auto; }
-.pp-left > * { flex: none; }
-.pp-scenario__label { font-size: 13px; font-weight: 600; color: var(--pp-ink-soft); }
-.pp-scenario__input {
-  display: block; box-sizing: border-box; width: calc(100% + 10px); margin: 2px 0 16px -10px; padding: 6px 10px;
-  resize: none; overflow: hidden; field-sizing: content; min-height: 0;
-  font: 800 20px/1.2 var(--pp-font); color: var(--pp-carolina-deep);
-  background: transparent; border: 1px solid transparent; border-radius: 10px;
+/* ---------- left: scenarios ----------
+   One button per scenario selects it; rename and delete are separate, smaller buttons beside it. */
+.pp-left { overflow: hidden; }
+.pp-scenarios {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;
+  list-style: none; margin: -4px; padding: 4px;
+}
+.pp-scen {
+  flex: none; display: flex; align-items: stretch; gap: 2px; padding-right: 4px;
+  border-radius: 10px; border: 2px solid transparent; background: rgba(255, 255, 255, .5);
   transition: background .15s, border-color .15s;
 }
-.pp-scenario__input:hover { background: rgba(255, 255, 255, .5); border-color: rgba(29, 106, 165, .2); }
-.pp-scenario__input:focus { outline: none; background: #fff; border-color: var(--pp-aqua); box-shadow: 0 0 0 3px rgba(47, 208, 224, .3); }
-
-.pp-summary .pp-col__title { margin-bottom: 6px; }
-.pp-summary__count { margin: 0; font-size: 14px; color: var(--pp-ink-soft); }
-.pp-summary__count strong { font-size: 22px; font-weight: 800; color: var(--pp-ink); margin-right: 2px; }
-.pp-status {
-  display: inline-block; margin: 8px 0 14px; padding: 3px 10px 2px; border-radius: 999px;
-  font-size: 13px; font-weight: 600; color: var(--pp-ink-soft); background: rgba(14, 47, 77, .07);
+.pp-scen:hover { background: rgba(255, 255, 255, .85); border-color: var(--pp-sky); }
+.pp-scen.is-current {
+  background: linear-gradient(180deg, #fff 0 50%, #e4f7fd 50% 100%); border-color: var(--pp-line);
+  box-shadow: inset 5px 0 0 var(--pp-aqua-dark), 0 2px 0 rgba(28, 44, 94, .3);
 }
-.pp-status.is-dirty { color: #7a4a00; background: linear-gradient(180deg, #fff3cf, #ffe39a); box-shadow: inset 0 1px 0 #fff, 0 0 0 1px rgba(200, 140, 20, .35); }
-.pp-summary__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.pp-sum {
-  display: grid; grid-template-columns: 1fr auto; gap: 0 8px; padding: 8px 10px 8px 12px;
-  border-radius: 12px; background: rgba(255, 255, 255, .6); border-left: 4px solid var(--cat);
-  box-shadow: 0 1px 2px rgba(14, 47, 77, .06);
+.pp-scen__pick {
+  flex: 1; min-width: 0; display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 10px; align-items: start;
+  min-height: 56px; padding: 10px 4px 10px 14px; text-align: left; cursor: pointer;
+  font: inherit; color: var(--pp-line); background: none; border: 0; border-radius: 8px;
 }
-.pp-sum__slot { grid-column: 1; font-size: 12px; font-weight: 700; color: var(--cat-deep); }
-.pp-sum__title { grid-column: 1; font-size: 14px; font-weight: 600; line-height: 1.25; }
-.pp-sum.is-empty .pp-sum__title { color: var(--pp-ink-soft); font-weight: 400; }
-.pp-sum.is-removed .pp-sum__title { text-decoration: line-through; }
-.pp-sum__tag { grid-column: 2; grid-row: 1 / span 2; align-self: center; padding: 2px 8px 1px; border-radius: 999px; font-size: 11.5px; font-weight: 700; }
-.pp-sum__tag.is-added { color: #1c6a27; background: #dcf5d8; }
-.pp-sum__tag.is-changed { color: #145a96; background: #dcedfb; }
-.pp-sum__tag.is-removed { color: #8d2b20; background: #fbe1dc; }
+.pp-scen__pick:focus-visible, .pp-scen__tool:focus-visible, .pp-scen-new:focus-visible,
+.pp-scen__yes:focus-visible, .pp-scen__no:focus-visible, .pp-scen__input:focus-visible, .pp-slot__btn:focus-visible {
+  outline: 3px solid var(--pp-gold); outline-offset: 2px; box-shadow: 0 0 0 5px var(--pp-line);
+}
+.pp-scen__mark { /* a radio: an empty ring, filled when this is the scenario being edited */
+  box-sizing: border-box; width: 16px; height: 16px; margin-top: 3px; border-radius: 50%;
+  border: 2px solid var(--pp-muted); background: #fff;
+}
+.pp-scen.is-current .pp-scen__mark { border-color: var(--pp-line); background: radial-gradient(circle, var(--pp-aqua-dark) 0 3.5px, #fff 4px); }
+.pp-scen__text { min-width: 0; }
+.pp-scen__name { display: block; font-size: 15px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+.pp-scen.is-current .pp-scen__name { font-weight: 800; }
+.pp-scen__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 3px; font-size: 13px; line-height: 1.3; color: var(--pp-muted); }
+.pp-scen__badge { padding: 1px 7px; border-radius: 6px; font-size: 12px; font-weight: 700; color: #fff; background: #2f7a2a; }
+.pp-scen__tools { flex: none; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 4px 0; }
+.pp-scen__tool {
+  display: grid; place-items: center; width: 30px; height: 30px; padding: 0; cursor: pointer;
+  color: var(--pp-line); background: transparent; border: 2px solid transparent; border-radius: 8px;
+  opacity: .55; transition: opacity .15s, background .15s, border-color .15s;
+}
+.pp-scen:hover .pp-scen__tool, .pp-scen:focus-within .pp-scen__tool, .pp-scen.is-current .pp-scen__tool { opacity: 1; }
+.pp-scen__tool:hover:not(:disabled) { background: #fff; border-color: var(--pp-sky); }
+.pp-scen__tool:disabled { opacity: .25 !important; cursor: not-allowed; }
+@media (hover: none) { .pp-scen__tool { opacity: 1; } }
+.pp-glyph { display: inline-grid; place-items: center; }
+.pp-glyph svg { display: block; width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 
-/* center: category rows */
+.pp-scen.is-renaming, .pp-scen.is-confirming { display: block; padding: 8px 10px 10px; }
+.pp-scen__input {
+  box-sizing: border-box; width: 100%; padding: 7px 10px; font: 700 15px/1.2 var(--pp-font); color: var(--pp-line);
+  background: #fff; border: 2px solid var(--pp-aqua-dark); border-radius: 8px;
+}
+.pp-scen__hint { margin: 5px 2px 0; font-size: 12.5px; color: var(--pp-muted); }
+.pp-scen__ask { margin: 2px 0 8px; font-size: 14px; line-height: 1.3; overflow-wrap: anywhere; }
+.pp-scen__confirm { display: flex; gap: 8px; }
+.pp-scen__yes, .pp-scen__no {
+  flex: 1; min-height: 34px; padding: 0 10px; cursor: pointer; font: 700 14px/1 var(--pp-font);
+  border-radius: 8px; border: 2px solid var(--pp-line);
+}
+.pp-scen__yes { color: #fff; background: linear-gradient(180deg, #e0587e 0 50%, #c23a62 50% 100%); }
+.pp-scen__no { color: var(--pp-line); background: linear-gradient(180deg, #fff 0 50%, #e4f7fd 50% 100%); }
+
+.pp-scen-new {
+  flex: none; display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 42px; margin-top: 12px;
+  cursor: pointer; font: 700 14.5px/1 var(--pp-font); color: var(--pp-line);
+  border: 2px dashed var(--pp-muted); border-radius: 10px; background: rgba(255, 255, 255, .55);
+  transition: background .15s, border-color .15s;
+}
+.pp-scen-new:hover { background: #fff; border-style: solid; border-color: var(--pp-line); }
+
+/* ---------- center: active-policy slots ---------- */
 .pp-center { overflow: hidden; }
-.pp-center { container-type: inline-size; }
+.pp-active__head { flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 6px 12px; }
+.pp-active__count { font-size: 14px; color: var(--pp-muted); }
+.pp-active__status { margin-left: auto; }
+.pp-tag {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px;
+  font-size: 12.5px; font-weight: 700; line-height: 1.35; white-space: nowrap;
+}
+.pp-tag .pp-glyph svg { width: 12px; height: 12px; stroke-width: 1.8; }
+.pp-tag.is-applied { color: #1f5d22; background: #e2f6da; }
+.pp-tag.is-pending { color: #5a4100; background: #ffe7a0; }
+/* Inside a slot the status stays quiet; the heading already says whether anything is waiting to apply. */
+.pp-card__meta .pp-tag { padding: 0 6px; background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; font-size: 12px; }
+.pp-card__meta .pp-tag.is-pending { color: #6b4d00; }
+/* The grid takes as many columns as fit; every slot in a row shares its height, so actions line up. */
 .pp-rows {
-  flex: 1; display: grid; align-content: start; gap: 10px; overflow-y: auto; min-height: 0;
+  flex: 1; min-height: 0; overflow-y: auto; display: grid; align-content: start; gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 228px), 1fr));
   padding: 6px; margin: -6px;
-}
-.pp-row {
-  display: grid; grid-template-columns: 112px minmax(0, 1fr); align-items: center; gap: 14px;
-  padding: 10px 14px 12px; border-radius: 18px;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--cat-tint) 85%, transparent), rgba(255,255,255,.35));
-  border: 1px solid rgba(255, 255, 255, .9);
-  box-shadow: inset 0 1px 0 #fff, 0 6px 16px -10px rgba(14, 47, 77, .35);
-}
-.pp-row__head { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 2px 8px; }
-.pp-row__dot {
-  width: 14px; height: 14px; border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #fff 0 15%, var(--cat-light) 30%, var(--cat) 70%, var(--cat-deep));
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--cat-deep) 50%, transparent);
-}
-.pp-row__title { margin: 0; font-size: 16px; font-weight: 800; color: var(--cat-deep); }
-.pp-row__count { grid-column: 2; font-size: 12.5px; color: var(--pp-ink-soft); white-space: nowrap; }
-.pp-row__slots { display: flex; gap: 14px; overflow-x: auto; padding: 6px; margin: -6px; }
-/* Wide enough: multi-slot categories keep a full-width row; single-slot categories share the next row
-   side by side, so every slot fits without scrolling on a laptop screen. */
-@container (min-width: 420px) {
-  .pp-rows { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .pp-row:not([data-slots="1"]) { grid-column: 1 / -1; }
-  .pp-row[data-slots="1"] { grid-template-columns: minmax(0, 1fr); align-content: start; gap: 8px; }
-  .pp-row[data-slots="1"] .pp-row__head { grid-template-columns: auto auto 1fr; }
-  .pp-row[data-slots="1"] .pp-row__count { grid-column: auto; }
 }
 
 /* ---------- card ---------- */
@@ -195,9 +225,6 @@
   font-size: 11px; line-height: 1.28; color: var(--pp-ink-soft);
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
-.pp-slot .pp-card__desc { display: none; }
-.pp-slot .pp-card { height: 100%; min-height: 0; overflow: hidden; }
-.pp-slot .pp-card__title { font-size: 12px; }
 .pp-card__badge {
   position: absolute; left: 8px; right: 8px; bottom: 8px; padding: 3px 6px 2px; border-radius: 999px;
   font-size: 11px; font-weight: 700; color: #fff; background: var(--cat-deep);
@@ -222,35 +249,94 @@
 .pp-ghost .pp-card__badge, .pp-flying .pp-card__badge { display: none; }
 html.pp-dragging, html.pp-dragging * { cursor: grabbing !important; }
 
-/* ---------- slot ---------- */
-.pp-slot { position: relative; flex: none; width: clamp(96px, 13vh, 124px); aspect-ratio: 5 / 7; border-radius: 15px; transition: transform .2s var(--pp-ease), box-shadow .2s; }
-.pp-slot .pp-card { touch-action: none; }
-.pp-slot__empty {
-  position: absolute; inset: 0; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-  padding: 10px; text-align: center; cursor: pointer;
-  border: 2px dashed color-mix(in srgb, var(--cat) 50%, transparent); border-radius: 15px;
-  background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.18));
-  transition: background .2s, border-color .2s;
+/* ---------- slot ----------
+   Filled: the policy's face (icon, name, slot and status), its description on demand, then Details, Change and
+   Remove along the bottom. Empty: a dashed outline of the same size with one Add policy action. */
+.pp-slot {
+  position: relative; display: flex; flex-direction: column; box-sizing: border-box; min-height: 132px; padding: 12px;
+  container-type: inline-size;
+  border-radius: 12px; border: 2px solid color-mix(in srgb, var(--cat) 45%, #fff);
+  background: linear-gradient(180deg, #fff 0 38%, color-mix(in srgb, var(--cat-tint) 80%, #fff) 100%);
+  box-shadow: 0 2px 0 rgba(28, 44, 94, .18);
+  transition: transform .2s var(--pp-ease), box-shadow .2s, border-color .15s;
 }
-.pp-slot__empty::before { /* faint card face */
-  content: ''; position: absolute; inset: 9px; border-radius: 9px; pointer-events: none;
-  border: 1px solid color-mix(in srgb, var(--cat) 22%, transparent);
-  background: radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--cat) 14%, transparent) 0 18%, transparent 19%);
+.pp-slot.is-filled:hover { border-color: var(--cat); }
+.pp-slot:has(.pp-card--slot:focus-visible) { outline: 3px solid var(--pp-gold); outline-offset: 2px; }
+.pp-slot.is-picked { border-color: var(--pp-line); box-shadow: 0 0 0 3px var(--pp-gold), 0 0 0 5px var(--pp-line); }
+.pp-slot.is-choosing { border-color: var(--pp-line); outline: 3px dashed var(--pp-gold); outline-offset: 2px; }
+
+/* The face reuses the card element (so dragging and keyboard moves work the same) without a card's frame. */
+.pp-card.pp-card--slot {
+  display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 10px; align-items: start;
+  width: auto; aspect-ratio: auto; padding: 0; text-align: left;
+  border: 0; border-radius: 8px; background: none !important; box-shadow: none !important;
 }
-.pp-slot__label { position: relative; margin-top: 46%; font-size: 14px; font-weight: 800; color: var(--cat-deep); }
-.pp-slot__hint { position: relative; font-size: 11.5px; line-height: 1.25; color: var(--pp-ink-soft); }
-.pp-slot__empty:focus-visible { outline: 3px solid var(--pp-aqua); outline-offset: 3px; }
-.pp-slot__remove {
-  position: absolute; top: -9px; right: -9px; z-index: 2; display: grid; place-items: center;
-  width: 26px; height: 26px; padding: 0; border-radius: 50%; cursor: pointer;
-  border: 1px solid rgba(14, 47, 77, .25);
-  background: linear-gradient(180deg, #fff 0%, #f1f8fd 49%, #dcedf8 51%, #f2f9fe 100%);
-  box-shadow: 0 3px 8px -2px rgba(8, 50, 90, .45);
-  opacity: 0; transform: scale(.8); transition: opacity .15s, transform .15s var(--pp-ease);
+.pp-card.pp-card--slot:hover, .pp-card.pp-card--slot.is-armed { transform: none; animation: none !important; box-shadow: none !important; }
+.pp-card.pp-card--slot:focus-visible { outline: none !important; }
+.pp-card--slot .pp-card__orb { width: 44px; margin: 0; }
+.pp-card--slot .pp-card__text { min-width: 0; }
+.pp-card--slot .pp-card__title { display: block; font: 700 15.5px/1.25 var(--pp-font); text-wrap: pretty; overflow-wrap: anywhere; }
+.pp-card__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
+.pp-card__slot { font-size: 13px; font-weight: 700; color: var(--cat-deep); }
+.pp-card__picked {
+  display: inline-block; margin-top: 6px; padding: 2px 8px; border-radius: 6px;
+  font-size: 12.5px; font-weight: 700; color: var(--pp-line); background: var(--pp-gold);
 }
-.pp-slot:hover .pp-slot__remove, .pp-slot:focus-within .pp-slot__remove { opacity: 1; transform: none; }
-.pp-slot__remove:focus-visible { outline: 3px solid var(--pp-aqua); outline-offset: 2px; }
-@media (hover: none) { .pp-slot__remove { opacity: 1; transform: none; } }
+/* A face travelling on its own (dragged or flying in) carries a light frame. */
+.pp-card.pp-card--slot.pp-ghost, .pp-card.pp-card--slot.pp-flying {
+  padding: 8px; overflow: hidden; background: #fff !important; box-shadow: 0 0 0 2px var(--cat), 0 14px 26px -10px rgba(4, 36, 66, .55) !important;
+}
+.pp-ghost .pp-card__picked, .pp-flying .pp-card__picked { display: none; }
+
+.pp-slot__desc { margin: 10px 0 0; font-size: 13.5px; line-height: 1.4; color: var(--pp-muted); }
+.pp-slot__desc[hidden] { display: none; }
+.pp-slot__actions { display: flex; align-items: center; gap: 8px; margin-top: auto; padding-top: 12px; }
+.pp-slot__btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 32px; padding: 0 12px;
+  cursor: pointer; font: 700 13.5px/1 var(--pp-font); color: var(--pp-line); white-space: nowrap;
+  border-radius: 8px; border: 2px solid color-mix(in srgb, var(--pp-line) 30%, transparent);
+  background: linear-gradient(180deg, #fff 0 50%, #e8f7fd 50% 100%);
+  transition: border-color .15s;
+}
+.pp-slot__btn:hover { border-color: var(--pp-line); }
+.pp-slot__btn--icon { width: 32px; padding: 0; margin-right: auto; border-color: transparent; background: transparent; color: var(--pp-muted); }
+.pp-slot__btn--icon .pp-glyph svg { width: 16px; height: 16px; }
+.pp-slot__btn--icon[aria-expanded="true"] { color: var(--pp-line); background: #fff; border-color: var(--pp-sky); }
+.pp-slot__btn[aria-pressed="true"] { background: var(--pp-gold); border-color: var(--pp-line); }
+.pp-slot__btn--remove:hover { color: #a3203f; border-color: #a3203f; }
+/* Narrow slots keep Remove as an icon (its accessible name stays). */
+@container (max-width: 240px) {
+  .pp-slot__btn--remove { width: 32px; padding: 0; }
+  .pp-slot__btn-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+
+.pp-slot.is-empty {
+  padding: 0; border-style: dashed; border-color: color-mix(in srgb, var(--cat) 60%, #fff);
+  background: rgba(255, 255, 255, .42); box-shadow: none;
+}
+.pp-slot.is-empty:hover { border-color: var(--cat); background: rgba(255, 255, 255, .75); }
+.pp-slot .pp-slot__empty {
+  flex: 1; display: grid; grid-template-columns: 44px minmax(0, 1fr); grid-template-rows: auto 1fr auto; gap: 0 10px;
+  box-sizing: border-box; padding: 12px; text-align: left; cursor: pointer;
+  border: 0 !important; border-radius: 10px !important; background: none !important;
+}
+.pp-slot .pp-slot__empty:focus-visible { outline: 3px solid var(--pp-gold) !important; outline-offset: 4px; }
+.pp-slot__ghost {
+  display: grid; place-items: center; box-sizing: border-box; width: 44px; height: 44px; border-radius: 50%;
+  color: var(--cat-deep); border: 2px dashed color-mix(in srgb, var(--cat) 70%, #fff); background: rgba(255, 255, 255, .8);
+}
+.pp-slot__ghost .pp-glyph svg { width: 18px; height: 18px; stroke-width: 1.8; }
+.pp-slot__text { min-width: 0; }
+.pp-slot__name { display: block; font-size: 15.5px; font-weight: 700; line-height: 1.25; color: var(--cat-deep); }
+.pp-slot__meta { display: block; margin-top: 4px; font-size: 13px; line-height: 1.3; color: var(--pp-muted); overflow-wrap: anywhere; }
+.pp-slot__add {
+  grid-column: 1 / -1; grid-row: 3; justify-self: end; display: inline-flex; align-items: center; gap: 5px;
+  min-height: 32px; padding: 0 12px; margin-top: 12px; border-radius: 8px;
+  font: 700 13.5px/1 var(--pp-font); color: var(--pp-line);
+  border: 2px solid var(--pp-line); background: linear-gradient(180deg, #f2fdff 0 50%, #a6e4f9 50% 100%);
+  box-shadow: 0 2px 0 rgba(28, 44, 94, .35);
+}
+.pp-slot.is-choosing .pp-slot__add { background: var(--pp-gold); box-shadow: none; }
 
 /* valid targets while a card is held or dragged */
 .pp-slot.is-valid { box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 0 0 5px rgba(47, 208, 224, .75), 0 0 22px 4px rgba(47, 208, 224, .45); animation: pp-target 1.3s ease-in-out infinite; cursor: copy; }
@@ -332,21 +418,12 @@ html.pp-dragging, html.pp-dragging * { cursor: grabbing !important; }
 }
 
 /* ---------- responsive ----------
-   Wide and tall: three columns, each scrolling on its own.
-   900–1100px wide: scenario strip on top, slots and library side by side.
+   Wide and tall: three columns, each scrolling on its own; the scenario bar and library narrow below 1100px.
    Under 900px wide or 620px tall: one scrolling column, so no section is squeezed into a tiny scroll box. */
-@media (max-width: 1100px), (max-height: 619px) {
-  .pp-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
-  .pp-summary .pp-col__title, .pp-status { margin: 0; }
-  .pp-summary__list { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
-  .pp-sum { padding: 4px 10px; }
-}
 @media (min-width: 900px) and (max-width: 1100px) and (min-height: 620px) {
-  .pp-columns { grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); grid-template-rows: auto minmax(0, 1fr); }
-  .pp-left { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(200px, 280px) 1fr; gap: 0 20px; overflow: visible; padding: 12px 16px; }
-  .pp-scenario__label, .pp-scenario__input { grid-column: 1; }
-  .pp-scenario__input { margin-bottom: 0; }
-  .pp-summary { grid-column: 2; grid-row: 1 / span 2; }
+  .pp-columns { grid-template-columns: 208px minmax(0, 1fr) minmax(280px, 330px); gap: 12px; padding-inline: 16px; }
+  .pp-col { padding: 12px; }
+  .pp-rows { grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 10px; }
 }
 @media (max-width: 899px), (max-height: 619px) {
   .pp-backdrop { padding: 0; }
@@ -357,23 +434,16 @@ html.pp-dragging, html.pp-dragging * { cursor: grabbing !important; }
     display: flex; flex-direction: column; gap: 12px; overflow-y: auto; overscroll-behavior: contain;
     padding: 12px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px));
   }
-  .pp-left { display: block; overflow: visible; padding: 12px 16px; }
-  .pp-scenario__input { margin-bottom: 10px; }
-  .pp-col, .pp-center, .pp-library { overflow: visible; flex: none; }
-  .pp-rows, .pp-grid { overflow: visible; }
-  .pp-row { grid-template-columns: 1fr; gap: 8px; }
-  .pp-row__head { grid-template-columns: auto auto 1fr; }
-  .pp-row__count { grid-column: auto; }
-  .pp-slot { width: 112px; }
+  .pp-col, .pp-center, .pp-library, .pp-left { overflow: visible; flex: none; }
+  .pp-rows, .pp-grid, .pp-scenarios { overflow: visible; }
   .pp-grid { grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); }
   .pp-help { display: none; }
   .pp-foot { justify-content: flex-end; padding: 10px 16px; padding-bottom: max(10px, env(safe-area-inset-bottom, 0px)); }
 }
-/* Roomy enough to put the scenario name beside its summary. */
+/* Roomy enough for the scenarios to sit two to a row, with New scenario after them. */
 @media (min-width: 600px) and (max-width: 899px), (min-width: 600px) and (max-height: 619px) {
-  .pp-left { display: grid; grid-template-columns: minmax(180px, 260px) 1fr; gap: 0 20px; align-items: start; }
-  .pp-scenario__label, .pp-scenario__input { grid-column: 1; }
-  .pp-summary { grid-column: 2; grid-row: 1 / span 2; }
+  .pp-scenarios { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+  .pp-scen-new { width: auto; align-self: start; padding-inline: 18px; }
 }
 /* Phones: drop the long subtitle, stack the buttons with Apply on top. */
 @media (max-width: 599px) {
@@ -381,14 +451,14 @@ html.pp-dragging, html.pp-dragging * { cursor: grabbing !important; }
   .pp-foot { flex-direction: column; align-items: stretch; }
   .pp-actions { display: grid; grid-template-columns: 1fr 1fr; }
   .pp-btn--primary { grid-column: 1 / -1; grid-row: 1; padding-block: 12px; }
+  .pp-active__status { margin-left: 0; }
 }
-/* Short screens: slots and library first so drags stay short; the scenario summary follows them. */
+/* Short screens: slots and library first so drags stay short; the scenarios follow them. */
 @media (max-height: 619px) {
   .pp-sub { display: none; }
   .pp-left { order: 3; }
 }
 @media (max-width: 360px) {
-  .pp-slot { width: 100px; }
   .pp-columns { padding-inline: 12px; }
   .pp-launch { gap: 6px; padding: 7px 8px 7px 13px; font-size: 14px; }
   .pp-launch__count { font-size: 11.5px; padding-inline: 8px; }
@@ -397,3 +467,15 @@ html.pp-dragging, html.pp-dragging * { cursor: grabbing !important; }
 @media (prefers-reduced-motion: reduce) {
   .pp-root *, .pp-root, .pp-launch, .pp-ghost { animation: none !important; transition: none !important; }
 }
+
+/* a game of turns: the policies earlier decades enacted */
+.pp-inforce { margin-top: 16px; }
+.pp-inforce .pp-col__title { margin-bottom: 6px; }
+.pp-inforce { flex: none; }
+.pp-inforce__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pp-inforce__item {
+  display: grid; gap: 1px; padding: 7px 10px 6px; border-radius: 10px;
+  background: var(--cat-tint, rgba(255, 255, 255, .6)); box-shadow: inset 4px 0 0 var(--cat, var(--pp-aqua-dark));
+}
+.pp-inforce__title { font-size: 14px; font-weight: 700; line-height: 1.25; color: var(--pp-ink); }
+.pp-inforce__since { font-size: 12px; color: var(--pp-ink-soft); }

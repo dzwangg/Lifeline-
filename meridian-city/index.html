@@ -99,26 +99,39 @@ import { cardsReady, panelPolicies, demoMode } from './sim/scenario.js';
 import { CATEGORIES, slotsOf } from './policy/policies.js';
 import { mountSimPlate } from './sim/sim-plate.js';
 import { mountClockBar } from './sim/clock-bar.js';
+import { createGame } from './sim/turns.js';
 
 const cards = await cardsReady; // policy cards from data/policies/ join the hardcoded policies in the panel
 // ?demo runs two housing cards together, so housing gets a second slot.
 const categories = demoMode ? CATEGORIES.map(c => (c.id === 'housing' ? { ...c, slots: 2 } : c)) : CATEGORIES;
 const store = createPolicyStore({ policies: panelPolicies(cards), categories, slots: slotsOf(categories) });
-const panel = mountPolicyPanel({ store });
+const game = createGame({ store }); // three decade-long turns; each turn's policies stay in force (sim/turns.js)
+const panel = mountPolicyPanel({ store, game });
 const launch = document.getElementById('policy-launch'), count = document.getElementById('policy-count');
 launch.addEventListener('click', () => panel.open(launch));
 addEventListener('keydown', e => {
   if (e.key.toLowerCase() !== 'p' || document.body.classList.contains('city-loading') || e.ctrlKey || e.metaKey || e.altKey || panel.isOpen() || e.target.closest?.('input, textarea, [contenteditable]')) return;
   panel.open(launch);
 });
-store.subscribe(({ applied }) => {
-  const n = Object.values(applied).filter(Boolean).length;
-  count.textContent = n ? `${n} active` : 'None active';
-  count.classList.toggle('is-none', !n);
-});
+// The launch button counts this decade's policies, and those earlier decades enacted.
+const showCount = () => {
+  const n = Object.values(store.getState().applied).filter(Boolean).length, kept = game.get().enacted.length;
+  count.textContent = [n ? `${n} this decade` : !kept && 'None active', kept && `${kept} in force`].filter(Boolean).join(' · ');
+  count.classList.toggle('is-none', !n && !kept);
+};
+store.subscribe(showCount);
+game.subscribe(showCount);
 window.policyStore = store; // the simulation reads store.getState().applied once it models effects
 mountClockBar(); // starts paused, so policies can be set up before Play
-mountSimPlate({ policyStore: store, cards });
+mountSimPlate({ policyStore: store, cards, game });
+// ?forecast adds the forecast dock (meridian-city/forecast/: the backend's forecasts, or its precomputed demos when no
+// server answers) and its housing markers on the map. Opt-in while the dock is new, so the default page is unchanged.
+if (new URLSearchParams(location.search).has('forecast')) {
+  document.head.append(Object.assign(document.createElement('link'), { rel: 'stylesheet', href: 'forecast/forecast.css' }));
+  const [{ mountForecastDock }, { mountForecastMap }] = await Promise.all([import('./forecast/dock.js'), import('./forecast/map-layer.js')]);
+  const dock = await mountForecastDock({ policyStore: store });
+  mountForecastMap({ dock });
+}
 </script>
 
 <script defer src="chapel-hill.js"></script>
@@ -126,7 +139,6 @@ mountSimPlate({ policyStore: store, cards });
 <script type="module">
 // The city: a retro isometric game world built from the OSM bake (see world/). The sim's zone layer draws on top.
 import { buildWorld } from './world/world.js';
-import { inside, bounds } from './world/geometry.js';
 import { ZOOMS, DEFAULT_ZOOM } from './world/palette.js';
 import { zonesReady, mountZoneLayer } from './sim/zone-layer.js';
 import { mountAgentLayer } from './sim/agent-layer.js';
@@ -160,7 +172,7 @@ try {
 }
 progress('Placing households…', .88); await frame();
 let t = performance.now();
-mountZoneLayer({ scene: world.view.scene, zones: ZONES, at: world.gridAt, inside, bounds, parts: world.zoneParts, lod: world.lod });
+mountZoneLayer({ world, zones: ZONES });
 mountAgentLayer({ world, osm: OSM, zones: ZONES });
 world.trafficReady.then(traffic => $('clock').setHour(traffic.hour)); // the street's time of day, under the date (clock-bar.js)
 mountFocus({ world, osm: OSM, zones: ZONES });

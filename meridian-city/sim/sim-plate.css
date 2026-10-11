@@ -237,3 +237,13 @@
 }
 .wipe__handle svg { width: 22px; height: 14px; }
 .wipe__handle:focus-visible { outline: 3px solid var(--sodium); outline-offset: 2px; }
+
+/* a game of turns (turns.js): the decade being planned, End decade and its confirm */
+.rp-turn { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 16px 6px; padding: 8px 10px; border-radius: 12px; background: rgba(255,255,255,.6); }
+.rp-turn__text { flex: 1 1 200px; margin: 0; font-size: 12.5px; line-height: 1.4; color: var(--rp-soft); }
+.rp-turn__actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.rp-turn .pp-btn { padding: 7px 12px 6px; font-size: 13px; }
+.rp-chip.is-enacted { background: rgba(255,255,255,.7); border-style: dashed; }
+.rp-chip small { font-weight: 600; opacity: .8; }
+.rp-decade { stroke: rgba(14, 47, 77, .25); stroke-width: 1; stroke-dasharray: 3 3; }
+.sim-card__enacted { margin: 2px 0 6px; font-size: 12px; font-weight: 600; color: var(--rp-soft); }

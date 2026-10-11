@@ -153,6 +153,7 @@ export function mountFocus({ world, osm, zones }) {
   const prev = arrow('Previous change', -1), next = arrow('Next change', 1), text = document.createElement('div');
   text.style.flex = '1';
   caption.append(prev, text, next);
+  caption.style.display = 'none';
   document.body.append(caption);
   function describe(stop) {
     const rows = fx(), sh = simClock.get().shown?.step ?? 0, end = rows ? rows.length - 1 : 0;
@@ -165,8 +166,9 @@ export function mountFocus({ world, osm, zones }) {
       const by = [...new Map(stop.kinds.flatMap(k => run.attribution?.[k] ?? []).map(c => [c.id, c])).values()].map(c => c.title).join(', ');
       const amount = row => stop.kinds.reduce((s, k) => s + (fraction(k) ? 0 : row?.[k]?.n ?? 0), 0);
       const paint = stop.kinds.find(fraction), share = row => Math.round(Math.max(0, row?.[paint]?.i ?? 0) * 100);
+      const amountNow = row => amount(row) + (paint ? share(row) : 0); // anything standing in that year
       const now = paint ? `${share(rows[sh])}% painted` : `${amount(rows[sh])}`, then = paint ? `${share(rows[end])}%` : `${amount(rows[end])}`;
-      sub = `${by ? `${by}. ` : ''}Now ${now}; by ${yearLabel(end)}, ${then}.${sh === 0 ? ' Press Play to watch them appear.' : ''}`;
+      sub = `${by ? `${by}. ` : ''}Now ${now}; by ${yearLabel(end)}, ${then}.${amountNow(rows[sh]) ? '' : ' Shown faded until they are built: press Play to watch them appear.'}`;
     }
     const line = document.createElement('div');
     line.textContent = sub;
@@ -176,7 +178,7 @@ export function mountFocus({ world, osm, zones }) {
   let tour = null, tourAt = 0, auto = true, dwell = 0, describedAt = -1;
   function stopView(following) {
     const stop = tour[tourAt];
-    world.effects?.highlight(stop.parcels ? null : stop.kinds); // pins over its items, through the roofs
+    world.effects?.highlight(stop.parcels ? null : stop.kinds, fx()?.at(-1)); // pins over its items (and faded ones still to come), through the roofs
     describe(stop);
     if (stop.parcels) { const to = changesView(converted(run), following); until = to?.until ?? Infinity; return to; }
     until = Infinity;
@@ -212,7 +214,7 @@ export function mountFocus({ world, osm, zones }) {
       if (list.length && run) { to = changesView(list, again); until = to?.until ?? Infinity; }
     }
     if (focus !== 'changes' || ids) { tour = null; world.effects?.highlight(null); }
-    caption.hidden = !tour?.length;
+    caption.hidden = !tour?.length; caption.style.display = tour?.length ? 'flex' : 'none'; // its inline flex would beat [hidden]
     current = focus; currentZones = ids;
     if (to) fly(to, again ? FOLLOW_MS : FLY_MS);
     else if (!focus && saved) {
@@ -251,8 +253,9 @@ export function mountFocus({ world, osm, zones }) {
         if (added.length) scenario.set({ focus: 'changes', focusZones: added });
       }
     }
-    const onStreet = run?.effects?.some(row => Object.values(row).some(v => v.n));
-    if (now && !playing && !scenario.get().focus && run && (converted(run).length || onStreet)) scenario.set({ focus: 'changes', focusZones: null });
+
+    // Play follows the new neighbourhoods by itself; the tour of every change (and its caption) is the button's alone
+    if (now && !playing && !scenario.get().focus && run && converted(run).length) scenario.set({ focus: 'changes', focusZones: converted(run).map(z => z.id) });
     if (tour && shown && !caption.hidden && shown.step !== describedAt) { describedAt = shown.step; describe(tour[tourAt]); } // the counts move with the year
     // Following the changes: once the framed parcels have all converted (their year's construction is done), on to
     // the next ones.

@@ -194,9 +194,12 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
   const yearIn = h('input', { class: 'rp-slider', type: 'range', min: 0, max: simClock.get().steps, step: 1, value: 0, 'aria-label': 'Year shown in the city and the results', oninput: () => simClock.seek(+yearIn.value) });
   const when = h('output', { class: 'rp-when' });
   const beforeIn = h('input', { type: 'checkbox', onchange: () => simClock.setBefore(beforeIn.checked) });
-  // Guided views (focus.js): each button reads "Back" while its view is on. The wipe compares year 0 with the shown year.
+  // Guided views (focus.js). "Show changes" starts the tour of every change, even when the map has flown to a card's
+  // parcels by itself, and reads "End tour" while the tour runs; "View 15-501" reads "Back" while on. The wipe compares
+  // year 0 with the shown year.
+  const tourOn = (s, focus) => s.focus === focus && !(focus === 'changes' && s.focusZones); // a card's own fly-to is not the tour
   const viewBtn = (focus, label) => h('button', { class: 'sim__road', type: 'button', 'aria-pressed': 'false',
-    onclick: () => scenario.set({ focus: scenario.get().focus === focus ? null : focus, focusZones: null }) }, label);
+    onclick: () => scenario.set({ focus: tourOn(scenario.get(), focus) ? null : focus, focusZones: null }) }, label);
   const changesBtn = viewBtn('changes', 'Show changes'), roadBtn = viewBtn('road', 'View 15-501');
   const wipeBtn = h('button', { class: 'sim__road', type: 'button', 'aria-pressed': 'false', onclick: () => scenario.set({ wipe: !scenario.get().wipe }) }, 'Before / after');
   const turnRow = h('div', { class: 'rp-turn', 'aria-live': 'polite' });
@@ -370,8 +373,9 @@ export async function mountSimPlate({ policyStore, cards, game, host = document.
     }
     if (s.drivers !== driversSeen) { driversSeen = s.drivers; renderDrivers(); }
     for (const [btn, focus, label] of [[changesBtn, 'changes', 'Show changes'], [roadBtn, 'road', 'View 15-501']]) {
-      btn.textContent = s.focus === focus ? 'Back' : label;
-      btn.setAttribute('aria-pressed', String(s.focus === focus));
+      const on = tourOn(s, focus);
+      btn.textContent = on ? (focus === 'changes' ? 'End tour' : 'Back') : label;
+      btn.setAttribute('aria-pressed', String(on));
     }
     wipeBtn.setAttribute('aria-pressed', String(!!s.wipe));
     drawn = []; // the changes button and the ranges depend on the scenario too

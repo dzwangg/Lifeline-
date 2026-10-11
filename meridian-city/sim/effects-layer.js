@@ -359,20 +359,43 @@ export function mountEffectsLayer({ world, zones = [] }) {
   pins.material.depthTest = false; pins.mesh.layers.set(2);
   { const s = art.sprites.pin; for (let i = 0; i < PINS; i++) { pins.uv.array.set(s.uv, i * 4); pins.size.array.set([s.w * 2, s.h * 2, 0], i * 3); } pins.uv.needsUpdate = pins.size.needsUpdate = true; }
   pins.mesh.count = 0;
-  let pinKinds = null, pinAt = [];
+  // What a stop has planned but not yet built in the shown year (it is still to come in the forecast) shows faded, as the
+  // zone layer outlines parcels converted later: ghosts of its items in their spots, see-through and over the roofs.
+  const GHOSTS = 200, ghosts = world.sprites.dynamicLayer(scene, GHOSTS, { minZoom: LOD.macro, transparent: true, opacity: .68, renderOrder: 1001 });
+  ghosts.material.depthTest = false; ghosts.mesh.layers.set(2); ghosts.mesh.count = 0;
+  let pinKinds = null, pinRow = null, pinAt = [];
+  const top = it => Math.max(4, ...it.parts.map(p => (p.size?.[1] ?? 2) + p.y)) + 1.5;
   function placePins() {
     pinAt = [];
+    const ghostParts = [];
     if (pinKinds) for (const k of pinKinds) {
-      if (k === 'bikeLanes') { const shown = bollards.filter(b => b.part.k > .5); for (let i = 0; i < shown.length; i += 12) pinAt.push([shown[i].part.x, shown[i].part.z, 2.5]); continue; }
-      if (k === 'busLanes') { for (const R of busLane.routes) if (R.start / busLane.total < state.busFrac) pinAt.push([R.q.r[0], R.q.r[1], 2.5]); continue; }
-      for (const it of [...(items[k]?.pos ?? []), ...(items[k]?.neg ?? [])]) if (it.k > .5) pinAt.push([it.x, it.z, Math.max(4, ...it.parts.map(p => (p.size?.[1] ?? 2) + p.y)) + 1.5]);
+      const end = pinRow?.[k];
+      if (k === 'bikeLanes') {
+        const f = Math.max(0, end?.i ?? 0), lit = bollards.filter(b => b.part.k > .5), planned = bollards.filter(b => b.part.k <= .5 && b.t <= f);
+        for (let i = 0; i < lit.length; i += 12) pinAt.push([lit[i].part.x, lit[i].part.z, 2.5]);
+        for (let i = 0; i < planned.length; i += 2) ghostParts.push(planned[i].part);
+        for (let i = 0; i < planned.length; i += 12) pinAt.push([planned[i].part.x, planned[i].part.z, 2.5]);
+        continue;
+      }
+      if (k === 'busLanes') { for (const R of busLane.routes) if (R.start / busLane.total < Math.max(state.busFrac, end?.i ?? 0)) pinAt.push([R.q.r[0], R.q.r[1], 2.5]); continue; }
+      const list = items[k] ? (end?.i < 0 ? items[k].neg : items[k].pos) : [];
+      for (const it of [...(items[k]?.pos ?? []), ...(items[k]?.neg ?? [])]) if (it.k > .5) pinAt.push([it.x, it.z, top(it)]);
+      for (const it of list.slice(0, end?.n ?? 0)) if (!(it.k > .5)) { ghostParts.push(...it.parts.filter(p => p.layer !== 'decal')); pinAt.push([it.x, it.z, top(it)]); }
     }
     pinAt = pinAt.slice(0, PINS);
     pins.mesh.count = pinAt.length;
+    const g = ghostParts.slice(0, GHOSTS);
+    g.forEach((p, i) => {
+      ghosts.uv.array.set(art.sprites[p.name].uv, i * 4); ghosts.size.array.set(p.size, i * 3);
+      _m.makeTranslation(p.x, p.y, p.z); ghosts.mesh.setMatrixAt(i, _m);
+    });
+    ghosts.mesh.count = g.length;
+    ghosts.uv.needsUpdate = ghosts.size.needsUpdate = ghosts.mesh.instanceMatrix.needsUpdate = true;
   }
   // While a stop is pinned, the effect signs draw over buildings too, so the change itself shows, not just where it is.
-  const highlight = kinds => {
-    pinKinds = kinds?.length ? kinds : null;
+  // end: the forecast's last year of run.effects, for what is still to come.
+  const highlight = (kinds, end = null) => {
+    pinKinds = kinds?.length ? kinds : null; pinRow = end;
     for (const L of [near, far]) { L.material.depthTest = !pinKinds; L.mesh.renderOrder = pinKinds ? 1001 : 0; }
     placePins();
   };

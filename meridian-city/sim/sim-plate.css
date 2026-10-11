@@ -32,19 +32,14 @@
 .sim__slider { display: grid; gap: 4px; margin: 6px 0; }
 .sim__slider > span { display: flex; justify-content: space-between; gap: 8px; }
 .sim__slider input { width: 100%; margin: 0; accent-color: var(--sodium); }
-.sim__year { display: flex; align-items: flex-end; gap: 10px; margin-bottom: 8px; }
+.sim__year { margin-bottom: 8px; }
 .sim__year .sim__slider { flex: 1; margin: 0; }
-.sim__play {
-  flex: none; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%;
-  background: var(--sodium); color: #fff; cursor: pointer; box-shadow: 0 4px 12px rgba(7, 140, 155, .35), inset 0 1px 0 rgba(255, 255, 255, .4);
-}
-.sim__play svg { width: 12px; height: 12px; fill: currentColor; }
-.sim__play:focus-visible { outline: 2px solid var(--sodium); outline-offset: 2px; }
 .sim__val { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .sim__check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-.sim__row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sim__views { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .sim__road { padding: 3px 10px; border: 1px solid var(--sodium); border-radius: 999px; background: none; font: 600 12px var(--display); color: var(--sodium); cursor: pointer; }
 .sim__road[aria-pressed="true"] { background: var(--sodium); color: #fff; }
+.sim__road:disabled { opacity: .45; cursor: default; }
 .sim__check input { margin: 0; accent-color: var(--sodium); }
 .sim__dev { font: 11px var(--mono); color: var(--muted); }
 
@@ -107,3 +102,47 @@
   .sim__cards { flex: none; overflow: visible; }
   .sim-why { position: static; grid-column: 1 / -1; width: auto; max-height: none; margin-top: 6px; box-shadow: none; }
 }
+
+/* Playback toolbar: a glass pill centred over the top of the map, between the Policies launcher and the map tools. */
+.clock {
+  left: 50%; top: calc(16px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 30;
+  display: flex; align-items: center; gap: 6px; padding: 6px;
+}
+.tool-btn.clock-btn { width: auto; min-width: 34px; padding: 0 7px; }
+.tool-btn.clock-btn svg { width: auto; height: 18px; }
+.clock-readout { display: grid; min-width: 104px; margin: 0 6px 0 4px; line-height: 1.15; }
+.clock-date { font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.clock-sub { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.clock-status:empty { display: none; }
+
+/* Mid widths: no room between the launcher and the map tools, so the toolbar sits under the launcher. */
+@media (min-width: 641px) and (max-width: 900px) {
+  .clock { left: 16px; top: calc(72px + env(safe-area-inset-top, 0px)); transform: none; }
+  .building-card { top: calc(128px + env(safe-area-inset-top, 0px)) !important; }
+}
+/* Phones: a full-width row under the launcher and the map tools; the sim plate moves down to make room. */
+@media (max-width: 640px) {
+  .clock { left: 16px; right: 16px; top: calc(64px + env(safe-area-inset-top, 0px)); transform: none; justify-content: center; }
+  .sim { top: calc(120px + env(safe-area-inset-top, 0px)); max-height: calc(46vh - 56px); }
+}
+@media (max-width: 380px) {
+  .clock { left: 12px; right: 12px; gap: 4px; }
+  .clock-readout { min-width: 0; }
+}
+
+/* The before/after wipe (wipe.js): a divider over the map, year 0 on its left, the shown year on its right. */
+.wipe { position: fixed; top: 0; bottom: 0; width: 0; z-index: 8; pointer-events: none; }
+.wipe[hidden] { display: none; }
+.wipe::before { content: ''; position: absolute; top: 0; bottom: 0; left: -2px; width: 4px; background: #fff; box-shadow: 0 0 0 2px #1c2c5e; }
+.wipe__label {
+  position: absolute; top: calc(84px + env(safe-area-inset-top, 0px)); padding: 4px 9px; border: 2px solid #1c2c5e; border-radius: 6px;
+  background: #fff; color: #1c2c5e; font: 600 13px var(--ae-pixel, var(--mono)); white-space: nowrap; box-shadow: 0 3px 0 rgba(28, 44, 94, .35);
+}
+.wipe__label--before { right: 12px; }
+.wipe__label--after { left: 12px; }
+.wipe__handle {
+  position: absolute; top: 50%; left: -18px; width: 36px; height: 48px; margin-top: -24px; padding: 0; pointer-events: auto; cursor: ew-resize;
+  display: grid; place-items: center; border: 2px solid #1c2c5e; border-radius: 8px; background: #fff; color: #1c2c5e; box-shadow: 0 3px 0 rgba(28, 44, 94, .35); touch-action: none;
+}
+.wipe__handle svg { width: 22px; height: 14px; }
+.wipe__handle:focus-visible { outline: 3px solid var(--sodium); outline-offset: 2px; }

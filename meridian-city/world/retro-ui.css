@@ -1,0 +1,194 @@
+/* Aero-pixel game UI: Frutiger Aero glass and gloss, drawn with pixel-art discipline.
+   Translucent sky-glass panels with navy pixel borders and a hard-edged gloss band, glossy bubble buttons,
+   aqua and lime accents. Loaded after the panel stylesheets, so it re-skins their components without
+   changing behaviour. Headings, buttons and numbers use Pixelify Sans; body text stays in a clear face. */
+:root:root { /* doubled so it beats the page's own :root block, which loads later */
+  --ae-navy: #1c2c5e; --ae-navy-soft: #3d5a8a; --ae-ink-soft: #456186;
+  --ae-sky: #7fd6f5; --ae-aqua: #2fc6e8; --ae-aqua-dark: #1a8fc4; --ae-blue: #3a8fe0;
+  --ae-lime: #6fd04a; --ae-lime-dark: #3f9136; --ae-lime-hi: #d8ffb0;
+  --ae-pink: #ff7fbf; --ae-pink-dark: #d94a92; --ae-gold: #ffd23f;
+  --ae-glass-top: rgba(255, 255, 255, .9); --ae-glass-bot: rgba(214, 246, 255, .84);
+  --ae-well: rgba(255, 255, 255, .62);
+  --ae-pixel: 'Pixelify Sans', 'Silkscreen', ui-monospace, monospace;
+  --ae-body: 'Mukta', 'Segoe UI', sans-serif;
+  /* the page's own tokens, re-pointed so older rules pick up the palette */
+  --ink: var(--ae-navy); --muted: var(--ae-ink-soft); --sodium: var(--ae-aqua-dark); --load-ink: #ffffff;
+  --display: var(--ae-body); --mono: var(--ae-pixel);
+}
+
+/* ---------- glass frames ---------- */
+.plate, .retro-card, .pp-panel, .sim-why {
+  color: var(--ae-navy);
+  background: linear-gradient(180deg, var(--ae-glass-top) 0 44%, var(--ae-glass-bot) 44% 100%) !important;
+  border: 3px solid var(--ae-navy) !important;
+  border-radius: 10px !important;
+  box-shadow: inset 0 0 0 2px #ffffff, inset 0 0 0 4px rgba(127, 214, 245, .9), 0 4px 0 rgba(28, 44, 94, .45) !important;
+  backdrop-filter: blur(6px) saturate(1.5) !important; -webkit-backdrop-filter: blur(6px) saturate(1.5) !important;
+}
+.plate { padding: 12px 15px !important; }
+#hud, #alt { z-index: 10; } /* above the drifting bubbles */
+body { background: #7fd6f5 !important; font-family: var(--ae-body); }
+#loading {
+  background: linear-gradient(180deg, #4fc3f2 0 50%, #8fe0fa 50% 78%, #6fd04a 78% 100%); color: #ffffff !important;
+  text-shadow: 2px 2px 0 var(--ae-navy) !important; font: 600 18px var(--ae-pixel) !important; letter-spacing: .04em !important; text-transform: none !important;
+}
+h1, h2, h3, .pp-title, .pp-col__title, .pp-row__title, .building-card__title { font-family: var(--ae-pixel) !important; letter-spacing: .01em; }
+
+/* ---------- HUD ---------- */
+#hud h1 { font-size: 20px; text-shadow: none !important; color: var(--ae-navy); }
+#hud::before { content: 'SquidLand · Chapel Hill' !important; color: var(--ae-aqua-dark) !important; font: 600 11px var(--ae-pixel) !important; letter-spacing: .06em !important; }
+#stats { font: 13px var(--ae-pixel) !important; color: var(--ae-ink-soft) !important; }
+#hint b { color: var(--ae-aqua-dark) !important; }
+#credit a { color: var(--ae-ink-soft); }
+
+/* ---------- glossy bubble buttons ---------- */
+.tool-btn, .pp-btn, .pp-chip, .sim__toggle, .pp-launch {
+  font-family: var(--ae-pixel) !important; letter-spacing: 0 !important; color: var(--ae-navy) !important; text-shadow: none !important;
+  background: linear-gradient(180deg, #f2fdff 0 46%, #8fdcf7 46% 100%) !important;
+  border: 2px solid var(--ae-navy) !important; border-radius: 10px !important;
+  box-shadow: inset 0 2px 0 #ffffff, inset 0 -3px 0 #4fb8e0, 0 2px 0 var(--ae-navy) !important;
+}
+.tool-btn { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; cursor: pointer; }
+.tool-btn svg { width: 18px; height: 18px; image-rendering: pixelated; shape-rendering: crispEdges; }
+.tool-btn:hover:not(:disabled), .pp-btn:hover:not(:disabled), .pp-chip:hover { filter: brightness(1.06) saturate(1.1); }
+.tool-btn:disabled { opacity: .45; cursor: default; }
+.tool-btn:active:not(:disabled), .pp-btn:active:not(:disabled), .pp-chip:active { transform: translateY(2px) !important; box-shadow: inset 0 2px 0 #ffffff, inset 0 -1px 0 #4fb8e0 !important; }
+.pp-btn--primary {
+  text-shadow: 1px 1px 0 var(--ae-lime-dark) !important;
+  background: linear-gradient(180deg, var(--ae-lime-hi) 0 46%, var(--ae-lime) 46% 100%) !important;
+  box-shadow: inset 0 2px 0 #ffffff, inset 0 -3px 0 var(--ae-lime-dark), 0 2px 0 var(--ae-navy) !important;
+  border: 2px solid var(--ae-navy) !important; border-radius: 10px !important;
+}
+.pp-btn--primary { color: #ffffff !important; }
+.pp-btn--quiet { background: linear-gradient(180deg, #ffffff 0 46%, #e3f6fc 46% 100%) !important; }
+.retro-icon-btn, .pp-close, .pp-slot__remove {
+  flex: none; width: 28px; height: 28px; padding: 0 0 2px; cursor: pointer; font: 700 18px/1 var(--ae-pixel); color: #ffffff;
+  background: linear-gradient(180deg, #ffd0e8 0 46%, var(--ae-pink) 46% 100%) !important; border: 2px solid var(--ae-navy) !important; border-radius: 9px !important;
+  box-shadow: inset 0 2px 0 #ffffff, inset 0 -3px 0 var(--ae-pink-dark), 0 2px 0 var(--ae-navy) !important;
+}
+.pp-close svg, .pp-slot__remove svg { stroke: #ffffff !important; }
+.tool-btn:focus-visible, .retro-icon-btn:focus-visible, .pp-btn:focus-visible, .pp-chip:focus-visible, .pp-card:focus-visible, .pp-slot__empty:focus-visible { outline: 3px solid var(--ae-gold) !important; outline-offset: 3px; }
+
+/* ---------- map toolbar ---------- */
+#alt { display: flex; align-items: center; gap: 6px; padding: 6px !important; font: 600 13px var(--ae-pixel) !important; letter-spacing: 0 !important; }
+.zoom-readout { min-width: 38px; text-align: center; color: var(--ae-navy); font-variant-numeric: tabular-nums; }
+
+/* ---------- playback toolbar ---------- */
+#clock { z-index: 10; padding: 6px !important; }
+.clock-date { font: 600 16px var(--ae-pixel); color: var(--ae-navy); }
+.clock-sub { font: 12px var(--ae-pixel) !important; color: var(--ae-ink-soft) !important; }
+.clock-speed { color: var(--ae-aqua-dark); }
+.clock-btn { transition: filter .15s, box-shadow .15s; }
+.clock-btn:hover:not([aria-pressed="true"]) { box-shadow: inset 0 2px 0 #ffffff, inset 0 -3px 0 #4fb8e0, 0 2px 0 var(--ae-navy), 0 0 10px rgba(47, 198, 232, .55) !important; }
+/* The running speed (or Pause) is lit: the policy chips' pressed gloss plus a soft aqua halo. */
+.clock-btn[aria-pressed="true"] {
+  color: #ffffff !important;
+  background: linear-gradient(180deg, #9ee8ff 0 46%, var(--ae-aqua) 46% 100%) !important;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, .85), inset 0 -3px 0 var(--ae-aqua-dark), 0 2px 0 var(--ae-navy), 0 0 0 3px rgba(127, 214, 245, .55), 0 0 14px 2px rgba(47, 198, 232, .75) !important;
+}
+.clock-btn[aria-pressed="true"] svg { filter: drop-shadow(1px 1px 0 var(--ae-navy)); }
+.clock-btn:focus-visible { outline: 3px solid var(--ae-gold) !important; outline-offset: 3px; }
+/* Loading: a glossy aqua pill with a spinning pixel bubble, while the clock holds for a prediction. */
+.clock-status:not(:empty) { padding: 1px 7px 0; border: 2px solid var(--ae-navy); border-radius: 7px; background: #ffffff; color: var(--ae-navy); }
+.clock.is-loading .clock-status {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: linear-gradient(180deg, #e9fbff 0 50%, #9fe4f8 50% 100%); box-shadow: inset 0 1px 0 #ffffff;
+}
+.clock.is-loading .clock-status::before {
+  content: ''; width: 8px; height: 8px; border-radius: 50%; flex: none;
+  border: 2px solid var(--ae-aqua-dark); border-top-color: transparent; animation: clock-spin .8s steps(8) infinite;
+}
+.clock.is-error .clock-status { background: var(--ae-gold); }
+@keyframes clock-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .clock.is-loading .clock-status::before { animation: none; border-top-color: var(--ae-aqua-dark); opacity: .7; } .clock-btn { transition: none; } }
+
+/* ---------- launcher ---------- */
+.pp-launch { font-size: 15px !important; border-width: 3px !important; }
+.pp-launch__count, .pp-launch__count.is-none {
+  font-family: var(--ae-pixel) !important; color: var(--ae-navy) !important; background: #ffffff !important;
+  border: 2px solid var(--ae-navy); border-radius: 7px !important; box-shadow: none !important;
+}
+.pp-launch__count:not(.is-none) { background: var(--ae-gold) !important; }
+
+/* ---------- building card ---------- */
+.retro-card { position: fixed; z-index: 35; padding: 12px 14px 14px; }
+.building-card { left: 16px; top: calc(70px + env(safe-area-inset-top, 0px)); width: min(270px, calc(100% - 32px)); }
+.building-card[hidden] { display: none; }
+.building-card header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.building-card__title { margin: 0; font-size: 18px; line-height: 1.15; color: var(--ae-navy); }
+.building-card__facts { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; font-size: 14px; }
+.building-card__facts dt { color: var(--ae-ink-soft); }
+.building-card__facts dd { margin: 0; font-family: var(--ae-pixel); }
+
+/* ---------- policy panel ---------- */
+.pp-backdrop { background: rgba(28, 44, 94, .32) !important; }
+.pp-head {
+  background: linear-gradient(180deg, #d4f6ff 0 50%, #9fe4f8 50% 100%) !important;
+  border-bottom: 3px solid var(--ae-navy) !important; box-shadow: inset 0 2px 0 #ffffff;
+}
+.pp-title { color: var(--ae-navy) !important; text-shadow: none !important; }
+.pp-sub { color: var(--ae-ink-soft) !important; text-shadow: none !important; }
+.pp-col { background: var(--ae-well) !important; border: 2px solid var(--ae-sky) !important; border-radius: 8px !important; box-shadow: inset 0 2px 0 #ffffff !important; }
+.pp-row { background: rgba(255, 255, 255, .7) !important; border: 2px solid #c8eef9 !important; border-radius: 8px !important; box-shadow: none !important; }
+.pp-row__dot { border-radius: 50% !important; box-shadow: 0 0 0 2px var(--ae-navy) !important; }
+.pp-sum { background: #ffffff !important; border-radius: 6px !important; box-shadow: none !important; }
+.pp-status { background: #e3f6fc !important; color: var(--ae-navy) !important; border-radius: 6px !important; box-shadow: none !important; }
+.pp-status.is-dirty { background: var(--ae-gold) !important; }
+.pp-scenario__input { color: var(--ae-aqua-dark) !important; font-family: var(--ae-pixel) !important; }
+.pp-search__input, .pp-scenario__input:focus {
+  background: #ffffff !important; border: 2px solid var(--ae-navy) !important; border-radius: 10px !important; box-shadow: inset 0 2px 0 rgba(28, 44, 94, .12) !important; color: var(--ae-navy) !important;
+}
+.pp-card {
+  border-radius: 10px !important; background: linear-gradient(180deg, #ffffff 0 42%, var(--cat-tint) 42% 100%) !important;
+  box-shadow: 0 0 0 2px var(--ae-navy), 0 4px 0 var(--ae-navy) !important;
+}
+.pp-card::before { display: none !important; }
+.pp-card__title { font-family: var(--ae-pixel); }
+.pp-card__orb { border-radius: 50% !important; box-shadow: 0 0 0 2px var(--ae-navy), inset 0 -4px 0 rgba(0, 0, 0, .18) !important; }
+.pp-card__orb::after { display: block !important; } /* keep the bubble highlight: it is pure Aero */
+.pp-card.is-armed { box-shadow: 0 0 0 3px var(--ae-gold), 0 0 0 5px var(--ae-navy), 0 6px 0 var(--ae-navy) !important; animation: none !important; }
+.pp-slot__empty { border: 2px dashed var(--cat) !important; border-radius: 10px !important; background: rgba(255, 255, 255, .55) !important; }
+.pp-slot.is-valid { box-shadow: 0 0 0 3px var(--ae-gold), 0 0 0 5px var(--ae-navy) !important; animation: none !important; }
+.pp-slot.is-over { box-shadow: 0 0 0 4px var(--ae-gold), 0 0 0 7px var(--ae-navy) !important; }
+.pp-library.is-valid { box-shadow: inset 0 0 0 3px var(--ae-gold) !important; }
+.pp-library__return { background: var(--ae-gold) !important; color: var(--ae-navy) !important; box-shadow: 0 0 0 2px var(--ae-navy) !important; border-radius: 8px !important; }
+.pp-foot { background: rgba(227, 246, 252, .85) !important; border-top: 3px solid var(--ae-sky) !important; }
+.pp-help { color: var(--ae-ink-soft) !important; }
+.pp-chip[aria-pressed="true"] {
+  color: #ffffff !important; text-shadow: 1px 1px 0 var(--ae-navy) !important;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--cat, var(--ae-blue)) 45%, #ffffff) 0 46%, var(--cat, var(--ae-blue)) 46% 100%) !important;
+}
+
+/* ---------- sim panel ---------- */
+.sim__head h2 { font-size: 16px; color: var(--ae-navy); }
+.sim__toggle { padding: 3px 8px !important; font-size: 12px !important; }
+.sim-card { background: rgba(255, 255, 255, .7) !important; border: 2px solid #c8eef9; border-radius: 8px !important; }
+.sim-card h3 { font-family: var(--ae-pixel); }
+.sim-card__tradeoffs h4 { font-family: var(--ae-pixel) !important; letter-spacing: .02em !important; color: var(--ae-aqua-dark) !important; }
+.sim__slider input, .sim__check input { accent-color: var(--ae-aqua-dark) !important; }
+.sim__val, .sim-metric__value, .sim-metric__delta { font-family: var(--ae-pixel) !important; }
+.sim-metric { border-radius: 6px !important; }
+.sim-metric:hover, .sim-metric:focus-visible { background: rgba(255, 255, 255, .8) !important; }
+.sim-metric:focus-visible { box-shadow: 0 0 0 2px var(--ae-gold) !important; }
+.sim-why__flag { background: var(--ae-gold) !important; color: var(--ae-navy) !important; border-radius: 4px !important; }
+.sim__cards:has(> .sim__empty:only-child) { overflow: visible; } /* a one-line message needs no scroller */
+
+/* ---------- phones ---------- */
+@media (max-width: 640px) {
+  #alt { gap: 4px; padding: 4px !important; }
+  .tool-btn { width: 30px; height: 30px; }
+  .tool-btn svg { width: 16px; height: 16px; }
+  .tool-btn.clock-btn { width: auto; min-width: 30px; padding: 0 5px; }
+  .tool-btn.clock-btn svg { width: auto; height: 16px; }
+  /* The building card takes the info plate's place at the bottom while it is open. */
+  .building-card { left: 16px; right: 16px; top: auto; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: auto; z-index: 36; }
+}
+@media (max-width: 430px) { .zoom-readout { display: none; } }
+@media (max-width: 360px) {
+  .pp-launch__count { display: none; }
+  #alt { right: 12px !important; }
+  .tool-btn { width: 28px; height: 28px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .plate, .retro-card, .pp-panel, .sim-why { background: #eefbff !important; backdrop-filter: none !important; }
+}

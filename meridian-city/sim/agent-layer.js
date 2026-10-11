@@ -1,26 +1,39 @@
 // Households from the agent model (shared/agents.js) on the city. Each simulated household is a floating marker,
-// coloured by rent burden in the shown year; newcomers wear a ring, and households that leave fade out in the year
-// they leave. The trunk roads (15-501) are tinted by the model's road load, with travel time on hover.
-// Clicking a marker opens that household in the sim panel. "View 15-501" in the panel flies the camera to the corridor
-// and back, since the default camera faces away from it.
+// coloured by rent burden in the shown year; newcomers wear a ring, and households that leave fade out over the start of
+// the year they leave. Markers keep one size on screen at every zoom and draw over buildings and trees with the world's
+// ink outline, so they read as data, apart from the street-life walkers. The trunk roads (15-501) carry a thin tint in
+// the model's road load colour, with travel time on hover. Clicking a marker opens that household in the sim panel.
+// "View 15-501" in the panel (focus.js) flies the camera to the corridor; the tint is then at full strength.
+// Everything follows the shared clock (clock.js): the year it shows, and the run behind that year.
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/+esm';
-import { scenario, shownYear } from './scenario.js';
+import { scenario, simClock, onFrame } from './scenario.js';
 import { modelZone } from '../../shared/agents.js';
+import { inside, bounds } from '../world/geometry.js';
+import { CAMERA, P } from '../world/palette.js';
 
 // Where the model's zones sit today. The baked map has no street names, so downtown = open ground beside the
 // shops clustered along Franklin St, campus = beside UNC's university buildings, edge = beside existing houses near
 // the map boundary. Newcomers move into the sim's parcels once their zone has some built (see place()); the corridor
 // zone has no households until its parcels are built, so it needs no spot of its own.
 const DOWNTOWN = [-800, -900, 0, -300], CAMPUS = [-400, -650, 600, 300]; // x0, z0, x1, z1 in local metres (x east, z south)
-const EDGE_TOWN_M = 300, HOUSE = new Set(['detached', 'house', 'semidetached_house', 'residential', 'terrace', 'static_caravan', 'bungalow']); // as in index.html
+const EDGE_TOWN_M = 300, HOUSE = new Set(['detached', 'house', 'semidetached_house', 'residential', 'terrace', 'static_caravan', 'bungalow']);
 const HOMES = new Set(['low_res', 'mid_res', 'mixed_use']); // parcel states that hold homes
 const GREEN = new THREE.Color('#21c45d'), AMBER = new THREE.Color('#ffae00'), RED = new THREE.Color('#ff3b30'), OWNER = new THREE.Color('#9aa3a8');
 const BURDEN = [[.3, GREEN], [.5, AMBER], [Infinity, RED]]; // rent share of income: under 30%, 30-50%, over 50%
 const LOAD = [[.8, GREEN], [1, AMBER], [Infinity, RED]]; // road volume / capacity
 const band = (bands, v) => bands.find(([max]) => v < max)[1];
-const FADE_MS = 900, FLY_MS = 1400, CAPACITY = 800; // markers; the model makes ~350-450 households
+const CAPACITY = 800; // markers; the model makes ~350-450 households
+const MARKER_PX = 9, LIFT_PX = 6, BORDER_PX = 1.5; // marker width, how far it floats and its ink border, in rendered pixels at every zoom
+const FADE_YEARS = .4; // leavers fade out over this much of their last year's simulated time; paused, they stay faint
+// The road tint, mixed into the asphalt colour: subtle by default, strong on hover, and full strength in the 15-501
+// view. Its width is a share of the carriageway, never under 3 rendered pixels so it survives the far zooms; in the
+// 15-501 view it covers the whole carriageway and at least 6 pixels, since that view is zoomed far out.
+const ASPHALT = new THREE.Color(P.asphalt), TINT = { rest: .35, hover: .9, view: 1 }, TINT_SHARE = .4, TINT_MIN_PX = 3, VIEW_MIN_PX = 6;
+const COS_EL = Math.cos(THREE.MathUtils.degToRad(CAMERA.elevationDeg));
 
-export function mountAgentLayer({ scene, camera, controls, dom, osm, zones, at, inside, bounds }) {
+export function mountAgentLayer({ world, osm, zones }) {
+  const { view } = world, { scene } = view, dom = view.renderer.domElement, at = world.gridAt;
+
   // Spots fixed for the session; a household picks one from its own stable x/y draws.
   const inBox = (box, x, z) => x >= box[0] && x <= box[2] && z >= box[1] && z <= box[3];
   const beside = keep => { // open ground around the matching buildings
@@ -52,97 +65,113 @@ export function mountAgentLayer({ scene, camera, controls, dom, osm, zones, at, 
     return [x + (a.y - .5) * 5, z + ((a.y * 7919) % 1 - .5) * 5];
   };
 
-  const markerGeo = new THREE.OctahedronGeometry(4.8).scale(1, 1.5, 1).translate(0, 16, 0); // floats above the tree canopy
-  const ringGeo = new THREE.TorusGeometry(7.6, .9, 6, 28).rotateX(Math.PI / 2).translate(0, 16, 0);
-  const layer = (geo, material) => {
+  // Unit-wide shapes, scaled per zoom. Drawn after the city with no depth test, so buildings and trees never hide them.
+  // Each marker sits on a slightly larger shell in the world's ink colour: a border that keeps the rent colours apart
+  // from the autumn tree canopies, which share their hues.
+  const markerGeo = new THREE.OctahedronGeometry(.5).scale(1, 1.5, 1).translate(0, .75, 0);
+  const ringGeo = new THREE.TorusGeometry(.85, .17, 4, 16).rotateX(Math.PI / 2).translate(0, .75, 0);
+  // side: the layer the mesh draws on, 2 for the shown year and 1 for the wipe's year 0 (see world/view.js render()).
+  const layer = (geo, material, order, side = 2) => {
     const m = new THREE.InstancedMesh(geo, material, CAPACITY);
     m.count = 0;
+    m.layers.set(side);
     m.frustumCulled = false;
+    m.renderOrder = order; // above the zone highlights (997, 998) and the building selection (999)
     scene.add(m);
     return m;
   };
-  const markers = layer(markerGeo, new THREE.MeshBasicMaterial({ toneMapped: false })); // exact colours, not tone mapped
-  const rings = layer(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }));
-  const fadeMat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, toneMapped: false });
-  const leaving = layer(markerGeo, fadeMat);
-  markers.setColorAt(0, OWNER); leaving.setColorAt(0, OWNER); // allocate the colour buffers
+  const overlay = o => new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, ...o }); // transparent: drawn after the zone fills
+  const ringMat = overlay({ color: 0xffffff }), shellMat = overlay({ color: P.ink }), markerMat = overlay({}), fadeMat = overlay({ depthWrite: false });
+  const markerSet = side => {
+    const set = { rings: layer(ringGeo, ringMat, 1000, side), shells: layer(markerGeo, shellMat, 1001, side), markers: layer(markerGeo, markerMat, 1002, side), leaving: layer(markerGeo, fadeMat, 1002, side) };
+    set.markers.setColorAt(0, OWNER); set.leaving.setColorAt(0, OWNER); // allocate the colour buffers
+    return set;
+  };
+  const current = markerSet(2);
+  let yearZero = null; // the wipe's year-0 side, made the first time the wipe is on
 
-  // Trunk roads drawn again just above the asphalt in the load colour: wider than the road (15 m, 6 m for links), and
-  // clear of fog and tone mapping so the band reads from far away.
-  const road = new THREE.Mesh(ribbons(osm.r.filter(([cls]) => cls === 'trunk' || cls === 'trunk_link').map(([cls, , r]) => [r, cls === 'trunk' ? 26 : 12]), .15),
-    new THREE.MeshBasicMaterial({ transparent: true, opacity: .92, depthWrite: false, side: THREE.DoubleSide, fog: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -12 }));
+  // 15-501: the trunk roads inside the map. The tint covers the middle of each carriageway, clipped to the map's edge.
+  const E = osm.ext;
+  const trunks = world.streets.roads.filter(q => q.cls === 'trunk' || q.cls === 'trunk_link');
+  // Between the asphalt (polygon offset -4) and the lane markings (-6) in streets.js, so the markings paint over it.
+  const roadMat = new THREE.MeshBasicMaterial({ color: ASPHALT, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -10 });
+  const road = new THREE.Mesh(new THREE.BufferGeometry(), roadMat);
   road.visible = false;
   scene.add(road);
+  let roadPpm = 0;
+  function shapeRoad(ppm) { // the tint's width depends on the zoom, so it is rebuilt when the zoom level changes
+    roadPpm = ppm;
+    road.geometry.dispose();
+    const width = q => (roadFocus ? Math.max(q.w, VIEW_MIN_PX / ppm) : Math.min(q.w, Math.max(q.w * TINT_SHARE, TINT_MIN_PX / ppm)));
+    road.geometry = ribbons(trunks.map(q => [q.r, width(q)]), .06, E);
+  }
 
   const _m = new THREE.Matrix4(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), HIDE = new THREE.Matrix4().makeScale(0, 0, 0);
-  let agents = [], result = null, pos = [], shown = '', fadeStart = 0;
-  scenario.subscribe(s => {
-    if (!s.households) return;
-    const t = shownYear(s), key = `${t}`;
-    if (s.households.agents !== agents || s.result !== result) { agents = s.households.agents; result = s.result; pos = agents.map(a => place(a, result)); shown = ''; }
+  let run = null, agents = [], pos = [], t = -1, resident = null, drawnPpm = 0;
+  function draw() { // every marker for the shown year (and year 0 for the wipe), at the current zoom
+    drawnPpm = view.ppm;
+    drawSet(current, t);
+    if (yearZero) drawSet(yearZero, 0);
+  }
+  function drawSet({ markers, shells, rings, leaving }, t) {
+    const ppm = view.ppm, size = MARKER_PX / ppm, lift = LIFT_PX / (ppm * COS_EL), border = 2 * BORDER_PX / ppm;
     const n = Math.min(agents.length, CAPACITY);
-    markers.count = rings.count = leaving.count = n;
+    markers.count = shells.count = rings.count = leaving.count = n;
     for (let i = 0; i < n; i++) {
       const a = agents[i], here = a.joined <= t && (a.left === null || a.left > t), gone = a.left === t, h = a.hist[t];
-      const color = h?.burden == null ? OWNER : band(BURDEN, h.burden), big = a.id === s.resident ? 1.6 : 1;
-      _m.compose(_p.set(pos[i][0], 0, pos[i][1]), _q, _s.set(big, big, big));
+      const color = h?.burden == null ? OWNER : band(BURDEN, h.burden), s = size * (a.id === resident ? 1.6 : 1);
+      _m.compose(_p.set(pos[i][0], lift, pos[i][1]), _q, _s.set(s, s, s));
       markers.setMatrixAt(i, here ? _m : HIDE);
       rings.setMatrixAt(i, here && a.joined > 0 ? _m : HIDE);
+      _m.compose(_p.set(pos[i][0], lift - .75 * border, pos[i][1]), _q, _s.set(s + border, s + border, s + border)); // centred on the marker
+      shells.setMatrixAt(i, here ? _m : HIDE);
       leaving.setMatrixAt(i, gone ? _m : HIDE);
       markers.setColorAt(i, color);
       leaving.setColorAt(i, color);
     }
-    for (const m of [markers, rings, leaving]) { m.instanceMatrix.needsUpdate = true; m.computeBoundingSphere(); }
+    for (const m of [markers, shells, rings, leaving]) { m.instanceMatrix.needsUpdate = true; m.computeBoundingSphere(); }
     markers.instanceColor.needsUpdate = leaving.instanceColor.needsUpdate = true;
-    const y = s.averages[t]; // the road shows the averaged runs, like the panel; the markers show one run
-    road.material.color.copy(band(LOAD, y.roadRatio));
+  }
+
+  let hovered = false, roadFocus = false;
+  const tint = () => { roadMat.color.copy(ASPHALT).lerp(road.userData.color, roadFocus ? TINT.view : hovered ? TINT.hover : TINT.rest); };
+  simClock.subscribe(({ shown, before, frac }) => {
+    if (!shown?.data) return;
+    const r = shown.data.run, y = before ? 0 : shown.step;
+    fadeMat.opacity = .55 * (1 - (shown.tween && !before ? Math.min(1, frac / FADE_YEARS) : 0));
+    if (r === run && y === t) return; // the clock emits every frame while playing
+    if (r !== run) { run = r; agents = r.households.agents; pos = agents.map(a => place(a, r.result)); }
+    t = y;
+    draw();
+    const load = run.averages[y]; // the road shows the averaged runs, like the panel; the markers show one run
+    road.userData = { ...load, color: band(LOAD, load.roadRatio) };
+    tint();
     road.visible = true;
-    road.userData = y;
-    if (key !== shown) { shown = key; fadeStart = performance.now(); requestAnimationFrame(fade); } // fade leavers once per year shown
   });
-  // Fly to 15-501, looking south from above the town, then back to wherever the camera was. The view centres on
-  // Fordham Blvd: the trunk road inside the map east of S Columbia St (x > -270 m; see docs/sources.md), shifted west
-  // so the road sits left of the sim panel (looking south, east is on the left).
-  let len = 0, cx = 0, cz = 0;
-  for (const [cls, , r] of osm.r) if (cls === 'trunk' || cls === 'trunk_link') for (let i = 0; i + 3 < r.length; i += 2) {
-    const mx = (r[i] + r[i + 2]) / 2, mz = (r[i + 1] + r[i + 3]) / 2, l = Math.hypot(r[i + 2] - r[i], r[i + 3] - r[i + 1]);
-    if (mx > -270 && Math.max(Math.abs(mx), Math.abs(mz)) < osm.ext) { len += l; cx += mx * l; cz += mz * l; }
-  }
-  const corridorTarget = new THREE.Vector3(cx / len - 150, 0, cz / len);
-  const corridor = { target: corridorTarget, position: corridorTarget.clone().add(new THREE.Vector3(0, 650, -900)) };
-  let saved = null, flight = null;
   scenario.subscribe(s => {
-    if (!!s.roadView === !!saved) return;
-    const to = saved ?? corridor;
-    saved = saved ? null : { target: controls.target.clone(), position: camera.position.clone() };
-    flight = { from: { target: controls.target.clone(), position: camera.position.clone() }, to, t0: performance.now() };
-    requestAnimationFrame(fly);
+    if (s.resident !== resident) { resident = s.resident; if (run) draw(); }
+    if (s.wipe && !yearZero) { yearZero = markerSet(1); if (run) draw(); }
+    if ((s.focus === 'road') !== roadFocus) { // the camera is flown by focus.js; the road follows
+      roadFocus = s.focus === 'road';
+      if (road.userData.color) tint();
+      shapeRoad(view.ppm);
+    }
   });
-  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function fly(now) {
-    const p = still ? 1 : Math.min(1, (now - flight.t0) / FLY_MS), e = p < .5 ? 2 * p * p : 1 - (2 - 2 * p) ** 2 / 2;
-    camera.position.lerpVectors(flight.from.position, flight.to.position, e);
-    controls.target.lerpVectors(flight.from.target, flight.to.target, e);
-    if (p < 1) requestAnimationFrame(fly);
-  }
 
-  function fade(now) {
-    const p = Math.min(1, (now - fadeStart) / FADE_MS);
-    fadeMat.opacity = 1 - p;
-    if (p < 1) requestAnimationFrame(fade);
-  }
+  onFrame(() => {
+    if (run && view.ppm !== drawnPpm) draw();
+    if (!roadPpm || Math.abs(Math.log(view.ppm / roadPpm)) > .2) shapeRoad(view.ppm); // as the zoom eases, not every frame
+  });
 
-  // Hover: travel time on the road, a name on a household. Click (not drag) a household to open it.
-  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), tip = document.createElement('div');
+  // Hover: a name on a household, travel time on the road. Click (not drag) a household to open it.
+  const tip = document.createElement('div');
   tip.className = 'agent-tip';
   tip.hidden = true;
   document.body.append(tip);
-  const hit = (e, objects) => {
-    const r = dom.getBoundingClientRect();
-    ndc.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
-    ray.setFromCamera(ndc, camera);
-    return ray.intersectObjects(objects, false)[0];
-  };
+  // The markers under the pointer: year 0's left of the wipe's split, the shown year's elsewhere (view.sideAt).
+  const markersAt = e => (view.sideAt(e.clientX) === 1 && yearZero ? yearZero : current).markers;
+  const hit = e => view.raycastScreen(e.clientX, e.clientY, [markersAt(e)])[0] ?? view.raycastScreen(e.clientX, e.clientY, [road])[0];
+  const hover = on => { if (hovered !== on) { hovered = on; tint(); } };
   let pending = null, down = null;
   dom.addEventListener('pointermove', e => {
     if (pending) { pending = e; return; }
@@ -150,9 +179,10 @@ export function mountAgentLayer({ scene, camera, controls, dom, osm, zones, at, 
     requestAnimationFrame(() => {
       const ev = pending;
       pending = null;
-      if (ev.buttons || !agents.length) { tip.hidden = true; dom.style.cursor = ''; return; }
-      const h = hit(ev, [markers, road]);
-      dom.style.cursor = h?.object === markers ? 'pointer' : '';
+      if (ev.buttons || !run) { tip.hidden = true; dom.style.cursor = ''; hover(false); return; }
+      const h = hit(ev);
+      dom.style.cursor = h && h.object !== road ? 'pointer' : '';
+      hover(h?.object === road);
       if (!h) { tip.hidden = true; return; }
       const y = road.userData;
       tip.textContent = h.object === road
@@ -163,23 +193,47 @@ export function mountAgentLayer({ scene, camera, controls, dom, osm, zones, at, 
       tip.hidden = false;
     });
   });
-  dom.addEventListener('pointerleave', () => { tip.hidden = true; });
-  dom.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
-  dom.addEventListener('pointerup', e => {
-    if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
-    const h = hit(e, [markers]);
-    if (h) scenario.set({ resident: agents[h.instanceId].id });
-  });
+  dom.addEventListener('pointerleave', () => { tip.hidden = true; hover(false); });
+  dom.addEventListener('pointerdown', e => { if (e.button === 0) down = [e.clientX, e.clientY, performance.now()]; });
+  // Capture phase on window, like walker picking (traffic.js), which listens first. A marker draws over walkers and
+  // buildings, so it wins: claim the click so building selection skips it (select.js), and close any card a walker
+  // opened. Never stop the event: the map's pan control needs the release, or it keeps dragging.
+  addEventListener('pointerup', e => {
+    const d = down;
+    down = null;
+    if (!d || e.target !== dom || Math.hypot(e.clientX - d[0], e.clientY - d[1]) > 5 || performance.now() - d[2] > 450 || !run) return;
+    const h = view.raycastScreen(e.clientX, e.clientY, [markersAt(e)])[0];
+    if (!h) return;
+    e.preventDefault();
+    world.traffic?.select(null); // street life arrives after the first frame
+    world.selection.select(null);
+    scenario.set({ resident: agents[h.instanceId].id });
+  }, true);
 }
 
-// Flat quads along each polyline, y metres up: no mitring, the overlay is only a tint.
-function ribbons(lines, y) {
+// Flat quads along each polyline, y metres up, kept inside |x|, |z| <= ext less half their width: no mitring, the overlay
+// is only a tint.
+function ribbons(lines, y, ext) {
   const p = [];
   for (const [r, w] of lines) for (let i = 0; i + 3 < r.length; i += 2) {
-    const ax = r[i], az = r[i + 1], bx = r[i + 2], bz = r[i + 3], l = Math.hypot(bx - ax, bz - az) || 1, nx = -(bz - az) / l * w / 2, nz = (bx - ax) / l * w / 2;
+    const c = clip(r[i], r[i + 1], r[i + 2], r[i + 3], ext - w / 2);
+    if (!c) continue;
+    const [ax, az, bx, bz] = c, l = Math.hypot(bx - ax, bz - az) || 1, nx = -(bz - az) / l * w / 2, nz = (bx - ax) / l * w / 2;
     p.push(ax + nx, y, az + nz, bx + nx, y, bz + nz, bx - nx, y, bz - nz, ax + nx, y, az + nz, bx - nx, y, bz - nz, ax - nx, y, az - nz);
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
   return g;
+}
+
+// The part of segment a-b inside the square |x|, |z| <= e (Liang-Barsky), or null.
+function clip(ax, az, bx, bz, e) {
+  const dx = bx - ax, dz = bz - az;
+  let t0 = 0, t1 = 1;
+  for (const [p, q] of [[-dx, ax + e], [dx, e - ax], [-dz, az + e], [dz, e - az]]) {
+    if (p === 0) { if (q < 0) return null; continue; }
+    const k = q / p;
+    if (p < 0) { if (k > t1) return null; t0 = Math.max(t0, k); } else { if (k < t0) return null; t1 = Math.min(t1, k); }
+  }
+  return [ax + dx * t0, az + dz * t0, ax + dx * t1, az + dz * t1];
 }
